@@ -295,9 +295,6 @@ test.describe('Deadline Management', () => {
     const deadlineCard = page.locator('[class*="rounded-lg border-2"]').filter({ hasText: 'Player View Test' }).first();
     await deadlineCard.hover();
 
-    // Wait a moment to ensure hover state is applied
-    await page.waitForTimeout(300);
-
     // Verify edit/delete buttons are NOT visible to players (even on hover)
     await expect(page.getByRole('button', { name: /Edit deadline/i })).not.toBeVisible();
     await expect(page.getByRole('button', { name: /Delete deadline/i })).not.toBeVisible();
@@ -327,16 +324,12 @@ test.describe('Deadline Management', () => {
       futureDate.setMilliseconds(0);
 
       await setDeadlineDateTime(page, futureDate);
-      await page.getByRole('button', { name: /Create Deadline/i }).click();
-
-      // Wait for modal to close
+      // Wait for the API call to complete, then modal to close
+      await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('/deadlines') && resp.request().method() === 'POST' && resp.status() === 201),
+        page.getByRole('button', { name: /Create Deadline/i }).click(),
+      ]);
       await expect(page.getByRole('heading', { name: 'Create Deadline' })).not.toBeVisible();
-
-      // Wait for network to be idle (deadline creation API call completes)
-      await page.waitForLoadState('networkidle');
-
-      // Wait for backend to process the deadline creation
-      await page.waitForTimeout(1500);
     }
 
     // After creating all 4 deadlines, verify "View All" button appears
@@ -346,9 +339,6 @@ test.describe('Deadline Management', () => {
 
     // Click View All to show all deadlines
     await viewAllButton.click();
-
-    // Wait for expansion animation to complete
-    await page.waitForTimeout(500);
 
     // Verify we can see our newly created deadlines
     // Check that at least one of our uniquely-prefixed deadlines is visible

@@ -141,9 +141,6 @@ test.describe.serial('Polls Flow', () => {
     // CRITICAL: "Loading results..." should NEVER appear for players on active polls
     await expect(page.getByText('Loading results...')).not.toBeVisible({ timeout: 100 });
 
-    // Wait a bit for any async errors to appear
-    await page.waitForTimeout(500);
-
     // EXPLICIT check for 403 errors
     checkPollErrors(consoleErrors, 'Player voting does not trigger 403 errors or Loading results flash');
   });
@@ -158,7 +155,8 @@ test.describe.serial('Polls Flow', () => {
     await pollsPage.goto();
 
     // Just navigate to polls tab - should not make /results calls
-    await page.waitForTimeout(500);
+    // Small settle time to capture any async calls triggered on mount
+    await page.waitForLoadState('networkidle');
 
     // Verify NO calls to POLL results endpoint (/polls/{id}/results) for active polls
     // Note: /games/{id}/results/mine is a different endpoint for action results, which is OK
@@ -187,8 +185,8 @@ test.describe.serial('Polls Flow', () => {
     // Wait for polls to load
     await expect(page.getByRole('heading', { name: 'What should the party do next?' })).toBeVisible({ timeout: 5000 });
 
-    // Wait for vote status to load (the badges are populated by API call)
-    await page.waitForTimeout(1000);
+    // Wait for vote status badges to load (populated by separate API call)
+    await expect(page.getByText('Voted').first()).toBeVisible({ timeout: 5000 });
 
     // Verify badge shows "Voted" for previously voted poll
     expect(await pollsPage.getVotedBadgeCount()).toBe(1);
@@ -206,8 +204,8 @@ test.describe.serial('Polls Flow', () => {
     // Wait for polls to load after reload
     await expect(page.getByRole('heading', { name: 'What should the party do next?' })).toBeVisible({ timeout: 5000 });
 
-    // Wait for vote status to load (the badges are populated by API call)
-    await page.waitForTimeout(1000);
+    // Wait for vote status badges to load after reload
+    await expect(page.getByText('Voted').first()).toBeVisible({ timeout: 5000 });
 
     // Badge should STILL show "Voted" (tests API contract persists across reload)
     expect(await pollsPage.getVotedBadgeCount()).toBe(1);
@@ -246,8 +244,8 @@ test.describe.serial('Polls Flow', () => {
     // Wait for polls to load
     await expect(page.getByRole('heading', { name: 'What should the party do next?' })).toBeVisible({ timeout: 5000 });
 
-    // Wait for vote status to load (the badges are populated by API call)
-    await page.waitForTimeout(1000);
+    // Wait for vote status badges to load (populated by separate API call)
+    await expect(page.getByText('Voted').first()).toBeVisible({ timeout: 5000 });
 
     // Should have 1 "Voted" badge from previous tests
     expect(await pollsPage.getVotedBadgeCount()).toBe(1);
@@ -261,8 +259,8 @@ test.describe.serial('Polls Flow', () => {
     // Wait for polls to load after reload
     await expect(page.getByRole('heading', { name: 'What should the party do next?' })).toBeVisible({ timeout: 5000 });
 
-    // Wait for vote status to load after reload
-    await page.waitForTimeout(1000);
+    // Wait for vote status badges to load after reload
+    await expect(page.getByText('Voted').first()).toBeVisible({ timeout: 5000 });
 
     // Should STILL have 1 "Voted" badge (validates vote persistence)
     expect(await pollsPage.getVotedBadgeCount()).toBe(1);

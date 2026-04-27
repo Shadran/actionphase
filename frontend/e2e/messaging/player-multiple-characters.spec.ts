@@ -201,13 +201,11 @@ test.describe('Player with Multiple Characters', () => {
       // Edit the comment and change to Kael
       const editButton = commentContainer.getByRole('button', { name: 'Edit' }).locator('visible=true').first();
       await editButton.click();
-      await playerPage.waitForTimeout(500);
 
       // Change character to Kael
       const characterSelect = commentContainer.locator('select').locator('visible=true').first();
       await characterSelect.waitFor({ state: 'visible', timeout: 5000 });
       await characterSelect.selectOption({ label: 'Edit as Kael Shadowblade' });
-      await playerPage.waitForTimeout(300);
 
       // Save the edit
       const saveButton = commentContainer.getByRole('button', { name: 'Save' }).locator('visible=true').first();

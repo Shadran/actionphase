@@ -29,6 +29,7 @@ export const FIXTURE_GAMES = {
   E2E_CHARACTER_SHEETS: 'E2E Test: Character Sheets', // For testing character sheet management
   E2E_GAME_SETTINGS: 'E2E Test: Game Settings',   // For testing game settings modifications
   CO_GM_MANAGEMENT: 'E2E Test: Co-GM Management',  // For testing co-GM promotion/demotion
+  CO_GM_ACTION_RESULTS: 'E2E Test: Co-GM Action Results',  // Co-GM game with active action phase for action result editing
   E2E_GAME_APPLICATION_SUBMIT: 'E2E Test: Game Application - Submit', // Fresh game for testing player application submission
   E2E_GAME_APPLICATION_VIEW: 'E2E Test: Game Application - View', // Game with pending application for GM to view
   E2E_GAME_APPLICATION_APPROVE: 'E2E Test: Game Application - Approve', // Game with pending application for GM to approve
@@ -354,4 +355,106 @@ export async function createPhase(
 
   // Wait for phase to appear in list
   await expect(page.locator(`text=${options.title}`)).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * Get the numeric user ID for a participant in a game by username.
+ * Makes an authenticated API call using the page's cookie context.
+ *
+ * @param page - Playwright page (must be logged in as GM)
+ * @param gameId - Game ID to query participants for
+ * @param username - Username to look up (e.g., "TestAudience2" or "TestAudience2_1")
+ * @returns Numeric user ID
+ */
+export async function getParticipantUserId(
+  page: Page,
+  gameId: number,
+  username: string
+): Promise<number> {
+  const data = await page.evaluate(async (args: { gameId: number; username: string }) => {
+    const response = await fetch(`/api/v1/games/${args.gameId}/participants`, {
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch participants: ${response.status}`);
+    return response.json();
+  }, { gameId, username });
+
+  // API returns a flat array: [{ user_id, username, role, ... }, ...]
+  const participants: Array<{ user_id: number; username: string }> = Array.isArray(data) ? data : (data.participants ?? []);
+  const match = participants.find((p) => p.username === username);
+  if (!match) throw new Error(`Participant "${username}" not found in game ${gameId}`);
+  return match.user_id;
+}
+
+/**
+ * Demote whoever is currently the co-GM in a game (if any).
+ * Fetches participants, finds the co_gm role holder, and demotes them.
+ * No-op if no co-GM exists.
+ *
+ * @param page - Playwright page (must be logged in as GM)
+ * @param gameId - Game ID
+ */
+export async function demoteCurrentCoGM(page: Page, gameId: number): Promise<void> {
+  const data = await page.evaluate(async (args: { gameId: number }) => {
+    const response = await fetch(`/api/v1/games/${args.gameId}/participants`, {
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch participants: ${response.status}`);
+    return response.json();
+  }, { gameId });
+
+  const participants: Array<{ user_id: number; role: string }> = Array.isArray(data) ? data : (data.participants ?? []);
+  const coGM = participants.find((p) => p.role === 'co_gm');
+  if (coGM) {
+    await demoteFromCoGM(page, gameId, coGM.user_id);
+  }
+}
+
+/**
+ * Promote a user to co-GM via the API (GM must be logged in).
+ *
+ * @param page - Playwright page (must be logged in as GM)
+ * @param gameId - Game ID
+ * @param userId - Numeric user ID to promote
+ */
+export async function promoteToCoGM(page: Page, gameId: number, userId: number): Promise<void> {
+  const result = await page.evaluate(async (args: { gameId: number; userId: number }) => {
+    const response = await fetch(`/api/v1/games/${args.gameId}/participants/${args.userId}/promote-to-co-gm`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const body = response.status !== 204 ? await response.text() : '';
+    return { status: response.status, body };
+  }, { gameId, userId });
+
+  if (result.status !== 200 && result.status !== 204) {
+    // 400 "already has a co-GM" is idempotent — user is already promoted, treat as success
+    if (result.status === 400 && result.body.includes('already has a co-GM')) return;
+    throw new Error(`promoteToCoGM failed with status ${result.status}: ${result.body}`);
+  }
+}
+
+/**
+ * Demote a user from co-GM via the API (GM must be logged in).
+ * Does nothing (and does not throw) if the user is not currently a co-GM.
+ *
+ * @param page - Playwright page (must be logged in as GM)
+ * @param gameId - Game ID
+ * @param userId - Numeric user ID to demote
+ */
+export async function demoteFromCoGM(page: Page, gameId: number, userId: number): Promise<void> {
+  const result = await page.evaluate(async (args: { gameId: number; userId: number }) => {
+    const response = await fetch(`/api/v1/games/${args.gameId}/participants/${args.userId}/demote-from-co-gm`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const body = response.status !== 204 ? await response.text() : '';
+    return { status: response.status, body };
+  }, { gameId, userId });
+
+  if (result.status !== 200 && result.status !== 204) {
+    // 400 "not currently a co-GM" is idempotent — user is already audience, treat as success for cleanup
+    if (result.status === 400 && result.body.includes('can only demote co-GMs')) return;
+    throw new Error(`demoteFromCoGM failed with status ${result.status}: ${result.body}`);
+  }
 }

@@ -21,6 +21,9 @@ export const tags = {
   FLAKY: '@flaky',       // Known flaky tests (to be fixed)
   INTEGRATION: '@integration', // Multi-component integration
   E2E: '@e2e',          // Complete user journeys
+  MOBILE: '@mobile',    // Tests that exercise mobile-specific UI behavior (run on Pixel 5)
+  GAMEPLAY: '@gameplay', // Core gameplay tests
+  CHARACTERS: '@characters', // Character management tests
 };
 
 /**

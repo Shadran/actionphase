@@ -215,10 +215,10 @@ for file in "$SCRIPT_DIR"/e2e/*.sql; do
 
     # Skip worker setup (already applied) and worker-specific files that don't match this worker
     if [ -f "$file" ] && [ "$filename" != "00_worker_setup.sql" ]; then
-        # For private message deletion and co-GM management, use worker-specific file (no transformation needed)
-        if [[ "$filename" == 17_private_message_deletion_w*.sql ]] || [[ "$filename" == 18_co_gm_management_w*.sql ]]; then
+        # For private message deletion, co-GM management, and co-GM action results, use worker-specific file (no transformation needed)
+        if [[ "$filename" == 17_private_message_deletion_w*.sql ]] || [[ "$filename" == 18_co_gm_management_w*.sql ]] || [[ "$filename" == 18_co_gm_action_results_w*.sql ]]; then
             # Only process if it matches our worker index
-            if [[ "$filename" == "17_private_message_deletion_w${WORKER_INDEX}.sql" ]] || [[ "$filename" == "18_co_gm_management_w${WORKER_INDEX}.sql" ]]; then
+            if [[ "$filename" == "17_private_message_deletion_w${WORKER_INDEX}.sql" ]] || [[ "$filename" == "18_co_gm_management_w${WORKER_INDEX}.sql" ]] || [[ "$filename" == "18_co_gm_action_results_w${WORKER_INDEX}.sql" ]]; then
                 echo "  📄 Processing $filename for worker $WORKER_INDEX (no transformation)..."
                 # Apply directly without transformation
                 if ! PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$file"; then

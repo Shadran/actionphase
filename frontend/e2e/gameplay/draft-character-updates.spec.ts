@@ -85,8 +85,8 @@ test.describe('Draft Character Updates - Core Workflow', () => {
     await page.getByRole('button', { name: 'Done' }).click();
     await expect(page.getByRole('heading', { name: 'Update Character Sheet' })).not.toBeVisible();
 
-    // Wait for the draft to be saved (debounced save)
-    await page.waitForTimeout(1200);
+    // Wait for the debounced save to complete (800ms debounce + API round-trip)
+    await page.waitForResponse(resp => resp.url().includes('/character-updates') && resp.status() === 200, { timeout: 5000 });
 
     await page.getByRole('button', { name: 'Update Character Sheet' }).click();
     await expect(page.getByRole('heading', { name: 'Update Character Sheet' })).toBeVisible({ timeout: 5000 });
@@ -141,9 +141,11 @@ test.describe('Draft Character Updates - Core Workflow', () => {
     await page.getByRole('button', { name: 'Add Ability' }).last().click();
     await expect(page.getByRole('heading', { name: abilityName })).toBeVisible({ timeout: 5000 });
 
-    // Close modal and wait for debounced save
-    await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForTimeout(1200);
+    // Close modal and wait for save (handleClose flushes pending debounce immediately)
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/character-updates') && resp.status() === 200, { timeout: 5000 }),
+      page.getByRole('button', { name: 'Done' }).click(),
+    ]);
 
     // Button should show a badge with a count > 0
     const updateButton = page.getByRole('button', { name: /Update Character Sheet/ });
@@ -168,8 +170,10 @@ test.describe('Draft Character Updates - Core Workflow', () => {
     await page.getByPlaceholder('Describe this ability...').fill('This will be published');
     await page.getByRole('button', { name: 'Add Ability' }).last().click();
     await expect(page.getByRole('heading', { name: abilityName })).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForTimeout(1200);
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/character-updates') && resp.status() === 200, { timeout: 5000 }),
+      page.getByRole('button', { name: 'Done' }).click(),
+    ]);
 
     // Open publish dialog
     await page.getByRole('button', { name: 'Publish Result' }).click();
@@ -196,8 +200,10 @@ test.describe('Draft Character Updates - Core Workflow', () => {
     await page.getByPlaceholder('Describe this ability...').fill('Final test');
     await page.getByRole('button', { name: 'Add Ability' }).last().click();
     await expect(page.getByRole('heading', { name: 'Final Ability' })).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForTimeout(1200);
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/character-updates') && resp.status() === 200, { timeout: 5000 }),
+      page.getByRole('button', { name: 'Done' }).click(),
+    ]);
 
     // Publish the result
     await page.getByRole('button', { name: 'Publish Result' }).click();
@@ -251,8 +257,10 @@ test.describe('Draft Character Updates - Core Workflow', () => {
       await gmPage.getByPlaceholder('Describe this ability...').fill('Granted by GM on publish');
       await gmPage.getByRole('button', { name: 'Add Ability' }).last().click();
       await expect(gmPage.getByRole('heading', { name: abilityName })).toBeVisible({ timeout: 5000 });
-      await gmPage.getByRole('button', { name: 'Done' }).click();
-      await gmPage.waitForTimeout(1200);
+      await Promise.all([
+        gmPage.waitForResponse(resp => resp.url().includes('/character-updates') && resp.status() === 200, { timeout: 5000 }),
+        gmPage.getByRole('button', { name: 'Done' }).click(),
+      ]);
 
       // Publish
       await gmPage.getByRole('button', { name: 'Publish Result' }).click();

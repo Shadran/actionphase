@@ -10,11 +10,23 @@
 
 BEGIN;
 
+-- Delete existing games to prevent duplicates (Python regex offsets these IDs per worker)
+DELETE FROM games WHERE id IN (164, 165, 166, 167, 168, 605, 606, 607, 608, 609, 610);
+
 DO $$
 DECLARE
   gm_id INTEGER;
   p1_id INTEGER;
   p2_id INTEGER;
+  phase610_id INTEGER;
+  char610_p1_id INTEGER;
+  char610_p2_id INTEGER;
+  post610_root INTEGER;
+  post610_l1 INTEGER;
+  post610_l2 INTEGER;
+  post610_l3 INTEGER;
+  post610_l4 INTEGER;
+  post610_l5 INTEGER;
   p3_id INTEGER;
   p4_id INTEGER;
   p5_id INTEGER;
@@ -204,6 +216,10 @@ BEGIN
     (167, gm_id, 'GM Test Character', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (167, p5_id, 'Test Player 5 Character', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
 
+  -- Unassigned NPC (user_id=NULL kept separate so the worker ID-offset script handles it correctly)
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES (167, NULL, 'Mysterious Stranger', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW());
+
   RAISE NOTICE 'Created Game #167: E2E Common Room - Misc';
 
   -- ============================================
@@ -318,6 +334,47 @@ BEGIN
   VALUES (610, 'common_room', 1, 'Discussion', 'Common room for testing.', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '23 hours', true, true, NOW() - INTERVAL '1 hour');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (610, gm_id, 'GM', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()), (610, p1_id, 'Player 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()), (610, p2_id, 'Player 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+
+  -- Capture IDs needed for pre-created nested post chain
+  SELECT id INTO phase610_id FROM game_phases WHERE game_id = 610 LIMIT 1;
+  SELECT id INTO char610_p1_id FROM characters WHERE game_id = 610 AND user_id = p1_id LIMIT 1;
+  SELECT id INTO char610_p2_id FROM characters WHERE game_id = 610 AND user_id = p2_id LIMIT 1;
+
+  -- Pre-create a 5-level nested comment chain in the messages table so the deep-nesting
+  -- test only needs to navigate and assert, not create data at runtime.
+  -- Root post (GM post, message_type='post', visibility='game')
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, gm_id, (SELECT id FROM characters WHERE game_id = 610 AND user_id = gm_id LIMIT 1), 'Deep Thread Test Post', 'post', 'game', '{}', NOW() - INTERVAL '7 days')
+  RETURNING id INTO post610_root;
+
+  -- Level 1 comment (Player 1)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p1_id, char610_p1_id, 'Nested Reply Level 1', 'comment', post610_root, 'game', '{}', NOW() - INTERVAL '6 days')
+  RETURNING id INTO post610_l1;
+
+  -- Level 2 (Player 2)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p2_id, char610_p2_id, 'Nested Reply Level 2', 'comment', post610_l1, 'game', '{}', NOW() - INTERVAL '5 days')
+  RETURNING id INTO post610_l2;
+
+  -- Level 3 (Player 1)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p1_id, char610_p1_id, 'Nested Reply Level 3', 'comment', post610_l2, 'game', '{}', NOW() - INTERVAL '4 days')
+  RETURNING id INTO post610_l3;
+
+  -- Level 4 (Player 2)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p2_id, char610_p2_id, 'Nested Reply Level 4', 'comment', post610_l3, 'game', '{}', NOW() - INTERVAL '3 days')
+  RETURNING id INTO post610_l4;
+
+  -- Level 5 (Player 1)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p1_id, char610_p1_id, 'Nested Reply Level 5', 'comment', post610_l4, 'game', '{}', NOW() - INTERVAL '2 days')
+  RETURNING id INTO post610_l5;
+
+  -- Level 6 (Player 2) — triggers "Continue this thread" button on Level 5 (desktop max depth)
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, parent_id, visibility, mentioned_character_ids, created_at)
+  VALUES (610, phase610_id, p2_id, char610_p2_id, 'Nested Reply Level 6', 'comment', post610_l5, 'game', '{}', NOW() - INTERVAL '1 day');
 
   -- ============================================
   -- Summary

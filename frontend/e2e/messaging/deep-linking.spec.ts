@@ -28,7 +28,7 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
  * Uses Game #701 (E2E Deep Linking Test) with 7 levels of nested comments.
  */
 
-test.describe('Deep Linking in Common Room', () => {
+test.describe('@mobile Deep Linking in Common Room', () => {
 
   test('should only have ONE element with each comment ID in the DOM (no duplicates)', async ({ page }) => {
     await loginAs(page, 'GM');
@@ -132,8 +132,8 @@ test.describe('Deep Linking in Common Room', () => {
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for scroll animation and deep linking logic to complete
-    await page.waitForTimeout(1500);
+    // Wait for deep linking logic to remove the comment param from URL (indicates scroll completed)
+    await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`), { timeout: 5000 });
 
     // Verify the comment is visible. Comments may have -desktop or -mobile suffix IDs
     // (dual DOM rendering); use or() to match whichever variant is visible.
@@ -184,9 +184,6 @@ test.describe('Deep Linking in Common Room', () => {
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for tab switch
-    await page.waitForTimeout(1000);
-
     // Verify we switched to Posts tab
     const postsButton = page.locator('button').filter({ hasText: /^Posts$/ });
     await expect(postsButton).toHaveClass(/border-accent-primary/);
@@ -231,8 +228,8 @@ test.describe('Deep Linking in Common Room', () => {
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for scroll
-    await page.waitForTimeout(1500);
+    // Wait for deep linking logic to remove the comment param from URL (indicates scroll completed)
+    await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`), { timeout: 5000 });
 
     // Verify comment is visible (handle -desktop/-mobile suffix IDs from dual DOM)
     const comment = page.locator(`#comment-${commentId}`)

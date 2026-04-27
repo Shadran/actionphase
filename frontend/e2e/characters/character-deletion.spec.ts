@@ -111,9 +111,6 @@ test.describe('Character Deletion', () => {
     const createPostButton = page.getByRole('button', { name: 'Create GM Post' });
     await expect(createPostButton).toBeEnabled();
     await createPostButton.click();
-
-    // Wait for post to be created
-    await page.waitForTimeout(1000);
     await page.waitForLoadState('networkidle');
 
     // 4. Now navigate to People tab → Characters sub-tab
@@ -145,14 +142,10 @@ test.describe('Character Deletion', () => {
     const confirmButton = page.getByTestId('confirm-delete-character-button');
     await confirmButton.click();
 
-    // 9. Wait for API response
-    await page.waitForTimeout(1000);
+    // 9. Error message should appear in the modal (backend rejects deletion)
+    await expect(page.getByText(/cannot delete character with existing messages/i)).toBeVisible({ timeout: 5000 });
 
-    // 10. Verify error message appears in modal
-    const errorMessage = page.getByText(/cannot delete character with existing messages/i);
-    await expect(errorMessage).toBeVisible({ timeout: 5000 });
-
-    // 11. Verify modal stays open (deletion failed)
+    // 10. Verify modal stays open (deletion failed)
     await expect(confirmationModal).toBeVisible();
   });
 

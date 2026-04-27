@@ -13,7 +13,7 @@ import { navigateViaNavLink } from '../utils/navigation';
  * - Added assertion utilities for consistency
  * - No waitForTimeout calls to eliminate
  */
-test.describe('User Authentication', () => {
+test.describe('@mobile User Authentication', () => {
   test.beforeEach(async ({ page }) => {
     // Start from home page
     await page.goto('/');

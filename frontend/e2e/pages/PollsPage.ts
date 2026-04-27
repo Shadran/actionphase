@@ -119,8 +119,8 @@ export class PollsPage {
 
       await this.page.getByRole('option', { name: timeString }).click();
 
-      // Wait a moment for the selection to be processed and calendar to close
-      await this.page.waitForTimeout(500);
+      // Calendar closes automatically after time selection
+      await expect(this.page.getByRole('dialog', { name: 'Choose Date and Time' })).not.toBeVisible({ timeout: 3000 });
     }
 
     // Add poll options
@@ -282,7 +282,6 @@ export class PollsPage {
       await this.page.getByRole('button', { name: 'Show Results' }).first().click();
     }
 
-    await this.page.waitForTimeout(500);
     await expect(this.page.getByRole('heading', { name: 'Results' }).first()).toBeVisible();
   }
 
@@ -299,7 +298,7 @@ export class PollsPage {
       await this.page.getByRole('button', { name: 'Hide Results' }).first().click();
     }
 
-    await this.page.waitForTimeout(500);
+    await expect(this.page.getByRole('heading', { name: 'Results' }).first()).not.toBeVisible();
   }
 
   /**

@@ -18,7 +18,7 @@ import { MessagingPage } from '../pages/MessagingPage';
  */
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Private Messages Flow', () => {
+test.describe('@mobile Private Messages Flow', () => {
   test('Players can send private messages to each other', async ({ browser }) => {
     const player1Context = await browser.newContext();
     const player2Context = await browser.newContext();

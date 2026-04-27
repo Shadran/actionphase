@@ -22,7 +22,7 @@ import { navigateToGameTab } from '../utils/navigation';
  * This saves ~30-36 seconds of duplicated setup time across the test suite.
  */
 
-test.describe('Character Approval Workflow', () => {
+test.describe('@mobile Character Approval Workflow', () => {
 
 
   test('character starts in pending state after creation', async ({ browser }) => {

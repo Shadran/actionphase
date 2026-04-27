@@ -61,9 +61,6 @@ test.describe('Character Creation Flow', () => {
       // Apply to join using POM
       await playerApplicationsPage.submitApplication('I would like to join this game', 'player');
 
-      // Wait for submission to process
-      await playerPage.waitForTimeout(1000);
-
       // === GM Approval ===
       // GM approves the player using POM
       const gmApplicationsPage = new GameApplicationsPage(gmPage, parseInt(gameId!));
@@ -72,9 +69,6 @@ test.describe('Character Creation Flow', () => {
 
       // Approve player using POM
       await gmApplicationsPage.approveApplication('TestPlayer1');
-
-      // Wait for approval to process
-      await gmPage.waitForTimeout(1000);
 
       // GM transitions game to character_creation state using POM (handles kebab menu)
       await gmGameDetailsPage.goto(parseInt(gameId!));
@@ -98,9 +92,6 @@ test.describe('Character Creation Flow', () => {
       // Create character using POM
       const characterName = `Test Character ${Date.now()}`;
       await playerCharPage.createCharacter(characterName);
-
-      // Wait for character creation to complete
-      await playerPage.waitForTimeout(1000);
 
       // Verify character appears using POM
       expect(await playerCharPage.hasCharacter(characterName)).toBe(true);
@@ -145,9 +136,6 @@ test.describe('Character Creation Flow', () => {
     // Submit the form
     await page.click('button[data-testid="character-submit-button"]');
     await page.waitForLoadState('networkidle');
-
-    // Wait for character creation to complete
-    await page.waitForTimeout(1000);
 
     // Verify NPC appears using POM
     expect(await charPage.hasCharacter(npcName)).toBe(true);
@@ -197,9 +185,6 @@ test.describe('Character Creation Flow', () => {
     // Create character using POM
     const characterName = `Fast Test Character ${Date.now()}`;
     await charPage.createCharacter(characterName);
-
-    // Wait for character creation to complete
-    await page.waitForTimeout(1000);
 
     // Verify character appears using POM
     expect(await charPage.hasCharacter(characterName)).toBe(true);

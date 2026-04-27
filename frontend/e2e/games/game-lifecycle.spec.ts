@@ -20,7 +20,7 @@ import { GameDetailsPage } from '../pages/GameDetailsPage';
  * - Improved reliability with dedicated POM methods
  */
 
-test.describe('Game Lifecycle Management', () => {
+test.describe('@mobile Game Lifecycle Management', () => {
   // Run tests serially to avoid race conditions with game state changes
   test.describe.configure({ mode: 'serial' });
 

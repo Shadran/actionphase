@@ -17,7 +17,7 @@ import { navigateToGame, navigateToGameTab, assertTabNotVisible } from '../utils
  * and user privacy. Failures here indicate serious security issues.
  */
 
-test.describe('Permissions & Access Control', () => {
+test.describe('@mobile Permissions & Access Control', () => {
 
   test.describe('GM-Only Features', () => {
     test('player cannot access phase management tab', async ({ page }) => {

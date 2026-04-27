@@ -78,8 +78,8 @@ test.describe('Smoke: Application Health', () => {
       }
     });
 
-    // Wait a moment for any async resource loading
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load before checking for errors
+    await page.waitForLoadState('networkidle');
 
     // Should not have critical asset loading errors
     // Exclude expected 401 errors from auth checks (AuthContext checking if user is logged in)

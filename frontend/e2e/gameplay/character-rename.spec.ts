@@ -145,9 +145,6 @@ test.describe('Character Rename', () => {
     await nameInput.fill('Escape Cancel');
     await nameInput.press('Escape');
 
-    // Wait for UI to update
-    await page.waitForTimeout(500);
-
     // Verify original name is still displayed
     await expect(page.getByRole('heading', { name: originalName, level: 2 })).toBeVisible();
   });

@@ -89,10 +89,12 @@ export class CommonRoomPage {
    * @param characterName - Optional character name to post as (for GMs/co-GMs with multiple characters)
    */
   async createPost(content: string, characterName?: string) {
-    // Check if form is collapsed - if so, expand it first
-    // Filter to visible element (viewport-agnostic for dual-DOM pattern)
+    // Wait for either the expand button or the textarea to be visible,
+    // then expand if needed. Using a race avoids a no-timeout isVisible() check
+    // that races the page render and silently skips the expand click.
     const expandButton = this.page.locator('button:has-text("Create New GM Post")').locator('visible=true').first();
-    if (await expandButton.isVisible().catch(() => false)) {
+    const expandButtonVisible = await expandButton.isVisible({ timeout: 3000 }).catch(() => false);
+    if (expandButtonVisible) {
       await expandButton.click();
       // Wait for form to expand and textarea to be visible
       await waitForVisible(this.postTextarea);

@@ -13,7 +13,7 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
  * React Router implementation doesn't handle browser history navigation in a
  * way that's compatible with these tests. This would require app-level changes.
  */
-test.describe('Browser Navigation Behavior', () => {
+test.describe('@mobile Browser Navigation Behavior', () => {
 
   test('should handle page refresh and maintain authentication', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');

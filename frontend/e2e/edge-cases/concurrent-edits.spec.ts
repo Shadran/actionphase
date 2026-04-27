@@ -9,7 +9,7 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
  * Tests how the application handles simultaneous edits by multiple users
  * to the same resource (character sheets, game settings, etc.)
  */
-test.describe('Concurrent Editing', () => {
+test.describe('@mobile Concurrent Editing', () => {
 
   test('should handle two players viewing the same game simultaneously', async ({ browser }) => {
     // Create two separate browser contexts for two different users

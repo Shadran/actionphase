@@ -20,7 +20,7 @@ import { assertTextVisible } from '../utils/assertions';
  * - Reduced code by ~45% (173 → ~95 lines)
  * - Improved readability and maintainability
  */
-test.describe('Common Room Flow', () => {
+test.describe('@mobile Common Room Flow', () => {
 
   test('GM can create a post in Common Room', async ({ page }) => {
     await loginAs(page, 'GM');
@@ -299,185 +299,77 @@ test.describe('Common Room Flow', () => {
     }
   });
 
-  test('Deep nesting shows Continue this thread button at max depth', async ({ browser }) => {
-    test.setTimeout(60000);
-    const gmContext = await browser.newContext();
-    const player1Context = await browser.newContext();
-    const player2Context = await browser.newContext();
+  test('Deep nesting shows Continue this thread button at max depth', async ({ page }) => {
+    // The fixture pre-creates a post "Deep Thread Test Post" with a 6-level nested reply
+    // chain. Level 5 is the deepest visible comment (desktop max depth = 5); Level 6 exists
+    // in the DB but is hidden, causing the "Continue this thread" button to appear on Level 5.
+    await loginAs(page, 'PLAYER_1');
 
-    const gmPage = await gmContext.newPage();
-    const player1Page = await player1Context.newPage();
-    const player2Page = await player2Context.newPage();
+    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_DEEP_NESTING');
+    const commonRoom = new CommonRoomPage(page);
+    await commonRoom.goto(gameId);
 
-    try {
-      // === GM creates a post ===
-      await loginAs(gmPage, 'GM');
+    const postContent = 'Deep Thread Test Post';
+    const deepestComment = 'Nested Reply Level 4'; // Level 5+ are hidden (beyond max depth); Level 4 shows the "Continue this thread" button
 
-      const gameId = await getFixtureGameId(gmPage, 'COMMON_ROOM_DEEP_NESTING'); // Game #610
-      const gmCommonRoom = new CommonRoomPage(gmPage);
-      await gmCommonRoom.goto(gameId);
+    await expect(page.getByText(postContent).first()).toBeVisible({ timeout: 15000 });
 
-      const postContent = `Deep Thread ${Date.now()}`;
-      await gmCommonRoom.createPost(postContent);
-
-      // === Setup: Both players logged in ===
-      await loginAs(player1Page, 'PLAYER_1');
-      const player1CommonRoom = new CommonRoomPage(player1Page);
-      await player1CommonRoom.goto(gameId);
-      await player1CommonRoom.verifyPostExists(postContent);
-
-      await loginAs(player2Page, 'PLAYER_2');
-      const player2CommonRoom = new CommonRoomPage(player2Page);
-      await player2CommonRoom.goto(gameId);
-      await player2CommonRoom.verifyPostExists(postContent);
-
-      // === Player 1 adds initial comment to the post ===
-      const initialComment = `Initial Comment ${Date.now()}`;
-      await player1CommonRoom.addComment(postContent, initialComment);
-      // Verify comment is visible on the current page before navigating away.
-      // This confirms the write completed before the loop's cross-player reads begin.
-      await player1CommonRoom.verifyCommentExists(initialComment);
-
-      // === Create nested replies up to max depth (5 levels) ===
-      // We'll alternate between Player 1 and Player 2
-      let currentPage = player1Page;
-      let currentCommonRoom = player1CommonRoom;
-      let previousComment = initialComment;
-      let modalTestExecuted = false;
-
-
-      for (let depth = 1; depth <= 6; depth++) {
-        // Navigate fresh to pick up any new replies created by the other player
-        await currentCommonRoom.goto(gameId);
-
-        // Ensure the post card is visible before looking for comments.
-        // Under load (full suite), the backend is slower and comment fetches take longer.
-        const postCard = currentCommonRoom.getPostCard(postContent);
-        await currentPage.getByText(postContent, { exact: true }).locator('visible=true').first().waitFor({ state: 'visible', timeout: 10000 });
-
-        // Expand comments if collapsed — the comments section may be hidden after a fresh goto.
-        // Wait for the toggle button to be present before reading its state.
-        const commentsToggle = postCard.locator('button', { hasText: /Comments/ }).filter({ visible: true }).first();
-        await commentsToggle.waitFor({ state: 'visible', timeout: 10000 });
-        const toggleText = await commentsToggle.textContent();
-        if (toggleText?.includes('Expand')) {
-          await commentsToggle.click();
-          await currentPage.waitForLoadState('networkidle');
-        }
-
-        // Wait for the previous comment to appear — comments load async after the post.
-        // Find the threaded-comment container that directly holds previousComment.
-        // Since each comment text is unique (timestamp-based), we locate the text node
-        // then walk up to its nearest threaded-comment ancestor.
-        const commentText = currentPage.getByText(previousComment, { exact: true }).locator('visible=true').first();
-        await commentText.waitFor({ state: 'visible', timeout: 30000 });
-        // Use :visible to exclude mobile-variant threaded-comment nodes (md:hidden, display:none
-        // at desktop viewport). Both desktop and mobile variants share data-testid="threaded-comment",
-        // but only the desktop variant is visible at Playwright's desktop viewport size.
-        const commentContainer = currentPage
-            .locator('[data-testid="threaded-comment"]:visible')
-            .filter({ has: commentText })
-            .last(); // last() = innermost visible threaded-comment that contains the text
-
-        // Check if "Continue this thread" button appears (mobile: depth 2+, desktop: depth 4+)
-        const continueButton = commentContainer.getByRole('button', { name: /Continue this thread/ }).locator('visible=true').first();
-        const continueButtonVisible = await continueButton.isVisible({ timeout: 1000 }).catch(() => false);
-
-        if (continueButtonVisible) {
-          // "Continue this thread" button found - test modal functionality
-          modalTestExecuted = true;
-
-          // === Test: Click the "Continue this thread" button ===
-          await continueButton.click();
-
-          // === Test: Verify modal opens ===
-          // Modal has "Thread View" header text, not role="dialog"
-          const modalHeader = currentPage.getByText('Thread View');
-          await expect(modalHeader).toBeVisible({ timeout: 5000 });
-
-          // Get the modal container (parent of the header)
-          const modal = currentPage.locator('.fixed.inset-0').filter({ hasText: 'Thread View' });
-
-          // === Test: Verify deep comment is visible in modal ===
-          await expect(modal.getByText(previousComment)).toBeVisible({ timeout: 5000 });
-
-          // === Test: Reply to a comment in the modal ===
-          const modalCommentContainer = modal.locator('[data-testid="threaded-comment"]:visible').filter({ hasText: previousComment }).first();
-          const modalReplyButton = modalCommentContainer.getByRole('button', { name: /reply/i }).first();
-          await expect(modalReplyButton).toBeVisible({ timeout: 10000 });
-          await modalReplyButton.click();
-
-          // Write reply in modal
-          const modalReply = `Modal Reply - ${Date.now()}`;
-          const modalReplyTextarea = modalCommentContainer.locator('textarea').locator('visible=true').first();
-          await modalReplyTextarea.waitFor({ state: 'visible', timeout: 5000 });
-          await modalReplyTextarea.fill(modalReply);
-
-          // Submit reply in modal
-          const modalReplyForm = modalCommentContainer.locator('form').locator('visible=true').first();
-          await modalReplyForm.evaluate((f: HTMLFormElement) => f.requestSubmit());
-          await currentPage.waitForLoadState('networkidle');
-
-          // Verify the modal reply appears
-          await expect(modal.getByText(modalReply).locator('visible=true').first()).toBeVisible({ timeout: 10000 });
-          break;
-        }
-
-        // No "Continue thread" button - create nested reply
-        // Reply button has aria-label="Reply to this comment"; use longer timeout to allow
-        // controllable characters to finish loading (they gate the button's render)
-        const replyButton = commentContainer.getByRole('button', { name: /reply/i }).first();
-        await expect(replyButton).toBeVisible({ timeout: 10000 });
-
-        // Click Reply
-        await replyButton.click();
-
-        // Write nested reply
-        const nestedReply = `Nested Reply Level ${depth} - ${Date.now()}`;
-        const replyTextarea = commentContainer.locator('textarea').locator('visible=true').first();
-        await replyTextarea.fill(nestedReply);
-
-        // Submit
-        const replyForm = commentContainer.locator('form').locator('visible=true').first();
-        await replyForm.evaluate((f: HTMLFormElement) => f.requestSubmit());
-        await currentPage.waitForLoadState('networkidle');
-
-        // Only update previousComment if the reply is actually visible inline.
-        // At max depth the reply goes into a modal thread, not the inline view.
-        const isReplyVisible = await currentPage.getByText(nestedReply).locator('visible=true').first()
-          .isVisible({ timeout: 5000 }).catch(() => false);
-        if (isReplyVisible) {
-          previousComment = nestedReply;
-        }
-        // If not visible, keep previousComment as-is so we can find its container next iteration
-
-        // Switch players
-        if (currentPage === player1Page) {
-          currentPage = player2Page;
-          currentCommonRoom = player2CommonRoom;
-        } else {
-          currentPage = player1Page;
-          currentCommonRoom = player1CommonRoom;
-        }
-      }
-
-      // Fail-safe: Ensure modal test actually executed
-      if (!modalTestExecuted) {
-        throw new Error('Test failed: "Continue this thread" button never appeared. Modal functionality was not tested.');
-      }
-    } finally {
-      await gmContext.close();
-      await player1Context.close();
-      await player2Context.close();
+    // Expand comments if collapsed
+    const postCard = commonRoom.getPostCard(postContent);
+    const commentsToggle = postCard.locator('button', { hasText: /Comments/ }).filter({ visible: true }).first();
+    await commentsToggle.waitFor({ state: 'visible', timeout: 10000 });
+    if ((await commentsToggle.textContent())?.includes('Expand')) {
+      await commentsToggle.click();
+      await page.waitForLoadState('networkidle');
     }
+
+    // Wait for the deepest pre-created comment to be visible and scroll to it
+    await expect(page.getByText(deepestComment, { exact: true }).first()).toBeVisible({ timeout: 15000 });
+
+    // Find the threaded-comment container for the deepest comment
+    const commentContainer = page
+      .locator('[data-testid="threaded-comment"]:visible')
+      .filter({ has: page.getByText(deepestComment, { exact: true }) })
+      .last();
+
+    // "Continue this thread" button should be present at this depth
+    const continueButton = commentContainer.getByRole('button', { name: /Continue this thread/ }).locator('visible=true').first();
+    await expect(continueButton).toBeVisible({ timeout: 5000 });
+
+    // Click to open the thread modal
+    await continueButton.click();
+
+    const modalHeader = page.getByText('Thread View');
+    await expect(modalHeader).toBeVisible({ timeout: 5000 });
+
+    const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Thread View' });
+    // Modal shows deeper content — Level 5 is visible inside the thread view
+    await expect(modal.getByText('Nested Reply Level 5')).toBeVisible({ timeout: 5000 });
+
+    // Reply from within the modal to verify it's fully interactive
+    const modalCommentContainer = modal.locator('[data-testid="threaded-comment"]:visible').filter({ hasText: 'Nested Reply Level 5' }).first();
+    const modalReplyButton = modalCommentContainer.getByRole('button', { name: /reply/i }).first();
+    await expect(modalReplyButton).toBeVisible({ timeout: 10000 });
+    await modalReplyButton.click();
+
+    const modalReply = `Modal Reply - ${Date.now()}`;
+    const modalReplyTextarea = modalCommentContainer.locator('textarea').locator('visible=true').first();
+    await modalReplyTextarea.waitFor({ state: 'visible', timeout: 5000 });
+    await modalReplyTextarea.fill(modalReply);
+
+    const modalReplyForm = modalCommentContainer.locator('form').locator('visible=true').first();
+    await modalReplyForm.evaluate((f: HTMLFormElement) => f.requestSubmit());
+    await page.waitForLoadState('networkidle');
+
+    await expect(modal.getByText(modalReply).locator('visible=true').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('GM can create posts as NPCs', async ({ page }) => {
     // Test that GMs can select NPCs from the character dropdown and post as them
-    // Uses co-GM fixture (game 339) which has unassigned NPCs
+    // Uses COMMON_ROOM_MISC fixture (game 167) which has an unassigned NPC (Mysterious Stranger)
     await loginAs(page, 'GM');
 
-    const gameId = getWorkerGameId(339); // Co-GM management fixture with NPCs
+    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_MISC');
     const commonRoom = new CommonRoomPage(page);
     await commonRoom.goto(gameId);
 
@@ -575,7 +467,7 @@ test.describe('Common Room Flow', () => {
     try {
       // === GM creates a post ===
       await loginAs(gmPage, 'GM');
-      const gameId = await getFixtureGameId(gmPage, 'CO_GM_MANAGEMENT'); // Game #339
+      const gameId = getWorkerGameId(347); // Co-GM NPC Messaging fixture (stable, TestAudience1 always co-GM)
       const gmCommonRoom = new CommonRoomPage(gmPage);
       await gmCommonRoom.goto(gameId);
 
@@ -635,7 +527,7 @@ test.describe('Common Room Flow', () => {
     try {
       // === GM creates a post ===
       await loginAs(gmPage, 'GM');
-      const gameId = await getFixtureGameId(gmPage, 'CO_GM_MANAGEMENT'); // Game #339
+      const gameId = getWorkerGameId(347); // Co-GM NPC Messaging fixture (stable, TestAudience1 always co-GM)
       const gmCommonRoom = new CommonRoomPage(gmPage);
       await gmCommonRoom.goto(gameId);
 
@@ -755,7 +647,7 @@ test.describe('Common Room Flow', () => {
 
     await loginAs(page, 'GM');
 
-    const gameId = await getFixtureGameId(page, 'CO_GM_MANAGEMENT'); // Co-GM management fixture
+    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_MISC');
     const commonRoom = new CommonRoomPage(page);
     await commonRoom.goto(gameId);
 

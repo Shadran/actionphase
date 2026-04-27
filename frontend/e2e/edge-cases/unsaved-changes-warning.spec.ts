@@ -17,7 +17,7 @@ import { MessagingPage } from '../pages/MessagingPage';
  * Tests use GM's CreatePostForm for Common Room tests — it always has
  * a visible textarea without needing pre-seeded posts.
  */
-test.describe('Unsaved Changes Warning', () => {
+test.describe('@mobile Unsaved Changes Warning', () => {
 
   test.describe('Common Room - New Post (GM)', () => {
     // Game 605 has no pre-seeded posts, so CreatePostForm starts expanded (not collapsed).

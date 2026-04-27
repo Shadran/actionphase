@@ -16,7 +16,7 @@ import { assertTabNotVisible } from '../utils/navigation';
  * - Uses PhaseManagementPage for all interactions
  * - Improved readability and maintainability
  */
-test.describe('Phase Management Flow', () => {
+test.describe('@mobile Phase Management Flow', () => {
   test('GM can create a phase', async ({ page }) => {
     // Login as GM
     await loginAs(page, 'GM');

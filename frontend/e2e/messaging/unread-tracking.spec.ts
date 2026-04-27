@@ -50,8 +50,6 @@ test.describe('Unread Comment Tracking', () => {
     if (buttonText?.includes('Expand')) {
       await commentsButton.click();
       await page.waitForLoadState('networkidle');
-      // Wait a bit for mark-as-read mutation
-      await page.waitForTimeout(1000);
     }
 
     // Now we'll simulate another user adding a comment
@@ -92,7 +90,6 @@ test.describe('Unread Comment Tracking', () => {
     if (buttonText?.includes('Expand')) {
       await commentsButton.click();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(1000); // Wait for mark-as-read
     }
 
     // Reload the page
@@ -137,7 +134,6 @@ test.describe('Unread Comment Tracking', () => {
     if (buttonText?.includes('Expand')) {
       await commentsButton.click();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(1500); // Wait for mark-as-read mutation
     }
 
     // Get the post ID from the page (we'll need it for API call)
@@ -189,7 +185,6 @@ test.describe('Unread Comment Tracking', () => {
       if (await commentsButton.isVisible().catch(() => false)) {
         await commentsButton.click();
         await player1Page.waitForLoadState('networkidle');
-        await player1Page.waitForTimeout(1000); // Wait for mark-as-read mutation
       }
 
       // No NEW badges yet (just visited)

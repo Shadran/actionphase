@@ -256,7 +256,6 @@ test.describe('Character Mentions', () => {
     const expandButton = page.locator('button:has-text("Create New GM Post")').locator('visible=true').first();
     if (await expandButton.isVisible().catch(() => false)) {
       await expandButton.click();
-      await page.waitForTimeout(300);
     }
 
     await expect(commonRoom.createPostHeading).toBeVisible({ timeout: 5000 });

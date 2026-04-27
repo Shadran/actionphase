@@ -17,7 +17,7 @@ import { assertTextVisible } from '../utils/assertions';
  * - Uses GameDetailsPage for navigation
  * - Uses assertion utilities for consistency
  */
-test.describe('Action Submission Flow', () => {
+test.describe('@mobile Action Submission Flow', () => {
   test('Player can edit a draft action for active action phase', async ({ page }) => {
     // Login as Player 4 who has a draft action
     await loginAs(page, 'PLAYER_4');
@@ -111,7 +111,6 @@ test.describe('Action Submission Flow', () => {
     await actionPage.submitAction(newActionContent);
 
     // Wait for submission to complete
-    await page.waitForTimeout(1500);
     await page.waitForLoadState('networkidle');
 
     // Verify the action was submitted successfully using POM

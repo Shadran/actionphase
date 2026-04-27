@@ -427,7 +427,7 @@ export function CharactersList({
       {characterToDelete && (
         <Modal
           isOpen={true}
-          onClose={() => setCharacterToDelete(null)}
+          onClose={() => { if (!deleteCharacterMutation.isPending && !deleteCharacterMutation.isError) setCharacterToDelete(null); }}
           title="Delete Character?"
         >
           <div className="space-y-4">

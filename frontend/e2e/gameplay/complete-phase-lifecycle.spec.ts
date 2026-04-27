@@ -136,9 +136,6 @@ test.describe.serial('Complete Phase Lifecycle', () => {
     // Verify we're on history page
     await historyPage.verifyOnPage();
 
-    // Wait for phase cards to load
-    await page.waitForTimeout(1000);
-
     // Verify we see both the initial common room (Phase 1) - use specific heading
     await expect(page.getByRole('heading', { name: 'Initial Common Room' })).toBeVisible({ timeout: 10000 });
 

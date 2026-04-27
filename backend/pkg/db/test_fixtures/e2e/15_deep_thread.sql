@@ -116,10 +116,9 @@ BEGIN
     NOW() - INTERVAL '8 days'
   ) RETURNING id INTO phase_id;
 
-  -- Note: Post and comments will be created dynamically by the test
-  -- This fixture only provides the game environment
-
-  RAISE NOTICE 'Deep Thread fixture created: Game #700 (test will create post and comments)';
+  -- Note: Post and comments are pre-created in 07_common_room.sql for game 610.
+  -- Game 700 is kept as a shell only — the test uses game 610 (COMMON_ROOM_DEEP_NESTING).
+  RAISE NOTICE 'Deep Thread fixture created: Game #700 (shell only)';
 END $$;
 
 -- Reset the games sequence to prevent duplicate key errors
