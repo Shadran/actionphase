@@ -216,9 +216,11 @@ BEGIN
     (167, gm_id, 'GM Test Character', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (167, p5_id, 'Test Player 5 Character', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
 
-  -- Unassigned NPC (user_id=NULL kept separate so the worker ID-offset script handles it correctly)
+  -- Unassigned NPCs (user_id=NULL kept separate so the worker ID-offset script handles it correctly)
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (167, NULL, 'Mysterious Stranger', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW());
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES (167, NULL, 'Town Guard', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW());
 
   RAISE NOTICE 'Created Game #167: E2E Common Room - Misc';
 

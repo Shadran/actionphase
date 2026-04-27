@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Modal } from './Modal';
 import { Button } from './ui';
 import { logger } from '@/services/LoggingService';
@@ -26,14 +26,17 @@ export function DeleteGameConfirmationDialog({
   gameTitle,
 }: DeleteGameConfirmationDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleConfirm = async () => {
     try {
+      submittingRef.current = true;
       setIsSubmitting(true);
       await onConfirm();
+      submittingRef.current = false;
       onClose();
     } catch (error) {
-      // Error handling is done by the parent component
+      submittingRef.current = false;
       logger.error('Failed to delete game', { error, gameTitle });
     } finally {
       setIsSubmitting(false);
@@ -41,7 +44,7 @@ export function DeleteGameConfirmationDialog({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Delete Game">
+    <Modal isOpen={isOpen} onClose={() => { if (!submittingRef.current) onClose(); }} title="Delete Game">
       <div className="space-y-4">
         {/* Warning message */}
         <div className="bg-semantic-error/10 border border-semantic-error rounded-lg p-4">

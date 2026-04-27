@@ -93,59 +93,33 @@ test.describe('Character Deletion', () => {
   });
 
   test('should show error when trying to delete character with messages', async ({ page }) => {
-    // 1. Login as GM
+    // Uses COMMON_ROOM_DEEP_NESTING (game 610) which has a GM NPC with pre-existing messages.
     await loginAs(page, 'GM');
 
-    // 2. Navigate to the Common Room Posts game
-    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_POSTS');
+    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_DEEP_NESTING');
 
-    // 3. First, create a message in Common Room using one of the characters
-    await page.goto(`/games/${gameId}?tab=common-room`);
-    await page.waitForLoadState('networkidle');
+    const characterWorkflowPage = new CharacterWorkflowPage(page, gameId);
+    await characterWorkflowPage.goto();
 
-    // Fill in a GM post
-    const postTextarea = page.getByRole('textbox', { name: /Post Content/i });
-    await postTextarea.fill('Test post to prevent character deletion');
-
-    // Submit the post
-    const createPostButton = page.getByRole('button', { name: 'Create GM Post' });
-    await expect(createPostButton).toBeEnabled();
-    await createPostButton.click();
-    await page.waitForLoadState('networkidle');
-
-    // 4. Now navigate to People tab → Characters sub-tab
-    await page.goto(`/games/${gameId}?tab=people`);
-    await page.waitForLoadState('networkidle');
-
-    // Click on Characters sub-tab within People view
-    const charactersSubTab = page.getByRole('button', { name: 'Characters', exact: false });
-    await charactersSubTab.waitFor({ state: 'visible', timeout: 2000 });
-    await charactersSubTab.click();
-    await page.waitForLoadState('networkidle');
-
-    // 5. Find the GM's NPC character (which now has a message)
-    const npcSection = page.locator('h3:has-text("NPCs")').locator('..');
-    const gmCharacterCard = npcSection.getByTestId('character-card').locator('visible=true').first();
+    // Find the GM's NPC character (has pre-existing messages from fixture)
+    const gmCharacterCard = page
+      .getByTestId('character-card')
+      .filter({ has: page.getByTestId('character-name').filter({ hasText: 'GM' }) })
+      .locator('visible=true').first();
     await expect(gmCharacterCard).toBeVisible();
 
-    const deleteButton = gmCharacterCard.getByTestId('delete-character-button').locator('visible=true').first();
+    const deleteButton = gmCharacterCard.locator('button:has([data-testid="delete-character-button"])').locator('visible=true').first();
     await expect(deleteButton).toBeVisible();
-
-    // 6. Click delete button
     await deleteButton.click();
 
-    // 7. Verify confirmation modal appears
     const confirmationModal = page.getByRole('heading', { name: 'Delete Character?' });
     await expect(confirmationModal).toBeVisible();
 
-    // 8. Click confirm to attempt deletion
     const confirmButton = page.getByTestId('confirm-delete-character-button');
     await confirmButton.click();
 
-    // 9. Error message should appear in the modal (backend rejects deletion)
+    // Backend rejects deletion — error appears and modal stays open
     await expect(page.getByText(/cannot delete character with existing messages/i)).toBeVisible({ timeout: 5000 });
-
-    // 10. Verify modal stays open (deletion failed)
     await expect(confirmationModal).toBeVisible();
   });
 

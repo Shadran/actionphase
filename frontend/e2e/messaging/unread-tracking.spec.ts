@@ -208,13 +208,16 @@ test.describe('Unread Comment Tracking', () => {
       await expect(player1CommonRoom.heading).toBeVisible({ timeout: 5000 });
 
       const reloadedPostCard = player1CommonRoom.getPostCard(postContent);
-      const reloadedCommentsButton = reloadedPostCard.locator('button', { hasText: /Comments/ }).locator('visible=true').first();
-      if (await reloadedCommentsButton.isVisible().catch(() => false)) {
+
+      // Comments were already expanded during the initial visit. After reload, if they
+      // are collapsed again, expand them — but don't wait unconditionally since the
+      // post may already show comments.
+      const reloadedCommentsButton = reloadedPostCard.locator('button', { hasText: /Expand Comments/ }).locator('visible=true').first();
+      if (await reloadedCommentsButton.isVisible({ timeout: 2000 }).catch(() => false)) {
         await reloadedCommentsButton.click();
-        await player1Page.waitForLoadState('networkidle');
       }
 
-      // NEW badge should now be visible
+      // NEW badge should now be visible on the new comment
       const newBadge = reloadedPostCard.locator('span:has-text("NEW")').locator('visible=true').first();
       await expect(newBadge).toBeVisible({ timeout: 10000 });
     } finally {

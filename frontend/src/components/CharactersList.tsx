@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUrlParam } from '../hooks/useUrlParam';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,6 +40,7 @@ export function CharactersList({
   });
   const [npcToAssign, setNpcToAssign] = useState<Character | null>(null);
   const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null);
+  const deletionSubmittedRef = useRef(false);
   const queryClient = useQueryClient();
 
   // Use ownership hook to check character ownership (works in anonymous mode)
@@ -77,6 +78,7 @@ export function CharactersList({
   const deleteCharacterMutation = useMutation({
     mutationFn: (characterId: number) => apiClient.characters.deleteCharacter(characterId),
     onSuccess: () => {
+      deletionSubmittedRef.current = false;
       refetchAllGameCharacters();
       queryClient.invalidateQueries({ queryKey: ['userControllableCharacters', gameId] });
       setCharacterToDelete(null);
@@ -93,6 +95,7 @@ export function CharactersList({
 
   const handleDeleteCharacter = () => {
     if (characterToDelete) {
+      deletionSubmittedRef.current = true;
       deleteCharacterMutation.mutate(characterToDelete.id);
     }
   };
@@ -427,7 +430,7 @@ export function CharactersList({
       {characterToDelete && (
         <Modal
           isOpen={true}
-          onClose={() => { if (!deleteCharacterMutation.isPending && !deleteCharacterMutation.isError) setCharacterToDelete(null); }}
+          onClose={() => { if (!deletionSubmittedRef.current) setCharacterToDelete(null); }}
           title="Delete Character?"
         >
           <div className="space-y-4">
@@ -450,7 +453,7 @@ export function CharactersList({
             <div className="flex justify-end space-x-2">
               <Button
                 variant="secondary"
-                onClick={() => setCharacterToDelete(null)}
+                onClick={() => { deletionSubmittedRef.current = false; setCharacterToDelete(null); }}
                 disabled={deleteCharacterMutation.isPending}
               >
                 Cancel

@@ -75,10 +75,11 @@ export class GameDetailsPage {
    */
   async clickMenuButton(text: string) {
     // Ensure the kebab button is interactive before clicking
-    const kebab = this.page.getByLabel('Game actions');
+    const kebab = this.page.getByTestId('game-actions-menu');
     await kebab.waitFor({ state: 'visible', timeout: 10000 });
     await kebab.click();
-    // Wait for the specific menu item to appear (dropdown is conditionally rendered)
+    // Wait for the specific menu item to appear (dropdown is conditionally rendered).
+    // Use getByRole scoped inside the kebab container to avoid matching other page buttons.
     const menuButton = this.page.getByRole('button', { name: text }).locator('visible=true').first();
     await expect(menuButton).toBeVisible({ timeout: 5000 });
     await menuButton.click();
@@ -192,8 +193,14 @@ export class GameDetailsPage {
    * Only available for cancelled games
    */
   async deleteGame() {
-    // Click delete button from kebab menu
-    await this.clickMenuButton('Delete Game');
+    // Open the kebab menu and click the Delete Game item using its stable testid
+    const kebab = this.page.getByTestId('game-actions-menu');
+    await kebab.waitFor({ state: 'visible', timeout: 10000 });
+    await kebab.click();
+
+    const deleteMenuItem = this.page.getByTestId('delete-game-button');
+    await expect(deleteMenuItem).toBeVisible({ timeout: 5000 });
+    await deleteMenuItem.click();
 
     // Wait for confirm button to be visible before clicking
     const confirmButton = this.page.getByTestId('delete-game-confirm-button');

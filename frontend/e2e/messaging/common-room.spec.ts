@@ -300,9 +300,9 @@ test.describe('@mobile Common Room Flow', () => {
   });
 
   test('Deep nesting shows Continue this thread button at max depth', async ({ page }) => {
-    // The fixture pre-creates a post "Deep Thread Test Post" with a 6-level nested reply
-    // chain. Level 5 is the deepest visible comment (desktop max depth = 5); Level 6 exists
-    // in the DB but is hidden, causing the "Continue this thread" button to appear on Level 5.
+    // The fixture pre-creates a post "Deep Thread Test Post" with a 6-level nested reply chain.
+    // Desktop (max depth=5): Level 4 is the deepest visible comment; Level 5 shows in the modal.
+    // Mobile  (max depth=3): Level 2 is the deepest visible comment; Level 3 shows in the modal.
     await loginAs(page, 'PLAYER_1');
 
     const gameId = await getFixtureGameId(page, 'COMMON_ROOM_DEEP_NESTING');
@@ -310,7 +310,16 @@ test.describe('@mobile Common Room Flow', () => {
     await commonRoom.goto(gameId);
 
     const postContent = 'Deep Thread Test Post';
-    const deepestComment = 'Nested Reply Level 4'; // Level 5+ are hidden (beyond max depth); Level 4 shows the "Continue this thread" button
+
+    // Detect mobile viewport (matches COMMENT_MAX_DEPTH_MOBILE=3 vs COMMENT_MAX_DEPTH=5)
+    const isMobile = page.viewportSize()!.width < 768;
+    // Mobile (mobileMaxDepth=3): children rendered at depths 0–1 only (depth < 2).
+    //   Depth 2 = Level 3 → shows "Continue this thread", no children rendered.
+    //   Modal opens from Level 3's children → first comment in modal is Level 4.
+    // Desktop (maxDepth=5): deepest visible is Level 4 (depth=3), "Continue this thread" on it.
+    //   Modal shows Level 5. (Verified by the original passing desktop test.)
+    const deepestComment = isMobile ? 'Nested Reply Level 3' : 'Nested Reply Level 4';
+    const modalComment   = isMobile ? 'Nested Reply Level 4' : 'Nested Reply Level 5';
 
     await expect(page.getByText(postContent).first()).toBeVisible({ timeout: 15000 });
 
@@ -323,14 +332,17 @@ test.describe('@mobile Common Room Flow', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    // Wait for the deepest pre-created comment to be visible and scroll to it
-    await expect(page.getByText(deepestComment, { exact: true }).first()).toBeVisible({ timeout: 15000 });
-
-    // Find the threaded-comment container for the deepest comment
-    const commentContainer = page
+    // Wait for the deepest pre-created comment to be visible and scroll to it.
+    // The dual-DOM pattern (desktop + mobile renders) means multiple copies exist;
+    // use filter({visible:true}) to match only the rendered-for-current-viewport one.
+    const deepestCommentLocator = page
       .locator('[data-testid="threaded-comment"]:visible')
       .filter({ has: page.getByText(deepestComment, { exact: true }) })
       .last();
+    await expect(deepestCommentLocator).toBeVisible({ timeout: 15000 });
+
+    // Find the threaded-comment container for the deepest comment
+    const commentContainer = deepestCommentLocator;
 
     // "Continue this thread" button should be present at this depth
     const continueButton = commentContainer.getByRole('button', { name: /Continue this thread/ }).locator('visible=true').first();
@@ -343,11 +355,11 @@ test.describe('@mobile Common Room Flow', () => {
     await expect(modalHeader).toBeVisible({ timeout: 5000 });
 
     const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Thread View' });
-    // Modal shows deeper content — Level 5 is visible inside the thread view
-    await expect(modal.getByText('Nested Reply Level 5')).toBeVisible({ timeout: 5000 });
+    // Modal shows deeper content — next level is visible inside the thread view
+    await expect(modal.getByText(modalComment)).toBeVisible({ timeout: 5000 });
 
     // Reply from within the modal to verify it's fully interactive
-    const modalCommentContainer = modal.locator('[data-testid="threaded-comment"]:visible').filter({ hasText: 'Nested Reply Level 5' }).first();
+    const modalCommentContainer = modal.locator('[data-testid="threaded-comment"]:visible').filter({ hasText: modalComment }).first();
     const modalReplyButton = modalCommentContainer.getByRole('button', { name: /reply/i }).first();
     await expect(modalReplyButton).toBeVisible({ timeout: 10000 });
     await modalReplyButton.click();
@@ -585,7 +597,7 @@ test.describe('@mobile Common Room Flow', () => {
     // This validates the cache update fix for comment character swaps
     await loginAs(page, 'GM');
 
-    const gameId = await getFixtureGameId(page, 'CO_GM_MANAGEMENT'); // Co-GM management fixture with NPCs
+    const gameId = await getFixtureGameId(page, 'COMMON_ROOM_MISC'); // Uses stable fixture with unassigned NPCs
     const commonRoom = new CommonRoomPage(page);
     await commonRoom.goto(gameId);
 
