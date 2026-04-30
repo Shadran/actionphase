@@ -344,6 +344,63 @@ func TestPhaseAPI_UpdateDraftCharacterUpdate(t *testing.T) {
 }
 
 // TestPhaseAPI_DeleteDraftCharacterUpdate tests DELETE /api/v1/games/{gameId}/results/{resultId}/character-updates/{draftId}
+// TestPhaseAPI_DraftCharacterUpdate_CrossGameMismatch verifies the game-ownership check inside
+// validateGMAccessAndResult: a GM cannot access a result from another game through their own
+// game ID in the URL. Without this guard, cross-game data leakage is possible.
+func TestPhaseAPI_DraftCharacterUpdate_CrossGameMismatch(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "draft_character_updates", "action_results", "action_submissions", "phases", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupFullPhaseAPITestRouter(app, testDB)
+
+	// Game 1 with its own GM and result
+	gm1 := testDB.CreateTestUser(t, "gm1", "gm1@example.com")
+	player1 := testDB.CreateTestUser(t, "player1", "player1@example.com")
+	gm1Token, err := core.CreateTestJWTTokenForUser(app, gm1)
+	require.NoError(t, err)
+	game1 := testDB.CreateTestGame(t, int32(gm1.ID), "Game One")
+
+	gameService := &dbsvc2.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game1.ID, int32(player1.ID), "player")
+	require.NoError(t, err)
+
+	phaseService := &phasesvc2.PhaseService{DB: testDB.Pool, Logger: app.ObsLogger}
+	phase1, err := phaseService.TransitionToNextPhase(context.Background(), game1.ID, int32(gm1.ID), core.TransitionPhaseRequest{
+		PhaseType: "action",
+		Title:     "Action Phase",
+	})
+	require.NoError(t, err)
+
+	actionService := &actionsvc2.ActionSubmissionService{
+		DB:                  testDB.Pool,
+		Logger:              app.ObsLogger,
+		NotificationService: &dbsvc2.NotificationService{DB: testDB.Pool, Logger: app.ObsLogger},
+	}
+	result1, err := actionService.CreateActionResult(context.Background(), core.CreateActionResultRequest{
+		GameID:      game1.ID,
+		PhaseID:     phase1.ID,
+		UserID:      int32(player1.ID),
+		GMUserID:    int32(gm1.ID),
+		Content:     "Game 1 result.",
+		IsPublished: false,
+	})
+	require.NoError(t, err)
+
+	// Game 2 — gm1 is also GM here so they pass the GM check, but result1 belongs to game1
+	game2 := testDB.CreateTestGame(t, int32(gm1.ID), "Game Two")
+
+	// GM tries to access game1's result through game2's URL — should get 400 (game mismatch)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/results/%d/character-updates", game2.ID, result1.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+gm1Token)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 func TestPhaseAPI_DeleteDraftCharacterUpdate(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()

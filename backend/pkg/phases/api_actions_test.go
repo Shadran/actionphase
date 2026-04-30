@@ -127,6 +127,44 @@ func TestPhaseAPI_SubmitAction(t *testing.T) {
 	})
 }
 
+// TestPhaseAPI_SubmitAction_NoActivePhase verifies that submitting an action when no phase
+// is active returns 400 rather than silently creating an orphaned action.
+func TestPhaseAPI_SubmitAction_NoActivePhase(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "action_submissions", "phases", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupFullPhaseAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	// No phase created — game has no active phase
+
+	body := SubmitActionRequest{Content: "my action", IsDraft: false}
+	bodyJSON, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+playerToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	// Should be 400, not 201 — no active phase means the action cannot be associated with anything
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 // TestPhaseAPI_GetUserActions tests GET /api/v1/games/{gameId}/actions/mine
 func TestPhaseAPI_GetUserActions(t *testing.T) {
 	testDB := core.NewTestDatabase(t)

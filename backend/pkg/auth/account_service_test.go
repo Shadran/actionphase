@@ -338,6 +338,168 @@ func TestAccountService_RevokeAllSessions(t *testing.T) {
 	})
 }
 
+func TestAccountService_RestoreAccount(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "sessions", "users")
+
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	accountService := &AccountService{
+		DB:     testDB.Pool,
+		Logger: app.ObsLogger,
+	}
+
+	t.Run("restores a soft-deleted account", func(t *testing.T) {
+		user, err := userService.CreateUser(&core.User{
+			Username: "restoreuser",
+			Password: "password123",
+			Email:    "restore@example.com",
+		})
+		core.AssertNoError(t, err, "User creation should succeed")
+
+		// Soft-delete the account first
+		err = accountService.SoftDeleteAccount(context.Background(), user.ID)
+		core.AssertNoError(t, err, "Soft delete should succeed")
+
+		// Restore it
+		err = accountService.RestoreAccount(context.Background(), user.ID)
+		core.AssertNoError(t, err, "Restore should succeed")
+
+		// Verify the account is no longer marked as deleted
+		var deletedAt *string
+		queryErr := testDB.Pool.QueryRow(context.Background(),
+			"SELECT deleted_at::text FROM users WHERE id = $1",
+			user.ID,
+		).Scan(&deletedAt)
+		core.AssertNoError(t, queryErr, "Should be able to query user")
+		core.AssertTrue(t, deletedAt == nil, "deleted_at should be NULL after restore")
+	})
+
+	t.Run("returns error when account is not deleted", func(t *testing.T) {
+		user, err := userService.CreateUser(&core.User{
+			Username: "activeuser",
+			Password: "password123",
+			Email:    "active@example.com",
+		})
+		core.AssertNoError(t, err, "User creation should succeed")
+
+		err = accountService.RestoreAccount(context.Background(), user.ID)
+		core.AssertTrue(t, err != nil, "Should return error for non-deleted account")
+		pwdErr, ok := err.(*PasswordValidationError)
+		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
+		core.AssertEqual(t, "account", pwdErr.Field, "Error field should be 'account'")
+	})
+
+	t.Run("returns error when user does not exist", func(t *testing.T) {
+		err := accountService.RestoreAccount(context.Background(), 99999999)
+		core.AssertTrue(t, err != nil, "Should return error for nonexistent user")
+		pwdErr, ok := err.(*PasswordValidationError)
+		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
+		core.AssertEqual(t, "account", pwdErr.Field, "Error field should be 'account'")
+	})
+}
+
+func TestAccountService_CompleteEmailChange(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "email_verification_tokens", "users")
+
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	accountService := &AccountService{
+		DB:           testDB.Pool,
+		EmailService: nil,
+		Logger:       app.ObsLogger,
+	}
+
+	t.Run("completes email change with valid token", func(t *testing.T) {
+		user, err := userService.CreateUser(&core.User{
+			Username: "emailchangeuser",
+			Password: "password123",
+			Email:    "old@example.com",
+		})
+		core.AssertNoError(t, err, "User creation should succeed")
+
+		// Request the email change (creates the token + sets email_change_pending)
+		err = accountService.RequestEmailChange(context.Background(), user.ID, &ChangeEmailRequest{
+			NewEmail:        "new@example.com",
+			CurrentPassword: "password123",
+		})
+		core.AssertNoError(t, err, "RequestEmailChange should succeed")
+
+		// Retrieve the token from DB
+		var token string
+		queryErr := testDB.Pool.QueryRow(context.Background(),
+			"SELECT token FROM email_verification_tokens WHERE user_id = $1 AND email = $2 LIMIT 1",
+			user.ID, "new@example.com",
+		).Scan(&token)
+		core.AssertNoError(t, queryErr, "Should find verification token in DB")
+
+		// Complete the change
+		err = accountService.CompleteEmailChange(context.Background(), &VerifyEmailRequest{Token: token})
+		core.AssertNoError(t, err, "CompleteEmailChange should succeed")
+
+		// Verify new email in DB
+		var newEmail string
+		queryErr = testDB.Pool.QueryRow(context.Background(),
+			"SELECT email FROM users WHERE id = $1", user.ID,
+		).Scan(&newEmail)
+		core.AssertNoError(t, queryErr, "Should query user email")
+		core.AssertEqual(t, "new@example.com", newEmail, "Email should be updated to new address")
+
+		// Verify email_change_pending cleared
+		var pending *string
+		queryErr = testDB.Pool.QueryRow(context.Background(),
+			"SELECT email_change_pending FROM users WHERE id = $1", user.ID,
+		).Scan(&pending)
+		core.AssertNoError(t, queryErr, "Should query email_change_pending")
+		core.AssertTrue(t, pending == nil, "email_change_pending should be cleared after completion")
+	})
+
+	t.Run("returns error for invalid token", func(t *testing.T) {
+		err := accountService.CompleteEmailChange(context.Background(), &VerifyEmailRequest{Token: "not-a-real-token"})
+		core.AssertTrue(t, err != nil, "Should return error for invalid token")
+		pwdErr, ok := err.(*PasswordValidationError)
+		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
+		core.AssertEqual(t, "token", pwdErr.Field, "Error field should be 'token'")
+	})
+
+	t.Run("returns error when no matching pending email change", func(t *testing.T) {
+		user, err := userService.CreateUser(&core.User{
+			Username: "nopendinguser",
+			Password: "password123",
+			Email:    "nopending@example.com",
+		})
+		core.AssertNoError(t, err, "User creation should succeed")
+
+		// Request change to addr-a
+		err = accountService.RequestEmailChange(context.Background(), user.ID, &ChangeEmailRequest{
+			NewEmail:        "addr-a@example.com",
+			CurrentPassword: "password123",
+		})
+		core.AssertNoError(t, err, "RequestEmailChange should succeed")
+
+		var token string
+		queryErr := testDB.Pool.QueryRow(context.Background(),
+			"SELECT token FROM email_verification_tokens WHERE user_id = $1 AND email = $2 LIMIT 1",
+			user.ID, "addr-a@example.com",
+		).Scan(&token)
+		core.AssertNoError(t, queryErr, "Should find token")
+
+		// Manually clear the pending change so the token no longer matches
+		_, execErr := testDB.Pool.Exec(context.Background(),
+			"UPDATE users SET email_change_pending = NULL WHERE id = $1", user.ID)
+		core.AssertNoError(t, execErr, "Should clear email_change_pending")
+
+		err = accountService.CompleteEmailChange(context.Background(), &VerifyEmailRequest{Token: token})
+		core.AssertTrue(t, err != nil, "Should return error when pending email cleared")
+		pwdErr, ok := err.(*PasswordValidationError)
+		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
+		core.AssertEqual(t, "token", pwdErr.Field, "Error field should be 'token'")
+	})
+}
+
 func TestAccountService_RequestEmailChange(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	app := core.NewTestApp(testDB.Pool)

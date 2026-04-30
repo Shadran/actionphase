@@ -353,6 +353,47 @@ func TestPhaseAPI_UpdatePublishedResultBlocked(t *testing.T) {
 	})
 }
 
+// TestPhaseAPI_CreateActionResult_NoActivePhase verifies the handler returns 400 when the GM
+// tries to create a result but no phase is currently active. Without this guard the result
+// would have a nil phase reference.
+func TestPhaseAPI_CreateActionResult_NoActivePhase(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "action_results", "phases", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupFullPhaseAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	// No phase created — game has no active phase
+
+	body := map[string]interface{}{
+		"user_id": player.ID,
+		"content": "Some result content.",
+	}
+	bodyJSON, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/results", game.ID), bytes.NewBuffer(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 // TestPhaseAPI_PublishActionResult tests POST /api/v1/games/{gameId}/results/{resultId}/publish
 func TestPhaseAPI_PublishActionResult(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
