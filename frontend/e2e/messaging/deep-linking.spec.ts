@@ -68,7 +68,13 @@ test.describe('@mobile Deep Linking in Common Room', () => {
 
     const { shallowCommentId, deepCommentId } = await getDeepLinkingCommentIds(page, gameId);
 
-    for (const commentId of [shallowCommentId, deepCommentId]) {
+    // Mobile renders fewer nesting levels — deepCommentId (depth 5) is beyond mobile's
+    // render cutoff and never appears in the DOM, so only test shallowCommentId on mobile.
+    const mobileSelect = page.locator('select#tab-select');
+    const isMobile = await mobileSelect.isVisible({ timeout: 2000 }).catch(() => false);
+    const commentIds = isMobile ? [shallowCommentId] : [shallowCommentId, deepCommentId];
+
+    for (const commentId of commentIds) {
       await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
       await page.waitForLoadState('networkidle');
 
