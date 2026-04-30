@@ -103,3 +103,34 @@ func TestDebugHandler_ListRoutes(t *testing.T) {
 	assert.True(t, paths["/hello"])
 	assert.True(t, paths["/world"])
 }
+
+// TestWalkRoutes_RootPath verifies the empty-string normalization: a route
+// registered at "/" would produce an empty string after TrimSuffix, which
+// must be converted back to "/" rather than stored as an empty path.
+func TestWalkRoutes_RootPath(t *testing.T) {
+	r := chi.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {})
+
+	routes := WalkRoutes(r)
+
+	require.Len(t, routes, 1)
+	assert.Equal(t, "/", routes[0].Path, "root path should remain '/' not become empty string")
+}
+
+// TestDebugHandler_ListRoutes_NoRouteContext verifies the nil-context guard in
+// listRoutes. Without it, a nil deref would panic when the handler is invoked
+// outside of a proper chi router context.
+func TestDebugHandler_ListRoutes_NoRouteContext(t *testing.T) {
+	// Invoke listRoutes directly via a plain http.ServeMux (no chi context)
+	handler := &DebugHandler{}
+
+	// Register on a plain mux — chi.RouteContext will be nil for this request
+	mux := http.NewServeMux()
+	mux.HandleFunc("/routes", handler.listRoutes)
+
+	req := httptest.NewRequest("GET", "/routes", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
