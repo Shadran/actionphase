@@ -48,13 +48,21 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
+      name: 'smoke',
+      use: { ...devices['Desktop Chrome'] },
+      grep: /@smoke/,
+    },
+    {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
       grep: /@mobile/,
+      dependencies: ['smoke'],
     },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      grepInvert: /@smoke/,
+      dependencies: ['smoke'],
     },
     // {
     //   name: 'firefox',

@@ -22,7 +22,7 @@ VALUES
   ('TestAudience', 'test_audience@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience1', 'test_audience1@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience2', 'test_audience2@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW())
-ON CONFLICT (email) DO UPDATE SET is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
+ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password, is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
 
 -- Worker 1 users
 INSERT INTO users (username, email, password, is_admin, email_verified, created_at)
@@ -36,7 +36,7 @@ VALUES
   ('TestAudience_1', 'test_audience_1@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience1_1', 'test_audience1_1@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience2_1', 'test_audience2_1@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW())
-ON CONFLICT (email) DO UPDATE SET is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
+ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password, is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
 
 -- Worker 2 users
 INSERT INTO users (username, email, password, is_admin, email_verified, created_at)
@@ -50,7 +50,7 @@ VALUES
   ('TestAudience_2', 'test_audience_2@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience1_2', 'test_audience1_2@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience2_2', 'test_audience2_2@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW())
-ON CONFLICT (email) DO UPDATE SET is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
+ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password, is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
 
 -- Worker 3 users
 INSERT INTO users (username, email, password, is_admin, email_verified, created_at)
@@ -64,7 +64,7 @@ VALUES
   ('TestAudience_3', 'test_audience_3@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience1_3', 'test_audience1_3@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience2_3', 'test_audience2_3@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW())
-ON CONFLICT (email) DO UPDATE SET is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
+ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password, is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
 
 -- Worker 4 users
 INSERT INTO users (username, email, password, is_admin, email_verified, created_at)
@@ -78,7 +78,7 @@ VALUES
   ('TestAudience_4', 'test_audience_4@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience1_4', 'test_audience1_4@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW()),
   ('TestAudience2_4', 'test_audience2_4@example.com', '$2a$10$7LH6DSL0M6Dln50UDtKzY.rs7J3a7S/gAZVONnk6QZvouo0pUx/..', false, TRUE, NOW())
-ON CONFLICT (email) DO UPDATE SET is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
+ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password, is_admin = EXCLUDED.is_admin, email_verified = EXCLUDED.email_verified;
 
 -- Worker 5 users
 INSERT INTO users (username, email, password, is_admin, email_verified, created_at)
