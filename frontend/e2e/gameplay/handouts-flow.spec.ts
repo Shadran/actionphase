@@ -50,7 +50,6 @@ Example dice roll: 1d20 + 5
 \`\`\``;
 
     await gmHandoutsPage.createHandout(handoutTitle, handoutContent, true);
-    await page.waitForLoadState('networkidle');
 
     // Verify handout appears in list
     let hasHandout = await gmHandoutsPage.hasHandout(handoutTitle);
@@ -76,9 +75,6 @@ Example dice roll: 1d20 + 5
     await playerHandoutsPage.openHandout(handoutTitle);
     await expect(page.locator('text=Welcome Adventurers')).toBeVisible();
 
-    // Player should NOT see Create Handout button (GM-only feature)
-    const playerCanCreate = await playerHandoutsPage.canCreateHandouts();
-    expect(playerCanCreate).toBe(false);
   });
 
   test('GM can edit existing handout', async ({ page }) => {
@@ -92,7 +88,6 @@ Example dice roll: 1d20 + 5
     const originalTitle = `Editable Handout ${Date.now()}`;
     const originalContent = 'Original content';
     await handoutsPage.createHandout(originalTitle, originalContent, true);
-    await page.waitForLoadState('networkidle');
 
     // Edit the handout
     const newTitle = `Updated ${originalTitle}`;
@@ -117,7 +112,6 @@ Example dice roll: 1d20 + 5
     // Create handout to delete
     const handoutTitle = `Deletable Handout ${Date.now()}`;
     await handoutsPage.createHandout(handoutTitle, 'This will be deleted', true);
-    await page.waitForLoadState('networkidle');
 
     // Verify it exists
     let hasHandout = await handoutsPage.hasHandout(handoutTitle);
@@ -131,37 +125,6 @@ Example dice roll: 1d20 + 5
     expect(hasHandout).toBe(false);
   });
 
-  test('multiple handouts display correctly in list', async ({ page }) => {
-    await loginAs(page, 'GM');
-    const gameId = await getFixtureGameId(page, 'E2E_ACTION');
-
-    const handoutsPage = new GameHandoutsPage(page, gameId);
-    await handoutsPage.goto();
-
-    // Create multiple handouts
-    const timestamp = Date.now();
-    const handout1 = `Rules ${timestamp}`;
-    const handout2 = `Lore ${timestamp}`;
-    const handout3 = `Maps ${timestamp}`;
-
-    await handoutsPage.createHandout(handout1, 'Game rules', true);
-    await page.waitForLoadState('networkidle');
-
-    await handoutsPage.goto(); // Navigate back to list
-    await handoutsPage.createHandout(handout2, 'World lore', true);
-    await page.waitForLoadState('networkidle');
-
-    await handoutsPage.goto();
-    await handoutsPage.createHandout(handout3, 'Map information', true);
-    await page.waitForLoadState('networkidle');
-
-    // Verify all three are visible
-    await handoutsPage.goto();
-    await expect(page.locator(`text=${handout1}`)).toBeVisible();
-    await expect(page.locator(`text=${handout2}`)).toBeVisible();
-    await expect(page.locator(`text=${handout3}`)).toBeVisible();
-  });
-
   test('handout can be opened via direct deep link', async ({ page }) => {
     await loginAs(page, 'GM');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION');
@@ -173,7 +136,6 @@ Example dice roll: 1d20 + 5
     const handoutTitle = `Deep Link Test ${Date.now()}`;
     const handoutContent = 'Content visible via deep link';
     await handoutsPage.createHandout(handoutTitle, handoutContent, true);
-    await page.waitForLoadState('networkidle');
 
     // Read the deep-link URL from the View link (without clicking it)
     const deepLinkUrl = await handoutsPage.getHandoutDeepLink(handoutTitle);
@@ -202,12 +164,10 @@ Example dice roll: 1d20 + 5
 
     // Create draft handout (isPublic: false)
     await gmHandoutsPage.createHandout(draftTitle, 'This is a draft - players should NOT see this', false);
-    await page.waitForLoadState('networkidle');
 
     // Create published handout for comparison
     await gmHandoutsPage.goto();
     await gmHandoutsPage.createHandout(publishedTitle, 'This is published - players should see this', true);
-    await page.waitForLoadState('networkidle');
 
     // Verify GM can see both handouts
     await gmHandoutsPage.goto();

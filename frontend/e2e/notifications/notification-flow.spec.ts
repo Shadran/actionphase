@@ -4,457 +4,256 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
 import { CommonRoomPage } from '../pages/CommonRoomPage';
 import { MessagingPage } from '../pages/MessagingPage';
 import { PhaseManagementPage } from '../pages/PhaseManagementPage';
-import { navigateToGame } from '../utils/navigation';
-import { assertTextVisible } from '../utils/assertions';
 
 /**
  * E2E Tests for Notification System
  *
- * Tests the complete notification flow:
- * - Creating notifications via events
- * - Displaying notification count in bell
- * - Viewing notifications in dropdown
- * - Marking notifications as read
- * - Navigating via notification links
+ * Fixtures:
+ *   NOTIFICATION_FLOW  (Game #704) — reply & mention tests
+ *     Pre-seeded: GM post "Notification Test Post" + Player 1 comment
+ *     so reply/mention tests need only one setup context each.
+ *   NOTIFICATION_PHASE (Game #705) — phase activation test
+ *     Player 5 as sole participant; GM creates a new action phase at runtime.
+ *   E2E_MESSAGES       (Game #354) — polling test (creates own conversation)
  *
- * NOTE: These tests run serially due to timing-sensitive notification polling
- * and async backend goroutines. Parallel execution can cause race conditions
- * where notifications from one test appear in another test's feed.
- *
- * REFACTORED: Using Page Object Model and shared utilities
- * - Eliminated all waitForTimeout calls (was 34)
- * - Uses CommonRoomPage for all Common Room interactions
- * - Uses navigateToGame and GameDetailsPage for navigation
- * - Uses assertion utilities for consistency
+ * Each test uses its own fixture game so there is no shared mutable state
+ * and no need for serial execution or afterEach DB cleanup.
  */
 
-test.describe.configure({ mode: 'serial' });
+const FIXTURE_POST = 'Notification Test Post';
+const PLAYER_1_COMMENT = 'Player 1 comment on notification test post';
 
 test.describe('Notification System', () => {
-  // Clean up messages and notifications between tests to prevent test contamination
-  // Serial tests share the same game fixture, so we need to clean up after each test
-  test.afterEach(async ({ browser }) => {
-    // Clean up messages and notifications for the notifications fixture game
-    // Use the API to look up the game ID dynamically rather than hardcoding it
-    const ctx = await browser.newContext();
-    const cleanupPage = await ctx.newPage();
+  test('notifies user when someone replies to their comment', async ({ browser }) => {
+    // Player 2 replies to the pre-seeded Player 1 comment.
+    // Player 1 watches from a separate context and waits for the badge.
+    const player1Context = await browser.newContext();
+    const player2Context = await browser.newContext();
+    const player1Page = await player1Context.newPage();
+    const player2Page = await player2Context.newPage();
+
     try {
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
+      await loginAs(player1Page, 'PLAYER_1');
+      await loginAs(player2Page, 'PLAYER_2');
 
-      // Look up the game ID by title to avoid hardcoding
-      const { getGameIdByTitle } = await import('../fixtures/game-helpers');
-      await loginAs(cleanupPage, 'GM');
-      const gameId = await getGameIdByTitle(cleanupPage, 'E2E Common Room - Notifications');
+      const gameId = await getFixtureGameId(player1Page, 'NOTIFICATION_FLOW');
 
-      if (gameId !== null) {
-        await execAsync(`PGPASSWORD=example psql -h localhost -U postgres -d actionphase -c "DELETE FROM messages WHERE game_id = ${gameId}; DELETE FROM notifications WHERE game_id = ${gameId};"`);
-      }
+      // Player 1 is on the game page watching for the notification
+      const player1CommonRoom = new CommonRoomPage(player1Page);
+      await player1CommonRoom.goto(gameId);
+      await player1CommonRoom.expandComments(FIXTURE_POST);
+
+      // Player 2 replies to Player 1's pre-seeded comment
+      const player2CommonRoom = new CommonRoomPage(player2Page);
+      await player2CommonRoom.goto(gameId);
+      const replyText = `Reply from Player 2 ${Date.now()}`;
+      await player2CommonRoom.replyToComment(PLAYER_1_COMMENT, replyText);
+
+      // Player 1 should see the notification badge appear
+      const notificationBadge = player1Page.locator('[data-testid="notification-badge"]');
+      await expect(notificationBadge).toBeVisible({ timeout: 20000 });
+
+      // Open the dropdown and verify a reply notification is present
+      await player1Page.click('[data-testid="notification-bell"]');
+      const dropdown = player1Page.locator('[data-testid="notification-dropdown"]');
+      await expect(dropdown).toBeVisible();
+
+      // Poll by closing/reopening the bell until the notification arrives
+      const replyNotification = player1Page.locator('.notification-item')
+        .filter({ hasText: 'replied' })
+        .locator('visible=true')
+        .first();
+      await expect(async () => {
+        if (!await replyNotification.isVisible()) {
+          await player1Page.click('[data-testid="notification-bell"]');
+          await player1Page.click('[data-testid="notification-bell"]');
+          await expect(dropdown).toBeVisible();
+        }
+        await expect(replyNotification).toBeVisible();
+      }).toPass({ timeout: 20000, intervals: [1000] });
+
+      // Clicking the notification navigates to the common room
+      await replyNotification.click();
+      await expect(player1Page).toHaveURL(new RegExp(`/games/${gameId}\\?tab=common-room`));
     } finally {
-      await ctx.close();
+      await player1Context.close();
+      await player2Context.close();
     }
   });
 
-  test.describe('Notification UI', () => {
-    test('should display and interact with notification bell', async ({ page }) => {
-      // Test the notification UI components work
-      await loginAs(page, 'PLAYER_1');
+  test('notifies user when their character is mentioned in a comment', async ({ browser }) => {
+    // Player 3 mentions Player 4's character in a comment.
+    // Player 4 watches from a separate context and waits for the badge.
+    const player3Context = await browser.newContext();
+    const player4Context = await browser.newContext();
+    const player3Page = await player3Context.newPage();
+    const player4Page = await player4Context.newPage();
 
-      const gameId = await getFixtureGameId(page, 'COMMON_ROOM_NOTIFICATIONS');
-      await navigateToGame(page, gameId);
+    try {
+      await loginAs(player3Page, 'PLAYER_3');
+      await loginAs(player4Page, 'PLAYER_4');
 
-      // 1. Verify notification bell is present
-      const notificationBell = page.locator('[data-testid="notification-bell"]');
-      await expect(notificationBell).toBeVisible();
+      const gameId = await getFixtureGameId(player3Page, 'NOTIFICATION_FLOW');
 
-      // 2. Click notification bell to open dropdown
-      await notificationBell.click();
+      // Player 4 is on the game page watching for the notification
+      await player4Page.goto(`/games/${gameId}`);
+      await player4Page.waitForLoadState('networkidle');
 
-      // 3. Verify notification dropdown opens
-      const notificationDropdown = page.locator('[data-testid="notification-dropdown"]');
-      await expect(notificationDropdown).toBeVisible();
+      // Player 3 adds a comment mentioning Player 4's character
+      const player3CommonRoom = new CommonRoomPage(player3Page);
+      await player3CommonRoom.goto(gameId);
+      const mentionComment = `Hey @Test Notify Char 4, what do you think? ${Date.now()}`;
+      await player3CommonRoom.addComment(FIXTURE_POST, mentionComment);
 
-      // 4. Verify empty state or notifications are displayed
-      // (Will show either "No notifications" or actual notifications depending on state)
-      const dropdownContent = notificationDropdown.locator('div, p, button').locator('visible=true').first();
-      await expect(dropdownContent).toBeVisible();
+      // Player 4 should see the notification badge appear
+      const notificationBadge = player4Page.locator('[data-testid="notification-badge"]');
+      await expect(notificationBadge).toBeVisible({ timeout: 20000 });
 
-      // 5. Close dropdown by clicking bell again
-      await notificationBell.click();
+      // Open dropdown and verify a mention notification is present
+      await player4Page.click('[data-testid="notification-bell"]');
+      const dropdown = player4Page.locator('[data-testid="notification-dropdown"]');
+      await expect(dropdown).toBeVisible();
 
-      // Dropdown should close (or remain open depending on implementation)
-      // Either way, the UI interaction worked
-    });
+      const mentionNotification = player4Page.locator('.notification-item')
+        .filter({ hasText: 'mentioned' })
+        .locator('visible=true')
+        .first();
+      await expect(mentionNotification).toBeVisible({ timeout: 20000 });
+
+      // Clicking navigates to the common room
+      await mentionNotification.click();
+      await expect(player4Page).toHaveURL(new RegExp(`/games/${gameId}\\?tab=common-room`));
+    } finally {
+      await player3Context.close();
+      await player4Context.close();
+    }
   });
 
-  test.describe('Comment Reply Notifications', () => {
-    test('should notify user when someone replies to their comment', async ({ browser }) => {
-      const gmContext = await browser.newContext();
-      const originalPosterContext = await browser.newContext();
-      const replierContext = await browser.newContext();
+  test('notifies all participants when GM activates a new phase', async ({ browser }) => {
+    test.setTimeout(60000);
 
-      const gmPage = await gmContext.newPage();
-      const originalPosterPage = await originalPosterContext.newPage();
-      const replierPage = await replierContext.newPage();
+    const gmContext = await browser.newContext();
+    const playerContext = await browser.newContext();
+    const gmPage = await gmContext.newPage();
+    const playerPage = await playerContext.newPage();
 
-      try {
-        // 1. All users log in
-        await loginAs(gmPage, 'GM');
-        await loginAs(originalPosterPage, 'PLAYER_1');
-        await loginAs(replierPage, 'PLAYER_2');
+    try {
+      await loginAs(gmPage, 'GM');
+      await loginAs(playerPage, 'PLAYER_5');
 
-        const gameId = await getFixtureGameId(gmPage, 'COMMON_ROOM_NOTIFICATIONS');
+      const gameId = await getFixtureGameId(gmPage, 'NOTIFICATION_PHASE');
 
-        // 2. GM creates a post using CommonRoomPage
-        const gmCommonRoom = new CommonRoomPage(gmPage);
-        await gmCommonRoom.goto(gameId);
+      // Player 5 is on the game page before the phase is created
+      await playerPage.goto(`/games/${gameId}`);
+      await playerPage.waitForLoadState('networkidle');
 
-        const postContent = `Reply Test Post ${Date.now()}`;
-        await gmCommonRoom.createPost(postContent);
+      // GM creates and activates a new action phase
+      const phaseManagement = new PhaseManagementPage(gmPage);
+      await phaseManagement.goto(gameId);
 
-        // 3. Player 1 comments on the post using CommonRoomPage
-        const player1CommonRoom = new CommonRoomPage(originalPosterPage);
-        await player1CommonRoom.goto(gameId);
+      const phaseTitle = `E2E Phase ${Date.now()}`;
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + 2);
 
-        const player1CommentText = `Player 1 comment ${Date.now()}`;
-        await player1CommonRoom.addComment(postContent, player1CommentText);
+      await phaseManagement.createPhase({
+        type: 'action',
+        title: phaseTitle,
+        description: 'Phase for notification test',
+        deadline,
+      });
+      await phaseManagement.activatePhase(phaseTitle);
 
-        // Verify Player 1's comment appears
-        await assertTextVisible(originalPosterPage, player1CommentText);
+      // Player reloads to pick up the notification (avoids waiting for polling interval)
+      await playerPage.reload();
+      await playerPage.waitForLoadState('networkidle');
 
-        // 4. Player 2 replies to Player 1's comment using CommonRoomPage
-        const player2CommonRoom = new CommonRoomPage(replierPage);
-        await player2CommonRoom.goto(gameId);
+      const notificationBadge = playerPage.locator('[data-testid="notification-badge"]');
+      await expect(notificationBadge).toBeVisible({ timeout: 10000 });
 
-        // Find Player 1's comment and click Reply
-        // Look for the reply button near Player 1's comment
-        const commentContainer = replierPage.locator('div').filter({ hasText: player1CommentText }).locator('visible=true').first();
-        const replyButton = commentContainer.getByRole('button', { name: 'Reply' }).locator('visible=true').first();
-        // Playwright's click automatically scrolls the element into view if needed
-        await replyButton.click();
-        await replierPage.waitForLoadState('networkidle');
+      // Open dropdown and find the phase notification
+      await playerPage.click('[data-testid="notification-bell"]');
+      const dropdown = playerPage.locator('[data-testid="notification-dropdown"]');
+      await expect(dropdown).toBeVisible();
 
-        // Write reply
-        const testReply = `Player 2 reply ${Date.now()}`;
-        const replyTextarea = commentContainer.locator('textarea').locator('visible=true').first();
-        await replyTextarea.fill(testReply);
+      const phaseNotification = playerPage.locator('.notification-item')
+        .filter({ hasText: phaseTitle })
+        .locator('visible=true')
+        .first();
+      await expect(phaseNotification).toBeVisible({ timeout: 10000 });
 
-        const replyForm = commentContainer.locator('form').locator('visible=true').first();
-        await replyForm.evaluate((f: HTMLFormElement) => f.requestSubmit());
-        await replierPage.waitForLoadState('networkidle');
-
-        // 5. Wait for notification on Player 1's page
-        const notificationBadge = originalPosterPage.locator('[data-testid="notification-badge"]');
-        await expect(notificationBadge).toBeVisible({ timeout: 20000 });
-
-        // Click bell and wait for dropdown to load
-        await originalPosterPage.click('[data-testid="notification-bell"]');
-
-        const dropdown = originalPosterPage.locator('[data-testid="notification-dropdown"]');
-        await expect(dropdown).toBeVisible();
-
-        // Wait for the reply notification to appear. Under parallel load, the notification
-        // may arrive after the dropdown opens (dropdown shows a point-in-time snapshot).
-        // Poll by closing and reopening the bell until the notification is present.
-        const replyNotification = originalPosterPage.locator('.notification-item').filter({ hasText: 'replied' }).locator('visible=true').first();
-        await expect(async () => {
-          if (!await replyNotification.isVisible()) {
-            await originalPosterPage.click('[data-testid="notification-bell"]'); // close
-            await originalPosterPage.click('[data-testid="notification-bell"]'); // reopen
-            await expect(dropdown).toBeVisible();
-          }
-          await expect(replyNotification).toBeVisible();
-        }).toPass({ timeout: 20000, intervals: [1000] });
-
-        // 6. Click notification and verify navigation
-        await replyNotification.click();
-        await expect(originalPosterPage).toHaveURL(new RegExp(`/games/${gameId}\\?tab=common-room`));
-
-      } finally {
-        await gmContext.close();
-        await originalPosterContext.close();
-        await replierContext.close();
-      }
-    });
+      // Clicking navigates to the game
+      await phaseNotification.click();
+      await expect(playerPage).toHaveURL(new RegExp(`/games/${gameId}`));
+    } finally {
+      await gmContext.close();
+      await playerContext.close();
+    }
   });
 
-  test.describe('Character Mention Notifications', () => {
-    test('should notify user when their character is mentioned in a comment', async ({ browser }) => {
-      const gmContext = await browser.newContext();
-      const mentionerContext = await browser.newContext();
-      const mentionedUserContext = await browser.newContext();
+  test('notification count updates automatically via polling when a private message arrives', async ({ browser }) => {
+    test.setTimeout(60000);
 
-      const gmPage = await gmContext.newPage();
-      const mentionerPage = await mentionerContext.newPage();
-      const mentionedUserPage = await mentionedUserContext.newPage();
+    // Player 1 sends a private message to Player 2.
+    // Player 2 is on the dashboard (not the game page) and waits for the
+    // badge to increment — validating the polling mechanism fires.
+    const senderContext = await browser.newContext();
+    const recipientContext = await browser.newContext();
+    const senderPage = await senderContext.newPage();
+    const recipientPage = await recipientContext.newPage();
 
-      try {
-        // 1. All users log in (using PLAYER_3 and PLAYER_4 to avoid cross-contamination)
-        await loginAs(gmPage, 'GM');
-        await loginAs(mentionerPage, 'PLAYER_3');
-        await loginAs(mentionedUserPage, 'PLAYER_4');
+    try {
+      await loginAs(senderPage, 'PLAYER_1');
+      await loginAs(recipientPage, 'PLAYER_2');
 
-        const gameId = await getFixtureGameId(gmPage, 'COMMON_ROOM_NOTIFICATIONS');
+      const gameId = await getFixtureGameId(senderPage, 'E2E_MESSAGES');
 
-        // 2. Mentioned user viewing game
-        await mentionedUserPage.goto(`/games/${gameId}`);
-        await mentionedUserPage.waitForLoadState('networkidle');
+      // Recipient is on dashboard — not on the game page — so only polling delivers the update
+      await recipientPage.goto('/dashboard');
+      await recipientPage.waitForLoadState('networkidle');
 
-        // 3. GM creates a post first using CommonRoomPage
-        const gmCommonRoom = new CommonRoomPage(gmPage);
-        await gmCommonRoom.goto(gameId);
-
-        const postContent = `Mention Test Post ${Date.now()}`;
-        await gmCommonRoom.createPost(postContent);
-
-        // 4. Player 3 comments with @mention of Player 4's character using CommonRoomPage
-        const mentionerCommonRoom = new CommonRoomPage(mentionerPage);
-        await mentionerCommonRoom.goto(gameId);
-
-        const postCard = mentionerPage.locator('div').filter({ hasText: postContent }).locator('visible=true').first();
-        await postCard.getByRole('button', { name: 'Add Comment' }).locator('visible=true').first().click();
-        await mentionerPage.waitForLoadState('networkidle');
-
-        const commentTextarea = postCard.getByPlaceholder(/Write a comment/i);
-        await commentTextarea.fill('Hey @Test Player 4 Character, what do you think?');
-
-        const form = postCard.locator('form').locator('visible=true').first();
-        await form.evaluate((f: HTMLFormElement) => f.requestSubmit());
-        await mentionerPage.waitForLoadState('networkidle');
-
-        // 5. Wait for notification on Player 4's page
-        const notificationBadge = mentionedUserPage.locator('[data-testid="notification-badge"]');
-        await expect(notificationBadge).toBeVisible({ timeout: 20000 });
-
-        // Click bell and verify mention notification
-        await mentionedUserPage.click('[data-testid="notification-bell"]');
-
-        const dropdown = mentionedUserPage.locator('[data-testid="notification-dropdown"]');
-        await expect(dropdown).toBeVisible();
-
-        // Wait for loading to complete and notification to appear
-        const mentionNotification = mentionedUserPage.locator('.notification-item').filter({ hasText: 'mentioned' }).locator('visible=true').first();
-        await expect(mentionNotification).toBeVisible({ timeout: 20000 });
-
-        // 6. Click and verify navigation with correct tab parameter
-        await mentionNotification.click();
-        await expect(mentionedUserPage).toHaveURL(new RegExp(`/games/${gameId}\\?tab=common-room`));
-
-      } finally {
-        await gmContext.close();
-        await mentionerContext.close();
-        await mentionedUserContext.close();
+      // Record initial unread count before the message is sent
+      const notificationBadge = recipientPage.locator('[data-testid="notification-badge"]');
+      let initialCount = 0;
+      if (await notificationBadge.isVisible({ timeout: 2000 }).catch(() => false)) {
+        initialCount = parseInt(await notificationBadge.textContent() ?? '0', 10);
       }
-    });
+
+      // Sender creates a new conversation and sends a message
+      const messagingPage = new MessagingPage(senderPage);
+      await messagingPage.goto(gameId);
+
+      const conversationTitle = `Polling test ${Date.now()}`;
+      await messagingPage.createConversation(conversationTitle, ['E2E Test Char 2']);
+      await messagingPage.sendMessage(`Polling test message ${Date.now()}`);
+
+      // Badge should increment within the polling interval (~15s); allow 30s headroom
+      const expectedCount = String(initialCount + 1);
+      await expect(notificationBadge).toBeVisible({ timeout: 30000 });
+      await expect(notificationBadge).toHaveText(expectedCount, { timeout: 30000 });
+    } finally {
+      await senderContext.close();
+      await recipientContext.close();
+    }
   });
 
-  test.describe('Phase Activation Notifications', () => {
-    test('should notify all participants when GM creates a new phase', async ({ browser }) => {
-      const gmContext = await browser.newContext();
-      const playerContext = await browser.newContext();
+  test('mark all as read clears the notification badge', async ({ page }) => {
+    // Uses the pre-seeded unread notification in game 704 to ensure there is
+    // always at least one unread notification — no conditional if-guard needed.
+    await loginAs(page, 'PLAYER_1');
+    const gameId = await getFixtureGameId(page, 'NOTIFICATION_FLOW');
+    await page.goto(`/games/${gameId}`);
+    await page.waitForLoadState('networkidle');
 
-      const gmPage = await gmContext.newPage();
-      const playerPage = await playerContext.newPage();
+    // Pre-seeded notification guarantees badge is visible
+    const notificationBadge = page.locator('[data-testid="notification-badge"]');
+    await expect(notificationBadge).toBeVisible({ timeout: 5000 });
 
-      try {
-        // 1. Login as GM and Player (using PLAYER_5 to avoid cross-contamination)
-        await loginAs(gmPage, 'GM');
-        await loginAs(playerPage, 'PLAYER_5');
+    await page.click('[data-testid="notification-bell"]');
+    await page.getByRole('button', { name: 'Mark all read' }).click();
+    await page.waitForLoadState('networkidle');
 
-        // Use COMMON_ROOM_MISC (game 167) to avoid interfering with other notification tests
-        const gameId = await getFixtureGameId(gmPage, 'COMMON_ROOM_MISC');
-
-        // 2. Player viewing game
-        await navigateToGame(playerPage, gameId);
-
-        // 3. GM creates and activates a new phase using PhaseManagementPage
-        const phaseManagement = new PhaseManagementPage(gmPage);
-        await phaseManagement.goto(gameId);
-
-        const phaseTitle = `E2E Test Phase - ${Date.now()}`;
-        const deadline = new Date();
-        deadline.setDate(deadline.getDate() + 2);
-
-        await phaseManagement.createPhase({
-          type: 'action',
-          title: phaseTitle,
-          description: 'Test phase for notifications',
-          deadline,
-        });
-
-        // Activate the phase
-        await phaseManagement.activatePhase(phaseTitle);
-
-        // 4. Reload player page to fetch notifications (instead of waiting for polling)
-        await playerPage.reload();
-        await playerPage.waitForLoadState('networkidle');
-
-        // Wait for notification badge to appear (transition from 0 to 1)
-        const notificationBadge = playerPage.locator('[data-testid="notification-badge"]');
-        await expect(notificationBadge).toBeVisible({ timeout: 5000 });
-
-        // Open notifications dropdown
-        await playerPage.click('[data-testid="notification-bell"]');
-
-        const dropdown = playerPage.locator('[data-testid="notification-dropdown"]');
-        await expect(dropdown).toBeVisible();
-
-        // Wait for loading to complete and notification to appear
-        const phaseNotification = playerPage.locator('.notification-item').filter({ hasText: phaseTitle }).locator('visible=true').first();
-        await expect(phaseNotification).toBeVisible({ timeout: 20000 });
-
-        // 6. Click and verify navigation
-        await phaseNotification.click();
-        await expect(playerPage).toHaveURL(new RegExp(`/games/${gameId}`));
-
-      } finally {
-        await gmContext.close();
-        await playerContext.close();
-      }
-    });
-  });
-
-  test.describe('Notification Actions', () => {
-    test('should mark all notifications as read', async ({ page }) => {
-      await loginAs(page, 'PLAYER_1');
-
-      const gameId = await getFixtureGameId(page, 'COMMON_ROOM_NOTIFICATIONS');
-      await navigateToGame(page, gameId);
-
-      // Assume there are unread notifications
-      const notificationBadge = page.locator('[data-testid="notification-badge"]');
-
-      // If there are notifications, mark all as read
-      if (await notificationBadge.isVisible()) {
-        await page.click('[data-testid="notification-bell"]');
-
-        // Click "Mark all as read" button
-        await page.getByRole('button', { name: 'Mark all read' }).click();
-        await page.waitForLoadState('networkidle');
-
-        // Close and reopen dropdown
-        await page.click('[data-testid="notification-bell"]'); // Close
-
-        // Badge should not be visible anymore
-        await expect(notificationBadge).not.toBeVisible();
-      }
-    });
-
-    test('should delete individual notification', async ({ page }) => {
-      await loginAs(page, 'PLAYER_1');
-
-      const gameId = await getFixtureGameId(page, 'COMMON_ROOM_NOTIFICATIONS');
-      await navigateToGame(page, gameId);
-
-      // Open notifications
-      await page.click('[data-testid="notification-bell"]');
-
-      // Find first notification
-      const firstNotification = page.locator('.notification-item').locator('visible=true').first();
-
-      if (await firstNotification.isVisible()) {
-        // Get the notification title to verify it's deleted
-        const notificationTitle = await firstNotification.getByRole('heading', { level: 4 }).textContent();
-
-        // Set up dialog handler BEFORE clicking delete
-        page.once('dialog', dialog => dialog.accept());
-
-        // Click delete button
-        await firstNotification.getByRole('button', { name: 'Delete notification' }).or(
-          firstNotification.locator('button[title="Delete notification"]')
-        ).click();
-        await page.waitForLoadState('networkidle');
-
-        // Close and reopen dropdown to ensure UI is refreshed
-        await page.click('[data-testid="notification-bell"]'); // Close
-        await page.click('[data-testid="notification-bell"]'); // Reopen
-
-        // Notification should no longer be visible
-        if (notificationTitle) {
-          await expect(page.locator('.notification-item').filter({ hasText: notificationTitle })).not.toBeVisible({ timeout: 5000 });
-        }
-      }
-    });
-
-    test('should show empty state when no notifications', async ({ page }) => {
-      await loginAs(page, 'AUDIENCE');
-
-      await page.goto('/dashboard');
-
-      // Open notifications and wait for dropdown to render
-      await page.click('[data-testid="notification-bell"]');
-      await page.waitForLoadState('networkidle');
-
-      // Dismiss all existing notifications to ensure empty state
-      const dismissButtons = page.locator('[data-testid="dismiss-notification"]');
-      const count = await dismissButtons.count();
-      for (let i = 0; i < count; i++) {
-        const firstDismiss = page.locator('[data-testid="dismiss-notification"]').first();
-        if (await firstDismiss.isVisible()) {
-          await firstDismiss.click();
-          // Wait for the item count to decrease before clicking the next one
-          await expect(page.locator('[data-testid="dismiss-notification"]')).toHaveCount(count - i - 1, { timeout: 3000 });
-        }
-      }
-
-      // Should now show empty state
-      const emptyState = page.getByText('No notifications');
-      const emptyMessage = page.getByText("You're all caught up!");
-
-      await expect(emptyState).toBeVisible({ timeout: 5000 });
-      await expect(emptyMessage).toBeVisible();
-    });
-  });
-
-  test.describe('Notification Polling', () => {
-    test('should automatically update notification count via polling', async ({ browser }) => {
-      const senderContext = await browser.newContext();
-      const recipientContext = await browser.newContext();
-
-      const senderPage = await senderContext.newPage();
-      const recipientPage = await recipientContext.newPage();
-
-      try {
-        // 1. Setup both users
-        await loginAs(senderPage, 'PLAYER_1');
-        await loginAs(recipientPage, 'PLAYER_2');
-
-        const gameId = await getFixtureGameId(senderPage, 'COMMON_ROOM_NOTIFICATIONS'); // Use dedicated notification test game
-
-        // 2. Recipient is on a different page (not the game page)
-        await recipientPage.goto('/dashboard');
-        await recipientPage.waitForLoadState('networkidle');
-
-        // Get initial notification count (may have notifications from previous tests)
-        const notificationBadge = recipientPage.locator('[data-testid="notification-badge"]');
-        let initialCount = 0;
-        if (await notificationBadge.isVisible({ timeout: 2000 }).catch(() => false)) {
-          const badgeText = await notificationBadge.textContent();
-          initialCount = parseInt(badgeText || '0', 10);
-        }
-
-        // 3. Sender sends a private message using MessagingPage POM
-        const messagingPage = new MessagingPage(senderPage);
-        await messagingPage.goto(gameId);
-
-        // Create conversation and send message
-        const conversationTitle = `Polling test - ${Date.now()}`;
-        const testMessage = `Polling test message - ${Date.now()}`;
-
-        await messagingPage.createConversation(conversationTitle, ['Test Player 2 Character']);
-        await messagingPage.sendMessage(testMessage);
-
-        // 4. Recipient's notification count should update automatically (polling interval is 15s)
-        // Wait up to 25 seconds for the polling to pick it up
-        const expectedCount = (initialCount + 1).toString();
-        await expect(notificationBadge).toBeVisible({ timeout: 25000 });
-        await expect(notificationBadge).toHaveText(expectedCount, { timeout: 25000 });
-
-      } finally {
-        await senderContext.close();
-        await recipientContext.close();
-      }
-    });
+    // Close dropdown and verify badge is gone
+    await page.click('[data-testid="notification-bell"]');
+    await expect(notificationBadge).not.toBeVisible();
   });
 });

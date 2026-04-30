@@ -35,7 +35,6 @@ test.describe('Game Application Workflow', () => {
 
     // Navigate to game details page using POM
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Verify we're on the right game page
     await expect(page.locator('text=E2E Test: Game Application - Submit')).toBeVisible({ timeout: 10000 });
@@ -51,7 +50,6 @@ test.describe('Game Application Workflow', () => {
 
     // Refresh page to see updated application status
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Apply button should no longer be visible after application submitted
     expect(await applicationsPage.hasApplyButton()).toBe(false);
@@ -83,7 +81,6 @@ test.describe('Game Application Workflow', () => {
 
     // Navigate to applications tab using POM
     await applicationsPage.goto();
-    await page.waitForLoadState('networkidle');
 
     // Should see PLAYER_3's application (username: TestPlayer3 or TestPlayer3_N for worker N)
     const pendingApplications = await applicationsPage.getPendingApplications();
@@ -97,7 +94,6 @@ test.describe('Game Application Workflow', () => {
     await loginAs(page, 'PLAYER_3');
     const playerGamePage = new GameDetailsPage(page);
     await playerGamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Should NOT see "Apply to Join" button anymore
     const applyButton = page.getByRole('button', { name: 'Apply to Join' });
@@ -116,7 +112,6 @@ test.describe('Game Application Workflow', () => {
 
     // Navigate to applications tab using POM
     await applicationsPage.goto();
-    await page.waitForLoadState('networkidle');
 
     // Should see pending applications
     const pendingCount = await applicationsPage.getPendingApplicationsCount();
@@ -179,7 +174,6 @@ test.describe('Game Application Workflow', () => {
     const gamePage = new GameDetailsPage(page);
 
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Submit application using POM
     expect(await applicationsPage.hasApplyButton()).toBe(true);
@@ -187,7 +181,6 @@ test.describe('Game Application Workflow', () => {
 
     // Refresh to see updated status
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Should see application pending status
     await expect(
@@ -213,7 +206,6 @@ test.describe('Game Application Workflow', () => {
 
     // Refresh page to see updated state
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Should now see "Apply to Join" button again (able to reapply)
     await expect(applicationsPage.applyButton).toBeVisible({ timeout: 10000 });
@@ -225,37 +217,15 @@ test.describe('Game Application Workflow', () => {
   });
 
   test('public applicants list is visible during recruitment', async ({ page }) => {
-    // === STEP 1: PLAYER_2 and PLAYER_3 apply to the game ===
-    await loginAs(page, 'PLAYER_2');
-    const gameId = await getFixtureGameId(page, 'E2E_GAME_APPLICATION_SUBMIT');
-    const applicationsPage = new GameApplicationsPage(page, gameId);
+    // Applications are pre-seeded in fixture — no runtime submission needed
+    await loginAs(page, 'PLAYER_3');
+    const gameId = await getFixtureGameId(page, 'E2E_GAME_APPLICATION_PUBLIC_LIST');
     const gamePage = new GameDetailsPage(page);
 
-    // PLAYER_2 applies
+    // Navigate to Game Info tab to see public applicants
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
-
-    if (await applicationsPage.hasApplyButton()) {
-      await applicationsPage.submitApplication('I want to join!', 'player');
-    }
-
-    // PLAYER_3 applies
-    await loginAs(page, 'PLAYER_3');
-    await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
-
-    if (await applicationsPage.hasApplyButton()) {
-      await applicationsPage.submitApplication('Count me in!', 'player');
-    }
-
-    // === STEP 2: Navigate to Game Info tab to see public applicants ===
-    await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
-
-    // Navigate to Game Info tab
     await navigateToGameTab(page, 'Game Info');
 
-    // === STEP 3: Verify public applicants section is visible ===
     // Should see "Applicants" heading
     await expect(page.locator('text=Applicants').or(page.locator('text=applicants')).first()).toBeVisible({ timeout: 5000 });
 
@@ -263,16 +233,15 @@ test.describe('Game Application Workflow', () => {
     const player2Username = getWorkerUsername('TestPlayer2');
     const player3Username = getWorkerUsername('TestPlayer3');
 
-    // At least one of the applicants should be visible
+    // At least one of the pre-seeded applicants should be visible
     await expect(
       page.locator(`text=${player2Username}`).or(page.locator(`text=${player3Username}`)).locator('visible=true').first()
     ).toBeVisible({ timeout: 5000 });
 
-    // === STEP 4: Verify NO status badges are shown (pending/approved/rejected) ===
     // The public list should NOT show application status
     await expect(
       page.locator('text=Pending Review').or(page.locator('text=Approved')).or(page.locator('text=Rejected')).first()
-    ).not.toBeVisible(); // Status should NOT be visible to non-GMs
+    ).not.toBeVisible();
   });
 
   test('player can join as audience during character creation', async ({ page }) => {
@@ -283,7 +252,6 @@ test.describe('Game Application Workflow', () => {
 
     // Navigate to game in character_creation state
     await gamePage.goto(gameId);
-    await page.waitForLoadState('networkidle');
 
     // Verify we're on the right game page
     await expect(page.locator('text=E2E Test: Character Creation Audience')).toBeVisible({ timeout: 10000 });
@@ -306,9 +274,9 @@ test.describe('Game Application Workflow', () => {
     const messageTextarea = page.getByPlaceholder(/Let the GM know/i);
     await messageTextarea.fill('I would love to watch the character creation process!');
 
-    // Click the "Join as Audience" button in the modal (use .last() to get modal button, not page button)
-    const submitButton = page.getByRole('button', { name: 'Join as Audience', exact: true }).last();
-    await submitButton.click();
+    // Click the submit button scoped to the modal container
+    const modalContainer = page.locator('.fixed.inset-0').filter({ hasText: 'Join as Audience' });
+    await modalContainer.getByRole('button', { name: 'Join as Audience', exact: true }).click();
 
     // Wait for modal to close and success toast
     await expect(page.getByRole('heading', { name: 'Join as Audience' })).not.toBeVisible({ timeout: 5000 });
@@ -319,7 +287,5 @@ test.describe('Game Application Workflow', () => {
 
     // Verify no "Apply to Join" button appears (would appear for non-participants)
     await expect(page.getByTestId(/apply-button-/)).not.toBeVisible();
-
-    // Success! User successfully joined as audience during character creation
   });
 });

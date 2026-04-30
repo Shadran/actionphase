@@ -35,6 +35,7 @@ export const FIXTURE_GAMES = {
   E2E_GAME_APPLICATION_APPROVE: 'E2E Test: Game Application - Approve', // Game with pending application for GM to approve
   E2E_GAME_APPLICATION_REJECT: 'E2E Test: Game Application - Reject', // Game with pending application for GM to reject
   E2E_GAME_APPLICATION_DUPLICATE: 'E2E Test: Game Application - Duplicate', // Game with existing application for duplicate prevention test
+  E2E_GAME_APPLICATION_PUBLIC_LIST: 'E2E Test: Game Application - Public List', // Game with pre-seeded applications for public applicant list test
   E2E_GAME_CHARACTER_CREATION_AUDIENCE: 'E2E Test: Character Creation Audience', // Game in character_creation state for testing audience joining
   E2E_GAME_LIFECYCLE_START: 'E2E Test: Game Lifecycle - Start', // Game in recruitment ready to start
   E2E_GAME_LIFECYCLE_PAUSE: 'E2E Test: Game Lifecycle - Pause', // Active game ready to pause
@@ -61,6 +62,19 @@ export const FIXTURE_GAMES = {
   // Deep linking test (701)
   DEEP_LINKING_TEST: 'E2E Deep Linking Test',                      // Game #701 - "Deep linking regression tests"
 
+  // Manual read tracking test (702)
+  MANUAL_READ_TRACKING: 'E2E Test: Manual Read Tracking',          // Game #702 - "manual-read-tracking.spec.ts"
+
+  // Unread comment badge test (703)
+  UNREAD_TRACKING: 'E2E Test: Unread Tracking',                    // Game #703 - "unread-tracking.spec.ts"
+
+  // Notification flow tests (704, 705)
+  NOTIFICATION_FLOW: 'E2E Test: Notification Flow',                // Game #704 - reply/mention notification tests
+  NOTIFICATION_PHASE: 'E2E Test: Notification Phase',              // Game #705 - phase-activation notification test
+
+  // Player multiple characters test (340-345, worker-specific)
+  PLAYER_MULTIPLE_CHARACTERS: 'E2E Test: Player Multiple Characters', // Game #340 - "player-multiple-characters.spec.ts"
+
   // Character workflow games (isolated for parallel testing)
   E2E_CHARACTER_CREATION: 'E2E Test: Character Creation',  // character_creation state with approved player (no character)
   E2E_CHARACTER_PENDING_STATE: 'E2E Test: Character Approval - Pending State',  // For "character starts in pending state" test
@@ -71,6 +85,7 @@ export const FIXTURE_GAMES = {
   E2E_CHARACTER_IN_GAME: 'E2E Test: Character Approval - In Game',             // For "approved characters appear in active game" test
   E2E_CHARACTER_APPROVAL: 'E2E Test: Character Approval - Pending State',      // Deprecated alias - use specific fixtures instead
   E2E_GM_MESSAGING: 'E2E Test: GM Messaging',              // in_progress with GM having multiple NPCs for messaging tests
+  E2E_AUDIENCE_PM: 'E2E Test: Audience Private Messages',  // Game #360 - audience view of all private messages
 
   // Legacy alias (deprecated - use COMMON_ROOM_POSTS instead)
   COMMON_ROOM_TEST: 'E2E Common Room - Posts',    // Alias for Game #164
@@ -172,6 +187,126 @@ export async function getFixtureGameId(
   }
 
   return gameId;
+}
+
+/**
+ * Fetch comment IDs for the deep-linking test fixture (game #701).
+ *
+ * Queries the API for the single post in the game, then its flat comment list,
+ * and returns the IDs of the Level 3 and Level 5 comments by their known content.
+ * This avoids DOM-scraping in tests and survives fixture resets.
+ *
+ * @param page - Playwright page (must be logged in)
+ * @param gameId - Worker-adjusted game ID for the deep-linking fixture
+ */
+export async function getDeepLinkingCommentIds(
+  page: Page,
+  gameId: number
+): Promise<{ shallowCommentId: number; deepCommentId: number }> {
+  const result = await page.evaluate(async (gid: number) => {
+    const postsResp = await fetch(`/api/v1/games/${gid}/posts`, { credentials: 'include' });
+    if (!postsResp.ok) throw new Error(`Failed to fetch posts: ${postsResp.status}`);
+    const posts: Array<{ id: number }> = await postsResp.json();
+    if (!posts.length) throw new Error('No posts found in deep-linking fixture');
+
+    const postId = posts[0].id;
+    const commentsResp = await fetch(`/api/v1/games/${gid}/posts/${postId}/comments-with-threads?limit=100`, { credentials: 'include' });
+    if (!commentsResp.ok) throw new Error(`Failed to fetch comments: ${commentsResp.status}`);
+    const commentsData = await commentsResp.json();
+    const comments: Array<{ id: number; content: string }> = commentsData.comments ?? commentsData;
+
+    const shallow = comments.find(c => c.content.startsWith('Level 3 comment'));
+    const deep    = comments.find(c => c.content.startsWith('Level 5 comment'));
+    if (!shallow) throw new Error('Level 3 comment not found in deep-linking fixture');
+    if (!deep)    throw new Error('Level 5 comment not found in deep-linking fixture');
+
+    return { shallowCommentId: shallow.id, deepCommentId: deep.id };
+  }, gameId);
+
+  return result;
+}
+
+/**
+ * Set the comment_read_mode preference for the currently logged-in user via the API.
+ * Faster and more reliable than navigating to Settings and clicking through the UI.
+ *
+ * @param page - Playwright page (must be logged in)
+ * @param mode - 'auto' | 'manual'
+ */
+export async function setCommentReadMode(page: Page, mode: 'auto' | 'manual'): Promise<void> {
+  const status = await page.evaluate(async (m: string) => {
+    const resp = await fetch('/api/v1/auth/preferences', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferences: { comment_read_mode: m } }),
+    });
+    return resp.status;
+  }, mode);
+
+  if (status !== 200) {
+    throw new Error(`setCommentReadMode failed: PUT /api/v1/me/preferences returned ${status}`);
+  }
+}
+
+/**
+ * Fetch the ID of the first post whose content matches a given string.
+ * Used to get the post ID needed for API-level comment creation.
+ *
+ * @param page - Playwright page (must be logged in)
+ * @param gameId - Worker-adjusted game ID
+ * @param content - Exact post content to match
+ */
+export async function getPostIdByContent(page: Page, gameId: number, content: string): Promise<number> {
+  const postId = await page.evaluate(async (args: { gameId: number; content: string }) => {
+    const resp = await fetch(`/api/v1/games/${args.gameId}/posts`, { credentials: 'include' });
+    if (!resp.ok) throw new Error(`Failed to fetch posts: ${resp.status}`);
+    const posts: Array<{ id: number; content: string }> = await resp.json();
+    const match = posts.find(p => p.content === args.content);
+    if (!match) throw new Error(`Post not found: "${args.content}"`);
+    return match.id;
+  }, { gameId, content });
+  return postId;
+}
+
+/**
+ * Add a comment to a post via the API, using the current page's auth session.
+ * Fetches the logged-in user's first controllable character in the game to use
+ * as the comment author.
+ *
+ * @param page - Playwright page (must be logged in as the commenter)
+ * @param gameId - Worker-adjusted game ID
+ * @param postId - ID of the post to comment on
+ * @param content - Comment text
+ */
+export async function addCommentViaApi(
+  page: Page,
+  gameId: number,
+  postId: number,
+  content: string,
+): Promise<void> {
+  const status = await page.evaluate(async (args: {
+    gameId: number; postId: number; content: string;
+  }) => {
+    const charsResp = await fetch(`/api/v1/games/${args.gameId}/characters/controllable`, {
+      credentials: 'include',
+    });
+    if (!charsResp.ok) throw new Error(`Failed to fetch controllable characters: ${charsResp.status}`);
+    const chars: Array<{ id: number }> = await charsResp.json();
+    if (!chars.length) throw new Error('No controllable characters found');
+
+    const resp = await fetch(`/api/v1/games/${args.gameId}/posts/${args.postId}/comments`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ character_id: chars[0].id, content: args.content }),
+    });
+    return resp.status;
+  }, { gameId, postId, content });
+
+  if (status !== 200 && status !== 201) {
+    throw new Error(`addCommentViaApi failed: POST comments returned ${status}`);
+  }
 }
 
 export interface CreateGameOptions {

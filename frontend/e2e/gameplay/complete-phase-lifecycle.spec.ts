@@ -67,7 +67,6 @@ test.describe.serial('Complete Phase Lifecycle', () => {
 
     const gameId = await getFixtureGameId(page, 'E2E_LIFECYCLE');
     await navigateToGame(page, gameId);
-    await page.waitForLoadState('networkidle');
 
     // During action phase, players should see "Submit Action" tab
     await assertTabVisible(page, 'Submit Action');
@@ -116,7 +115,6 @@ test.describe.serial('Complete Phase Lifecycle', () => {
 
     const gameId = await getFixtureGameId(page, 'E2E_LIFECYCLE');
     await navigateToGame(page, gameId);
-    await page.waitForLoadState('networkidle');
 
     // Players should not see the Phases management tab
     await assertTabNotVisible(page, 'Phases');
@@ -131,7 +129,6 @@ test.describe.serial('Complete Phase Lifecycle', () => {
     const gameId = await getFixtureGameId(page, 'E2E_LIFECYCLE');
     const historyPage = new HistoryPage(page, gameId);
     await historyPage.goto();
-    await page.waitForLoadState('networkidle');
 
     // Verify we're on history page
     await historyPage.verifyOnPage();

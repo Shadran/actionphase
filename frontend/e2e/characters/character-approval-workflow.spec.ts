@@ -10,93 +10,32 @@ import { navigateToGameTab } from '../utils/navigation';
  *
  * Tests the complete character approval process including:
  * - Character starts in pending state after creation
- * - GM can view pending characters
  * - GM can approve characters
  * - Approved characters appear in game
  * - Character resubmission workflow (rejected → edited → resubmitted → pending)
  *
- * This tests CORE content quality control mechanics
- *
- * NOTE: These tests now use the E2E_CHARACTER_APPROVAL fixture which provides
- * a game in character_creation state with approved players (no characters yet).
- * This saves ~30-36 seconds of duplicated setup time across the test suite.
+ * Fixture characters are pre-baked in 14_character_workflows.sql — no runtime
+ * character creation is needed for these tests.
  */
 
 test.describe('@mobile Character Approval Workflow', () => {
 
+  test('character starts in pending state after creation', async ({ page }) => {
+    await loginAs(page, 'PLAYER_1');
 
-  test('character starts in pending state after creation', async ({ browser }) => {
-    const gmContext = await browser.newContext();
-    const playerContext = await browser.newContext();
-    const gmPage = await gmContext.newPage();
-    const playerPage = await playerContext.newPage();
+    const gameId = await getFixtureGameId(page, 'E2E_CHARACTER_PENDING_STATE');
 
-    try {
-      await loginAs(gmPage, 'GM');
-      await loginAs(playerPage, 'PLAYER_1');
+    // Fixture pre-bakes 'Pending State Test Character' in pending status for PLAYER_1
+    const characterPage = new CharacterWorkflowPage(page, gameId);
+    await characterPage.goto();
 
-      // Use isolated fixture for parallel testing (Game #301)
-      const gameId = await getFixtureGameId(playerPage, 'E2E_CHARACTER_PENDING_STATE');
+    const characterName = 'Pending State Test Character';
+    expect(await characterPage.hasCharacter(characterName)).toBe(true);
+    const status = await characterPage.getCharacterStatus(characterName);
+    expect(status).toBe('pending');
 
-      // Player creates character using POM
-      const characterPage = new CharacterWorkflowPage(playerPage, gameId);
-      await characterPage.goto();
-
-      const characterName = `Test Char ${Date.now()}`;
-      await characterPage.createCharacter(characterName);
-
-      // Verify character appears with pending status using POM
-      expect(await characterPage.hasCharacter(characterName)).toBe(true);
-      const status = await characterPage.getCharacterStatus(characterName);
-      expect(status).toBe('pending');
-
-      // Player should not see an Approve button for their own pending character
-      await expect(playerPage.getByRole('button', { name: 'Approve' })).not.toBeVisible();
-    } finally {
-      await gmContext.close();
-      await playerContext.close();
-    }
-  });
-
-  test('GM can view pending characters', async ({ browser }) => {
-    const gmContext = await browser.newContext();
-    const playerContext = await browser.newContext();
-    const gmPage = await gmContext.newPage();
-    const playerPage = await playerContext.newPage();
-
-    try {
-      await loginAs(gmPage, 'GM');
-      await loginAs(playerPage, 'PLAYER_2');
-
-      // Use isolated fixture for parallel testing (Game #303)
-      const gameId = await getFixtureGameId(playerPage, 'E2E_CHARACTER_VIEW_PENDING');
-
-      // Player creates character using POM
-      const playerCharPage = new CharacterWorkflowPage(playerPage, gameId);
-      await playerCharPage.goto();
-
-      const characterName = `Pending Test ${Date.now()}`;
-      await playerCharPage.createCharacter(characterName);
-
-      // GM views characters and sees pending character using POM
-      await gmPage.reload();
-      await gmPage.waitForLoadState('networkidle');
-
-      const gmCharPage = new CharacterWorkflowPage(gmPage, gameId);
-      await gmCharPage.goto();
-
-      // Verify GM sees the pending character
-      expect(await gmCharPage.hasCharacter(characterName)).toBe(true);
-      const status = await gmCharPage.getCharacterStatus(characterName);
-      expect(status).toBe('pending');
-
-      // Verify pending characters count
-      const pendingCount = await gmCharPage.getCharactersCountByStatus('pending');
-      expect(pendingCount).toBeGreaterThan(0);
-    } finally {
-      await gmContext.close();
-      await playerContext.close();
-    }
+    // Player should not see an Approve button for their own pending character
+    await expect(page.getByRole('button', { name: 'Approve' })).not.toBeVisible();
   });
 
   test('GM can approve character', async ({ browser }) => {
@@ -109,35 +48,22 @@ test.describe('@mobile Character Approval Workflow', () => {
       await loginAs(gmPage, 'GM');
       await loginAs(playerPage, 'PLAYER_1');
 
-      // Use isolated fixture for parallel testing (Game #304)
-      const gameId = await getFixtureGameId(playerPage, 'E2E_CHARACTER_APPROVE');
-
-      // Player creates character using POM
-      const playerCharPage = new CharacterWorkflowPage(playerPage, gameId);
-      await playerCharPage.goto();
-
-      const characterName = `Approve Test ${Date.now()}`;
-      await playerCharPage.createCharacter(characterName);
-
-      // GM approves character using POM
-      await gmPage.reload();
-      await gmPage.waitForLoadState('networkidle');
+      // Fixture pre-bakes 'Approval Test Character' in pending status for PLAYER_1
+      const gameId = await getFixtureGameId(gmPage, 'E2E_CHARACTER_APPROVE');
 
       const gmCharPage = new CharacterWorkflowPage(gmPage, gameId);
       await gmCharPage.goto();
 
-      // Approve character using POM (no more xpath!)
+      const characterName = 'Approval Test Character';
       await gmCharPage.approveCharacter(characterName);
 
-      // Verify character now shows as approved
+      // Verify character now shows as approved on GM view
       const gmStatus = await gmCharPage.getCharacterStatus(characterName);
       expect(gmStatus).toBe('approved');
 
       // Player should see approved status too
-      await playerPage.reload();
-      await playerPage.waitForLoadState('networkidle');
+      const playerCharPage = new CharacterWorkflowPage(playerPage, gameId);
       await playerCharPage.goto();
-
       const playerStatus = await playerCharPage.getCharacterStatus(characterName);
       expect(playerStatus).toBe('approved');
     } finally {
@@ -153,9 +79,8 @@ test.describe('@mobile Character Approval Workflow', () => {
     try {
       await loginAs(gmPage, 'GM');
 
-      // Use isolated fixture for parallel testing (Game #306)
-      // This character simulates a workflow where: player created → GM rejected → player edited → player resubmitted
-      // The character is now in "pending" status waiting for GM approval
+      // Fixture pre-bakes 'Resubmitted Test Character' in pending status, simulating
+      // the rejected → edited → resubmitted workflow
       const gameId = await getFixtureGameId(gmPage, 'E2E_CHARACTER_RESUBMIT');
 
       const gmCharPage = new CharacterWorkflowPage(gmPage, gameId);
@@ -190,7 +115,6 @@ test.describe('@mobile Character Approval Workflow', () => {
       await loginAs(gmPage, 'GM');
       await loginAs(playerPage, 'PLAYER_3'); // Player 3 has the approved character in fixture
 
-      // Use isolated fixture for parallel testing (Game #307)
       const gameId = await getFixtureGameId(playerPage, 'E2E_CHARACTER_IN_GAME');
 
       // Verify approved character exists

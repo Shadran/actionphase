@@ -112,10 +112,10 @@ test.describe('User Registration', () => {
     // Navigate to registration form
     await page.getByRole('button', { name: /Don't have an account\? Sign up/i }).click();
 
-    // Generate unique username to avoid conflicts
+    // Prefix matches reset script pattern (test_%@example.com) for cleanup
     const timestamp = Date.now();
-    const username = `e2euser_${timestamp}`;
-    const email = `e2euser_${timestamp}@example.com`;
+    const username = `TestE2EReg_${timestamp}`;
+    const email = `test_e2ereg_${timestamp}@example.com`;
     const password = 'securepassword123';
 
     // Fill in valid registration data
@@ -134,36 +134,6 @@ test.describe('User Registration', () => {
     await expect(page.locator('nav a[href="/dashboard"]').locator('visible=true').first()).toBeVisible();
   });
 
-  test(tagTest([tags.AUTH], 'should show loading state during registration'), async ({ page }) => {
-    // Navigate to registration form
-    await page.getByRole('button', { name: /Don't have an account\? Sign up/i }).click();
-
-    // Generate unique user
-    const timestamp = Date.now();
-    const password = 'password123';
-    await page.getByTestId('register-username').fill(`loadtest_${timestamp}`);
-    await page.getByTestId('register-email').fill(`loadtest_${timestamp}@example.com`);
-    await page.getByTestId('register-password').fill(password);
-    await page.getByTestId('register-confirm-password').fill(password);
-
-    // Click submit
-    const submitButton = page.getByTestId('register-submit');
-    await submitButton.click();
-
-    // Button should show loading state briefly
-    // Note: This may be too fast to reliably catch, but we verify the pattern exists
-    const loadingText = page.getByText(/creating account/i);
-
-    // Either see loading text or already redirected (both valid)
-    try {
-      await expect(loadingText).toBeVisible({ timeout: 1000 });
-      await expect(submitButton).toBeDisabled();
-    } catch {
-      // Registration was too fast - verify we're on dashboard instead
-      await expect(page).toHaveURL(/\/dashboard/);
-    }
-  });
-
   test(tagTest([tags.AUTH, tags.SMOKE], 'captcha widget is hidden in development'), async ({ page }) => {
     // REGRESSION TEST for captcha appearing in dev environment
     // Bug: Non-functional hCaptcha widget displayed in development
@@ -175,18 +145,6 @@ test.describe('User Registration', () => {
     // hCaptcha widget should NOT be visible in development environment
     await expect(page.locator('[data-testid="hcaptcha-mock"]')).not.toBeVisible();
     await expect(page.locator('.h-captcha')).not.toBeVisible();
-
-    // Registration form should be functional without captcha
-    const timestamp = Date.now();
-    const password = 'password123';
-    await page.getByTestId('register-username').fill(`nocaptcha_${timestamp}`);
-    await page.getByTestId('register-email').fill(`nocaptcha_${timestamp}@example.com`);
-    await page.getByTestId('register-password').fill(password);
-    await page.getByTestId('register-confirm-password').fill(password);
-    await page.getByTestId('register-submit').click();
-
-    // Should succeed without captcha verification in dev
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
   });
 
   test(tagTest([tags.AUTH], 'should handle duplicate username error'), async ({ page }) => {

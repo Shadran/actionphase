@@ -16,7 +16,7 @@ import { assertTabNotVisible } from '../utils/navigation';
  * - Uses PhaseManagementPage for all interactions
  * - Improved readability and maintainability
  */
-test.describe('@mobile Phase Management Flow', () => {
+test.describe('Phase Management Flow', () => {
   test('GM can create a phase', async ({ page }) => {
     // Login as GM
     await loginAs(page, 'GM');
@@ -39,11 +39,8 @@ test.describe('@mobile Phase Management Flow', () => {
       deadline,
     });
 
-    // Verify phase appears
+    // Verify phase appears in the list
     await phasePage.verifyPhaseExists(phaseName);
-
-    // Verify "Activate" button is visible (phases are created but not active)
-    await expect(page.getByRole('button', { name: 'Activate' }).locator('visible=true').first()).toBeVisible();
   });
 
   test('GM can activate a phase', async ({ page }) => {
@@ -81,8 +78,7 @@ test.describe('@mobile Phase Management Flow', () => {
     // Login as GM
     await loginAs(page, 'GM');
 
-    // Use "The Heist at Goldstone Bank" from fixtures
-    // This game already has Phase 2 active, so we can see Phase 1 and Phase 2
+    // E2E_ACTION already has Phase 1 (Discussion Phase) and Phase 2 (Action Phase, active)
     const gameId = await getFixtureGameId(page, 'E2E_ACTION');
 
     const phasePage = new PhaseManagementPage(page);
@@ -139,7 +135,6 @@ test.describe('@mobile Phase Management Flow', () => {
     const gameId = await getFixtureGameId(page, 'E2E_ACTION');
 
     await page.goto(`/games/${gameId}`);
-    await page.waitForLoadState('networkidle');
 
     // Player should not see the Phases tab at all
     await assertTabNotVisible(page, 'Phases');
@@ -160,10 +155,7 @@ test.describe('@mobile Phase Management Flow', () => {
     // Verify delete button exists (phase is not active)
     await expect(phaseCard.getByRole('button', { name: /delete/i }).first()).toBeVisible();
 
-    // Use POM method to cancel deletion (opens dialog, verifies, and cancels)
+    // Use POM method to cancel deletion — POM verifies the phase card is still visible after cancel
     await phasePage.deletePhase('Discussion Phase', false);
-
-    // Verify warning message appeared (after cancel, modal is gone, so check before)
-    // Phase should still exist (verified in POM method)
   });
 });

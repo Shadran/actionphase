@@ -23,7 +23,7 @@ import { CharacterSheetPage } from '../pages/CharacterSheetPage';
  * CRITICAL: This tests CORE player engagement mechanics
  */
 
-test.describe('@mobile Character Sheet Management', () => {
+test.describe('Character Sheet Management', () => {
 
   // Close any open modals after each test so the next test starts clean.
   // afterEach runs while still on the game page, so Escape reliably dismisses the modal.

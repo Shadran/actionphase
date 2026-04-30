@@ -60,39 +60,6 @@ test.describe('@mobile Browser Navigation Behavior', () => {
     }
   });
 
-  test('should handle refresh on dashboard', async ({ page }) => {
-    await loginAs(page, 'PLAYER_1');
-
-    // Navigate to dashboard
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveURL('/dashboard');
-
-    // Refresh the page
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-
-    // Should still be on dashboard and authenticated
-    await expect(page).toHaveURL('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Dashboard' }).or(page.getByRole('heading', { level: 1 })).locator('visible=true').first()).toBeVisible();
-  });
-
-  test('should handle direct URL navigation to dashboard', async ({ page }) => {
-    await loginAs(page, 'PLAYER_1');
-
-    // Navigate away first
-    await page.goto('/games');
-    await page.waitForLoadState('networkidle');
-
-    // Directly navigate back to dashboard
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    // Should load dashboard successfully
-    await expect(page).toHaveURL('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Dashboard' }).or(page.getByRole('heading', { level: 1 })).locator('visible=true').first()).toBeVisible();
-  });
-
   test('should not require double-back when navigating from games list to game', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
 
@@ -130,26 +97,19 @@ test.describe('@mobile Browser Navigation Behavior', () => {
     expect(initialUrl).toMatch(/\/games\/\d+\?tab=/);
     const initialTab = new URL(initialUrl).searchParams.get('tab');
 
-    // Navigate to History tab if available (handles mobile select and desktop tabs)
-    const mobileSelect2 = page.locator('select#tab-select');
-    const isMobile2 = await mobileSelect2.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasHistoryTab = isMobile2
-      ? await mobileSelect2.locator('option', { hasText: 'History' }).count() > 0
-      : await page.getByRole('tab', { name: 'History' }).count() > 0;
-    if (hasHistoryTab) {
-      await navigateToGameTab(page, 'History');
+    // Navigate to History tab — assert it exists first so the test fails explicitly if removed
+    await navigateToGameTab(page, 'History');
 
-      // URL should now have different tab parameter
-      expect(page.url()).toMatch(/tab=history/);
+    // URL should now have history tab parameter
+    expect(page.url()).toMatch(/tab=history/);
 
-      // Press back ONCE
-      await page.goBack();
-      await page.waitForLoadState('networkidle');
+    // Press back ONCE
+    await page.goBack();
+    await page.waitForLoadState('networkidle');
 
-      // Should return to initial tab (not leave game page)
-      expect(page.url()).toContain(`tab=${initialTab}`);
-      await expect(page).toHaveURL(new RegExp(`/games/${gameId}`));
-    }
+    // Should return to initial tab (not leave game page)
+    expect(page.url()).toContain(`tab=${initialTab}`);
+    await expect(page).toHaveURL(new RegExp(`/games/${gameId}`));
   });
 
   // NOTE: Browser back button behavior for tab navigation

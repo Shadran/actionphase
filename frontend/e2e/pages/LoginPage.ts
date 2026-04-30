@@ -48,8 +48,10 @@ export class LoginPage {
         }
       }
     }
-    // Wait for the login form to be visible (ensures auth state has stabilized)
+    // Wait for the login form to be visible and network to settle
+    // (ensures any in-flight auth requests from prior tests have completed)
     await this.usernameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**

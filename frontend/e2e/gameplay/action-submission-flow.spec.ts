@@ -77,15 +77,11 @@ test.describe('@mobile Action Submission Flow', () => {
     await gamePage.goto(gameId);
     await gamePage.goToActions();
 
-    // Verify GM can see actions section
-    await assertTextVisible(page, 'Actions');
-
     // GM should see submitted action from Player 1
     await expect(page.locator('text=E2E Test Char 1').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
 
     // Click to expand the action card to see content
-    await page.getByRole('button', { name: 'TestPlayer1' }).locator('visible=true').first().click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'E2E Test Char 1' }).locator('visible=true').first().click();
 
     // Verify action content is visible to GM
     await assertTextVisible(page, 'This is my existing action for testing purposes');
@@ -101,7 +97,6 @@ test.describe('@mobile Action Submission Flow', () => {
 
     // Navigate to action submission using POM
     await actionPage.goto();
-    await page.waitForLoadState('networkidle');
 
     // Verify Action Submission section is visible
     await assertTextVisible(page, 'Action Submission');

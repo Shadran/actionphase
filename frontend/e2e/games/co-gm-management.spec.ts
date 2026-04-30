@@ -39,7 +39,7 @@ const audience2Username = getWorkerUsername('TestAudience2');
 // These tests validate the actual promotion/demotion UI flow.
 // They run serially because each test depends on the state left by the previous one.
 
-test.describe.serial('Co-GM Management — UI Lifecycle', () => {
+test.describe.serial('@mobile Co-GM Management — UI Lifecycle', () => {
   // Start with a clean slate: ensure no co-GM exists (uses API so no "Setup" test needed)
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
@@ -124,15 +124,13 @@ test.describe.serial('Co-GM Management — UI Lifecycle', () => {
     await navigateToGameTab(page, 'People');
     await page.getByRole('button', { name: /Game Participants/ }).click();
 
-    await page.waitForSelector('h3:has-text("audiences")', { timeout: 5000 }).catch(() => {});
+    // At least one audience member exists in this game (audience1 is a known participant)
+    const actionsButton = page.getByRole('button', { name: 'Participant actions' }).first();
+    await expect(actionsButton).toBeVisible({ timeout: 5000 });
+    await actionsButton.click();
 
-    const actionsButtons = page.getByRole('button', { name: 'Participant actions' });
-    const buttonCount = await actionsButtons.count();
-
-    if (buttonCount > 0) {
-      await actionsButtons.first().click();
-      await expect(page.getByRole('menuitem', { name: 'Promote to Co-GM' })).not.toBeVisible();
-    }
+    // Co-GMs cannot promote others — the promote menu item must not appear
+    await expect(page.getByRole('menuitem', { name: 'Promote to Co-GM' })).not.toBeVisible();
   });
 
   test('Primary GM can demote co-GM back to audience', async ({ page }) => {
@@ -281,6 +279,9 @@ test.describe('Co-GM Management — Functional Capabilities', () => {
   });
 
   test('Co-GM can view player actions on Actions tab', async ({ page }) => {
+    // NOTE: This test activates Phase 2 as GM, which mutates shared game state.
+    // 'Co-GM has full access to phase management' relies on a phase being active —
+    // run this test first or ensure a phase is already active in the fixture.
     // First activate the action phase as GM
     await loginAs(page, 'GM');
     const gamePage = new GameDetailsPage(page);
@@ -353,10 +354,8 @@ test.describe('Co-GM Management — Functional Capabilities', () => {
 
     await expect(page.getByRole('heading', { name: /Audience/i })).toBeVisible();
 
-    const participantActions = page.getByRole('button', { name: 'Participant actions' });
-    if ((await participantActions.count()) > 0) {
-      await expect(participantActions.first()).toBeVisible();
-    }
+    // Co-GM should see participant action buttons (same as primary GM)
+    await expect(page.getByRole('button', { name: 'Participant actions' }).first()).toBeVisible();
   });
 
   test('Co-GM can create NPCs', async ({ page }) => {

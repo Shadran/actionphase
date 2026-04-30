@@ -155,3 +155,24 @@ FROM characters c
 WHERE c.game_id = 50354 AND c.character_type = 'player_character'
 ORDER BY c.id LIMIT 1 OFFSET 1
 ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content;
+
+-- Conversation 6: For permissions test — Player 3 has their own conversation so the messages tab loads
+INSERT INTO conversations (id, game_id, title, conversation_type, created_by_user_id, created_at)
+SELECT 59996, 50354, 'Test 6: Player 3 Conversation', 'direct', c.user_id, NOW()
+FROM characters c
+WHERE c.game_id = 50354 AND c.character_type = 'player_character'
+ORDER BY c.id LIMIT 1 OFFSET 2
+ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, game_id = EXCLUDED.game_id;
+
+INSERT INTO conversation_participants (conversation_id, user_id, character_id, joined_at)
+SELECT 59996, c.user_id, c.id, NOW()
+FROM characters c
+WHERE c.game_id = 50354 AND c.character_type = 'player_character'
+ORDER BY c.id LIMIT 1 OFFSET 2
+ON CONFLICT (conversation_id, user_id, character_id) DO NOTHING;
+
+INSERT INTO private_messages (conversation_id, sender_user_id, sender_character_id, content, created_at, is_deleted, deleted_at)
+SELECT 59996, c.user_id, c.id, 'Message from Player 3', NOW() - interval '5 minutes', false, NULL::timestamp
+FROM characters c
+WHERE c.game_id = 50354 AND c.character_type = 'player_character'
+ORDER BY c.id LIMIT 1 OFFSET 2;

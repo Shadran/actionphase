@@ -6,6 +6,8 @@
 
 BEGIN;
 
+DELETE FROM games WHERE id = 169;
+
 DO $$
 DECLARE
   gm_id INTEGER;
@@ -17,6 +19,10 @@ DECLARE
   c1_id INTEGER;
   c2_id INTEGER;
   c3_id INTEGER;
+  poll_id INTEGER;
+  opt1_id INTEGER;
+  opt2_id INTEGER;
+  opt3_id INTEGER;
 BEGIN
   -- Get user IDs
   SELECT id INTO gm_id FROM users WHERE email = 'test_gm@example.com';
@@ -73,6 +79,19 @@ BEGIN
     (169, p1_id, 'Polls Test Char 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (169, p2_id, 'Polls Test Char 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (169, p3_id, 'Polls Test Char 3', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+
+  -- Pre-seed an active poll so tests don't depend on runtime creation for read/vote/permission tests
+  INSERT INTO common_room_polls (game_id, phase_id, created_by_user_id, question, description, deadline, show_individual_votes, allow_other_option, created_at, updated_at)
+  VALUES (169, phase_id, gm_id, 'What should the party do next?', 'Vote for the next adventure direction', NOW() + INTERVAL '1 day', false, true, NOW() - INTERVAL '30 minutes', NOW())
+  RETURNING id INTO poll_id;
+
+  INSERT INTO poll_options (poll_id, option_text, display_order) VALUES (poll_id, 'Explore the abandoned castle', 1) RETURNING id INTO opt1_id;
+  INSERT INTO poll_options (poll_id, option_text, display_order) VALUES (poll_id, 'Investigate the mysterious forest', 2) RETURNING id INTO opt2_id;
+  INSERT INTO poll_options (poll_id, option_text, display_order) VALUES (poll_id, 'Return to town for supplies', 3) RETURNING id INTO opt3_id;
+
+  -- Pre-seed PLAYER_1's vote so persistence tests don't depend on test 2 running first
+  INSERT INTO poll_votes (poll_id, user_id, selected_option_id, created_at, updated_at)
+  VALUES (poll_id, p1_id, opt2_id, NOW() - INTERVAL '20 minutes', NOW());
 
   RAISE NOTICE 'Created Game #169: E2E Common Room - Polls (Phase ID: %)', phase_id;
 

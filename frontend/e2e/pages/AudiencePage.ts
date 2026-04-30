@@ -30,6 +30,10 @@ export class AudiencePage {
     const privateMessagesTab = this.page.getByRole('button', { name: 'Private Messages' });
     await privateMessagesTab.click();
     await this.page.waitForLoadState('networkidle');
+    // Wait for the conversation list to render (React updates after networkidle)
+    await this.page.locator('[data-testid="conversation-item"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
+      // No conversations in this game — that's valid for some tests
+    });
   }
 
   /**

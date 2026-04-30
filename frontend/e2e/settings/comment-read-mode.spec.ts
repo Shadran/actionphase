@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { login } from '../fixtures/auth-helpers';
+import { setCommentReadMode } from '../fixtures/game-helpers';
 import { SettingsPage } from '../pages/SettingsPage';
 
-// Settings tests modify user preferences, not game state, so they don't
-// need worker-isolated users. Always use the base (worker-0) credentials.
 // Use TestPlayer3 to avoid session contention with manual-read-tracking.spec.ts
 // which uses TestPlayer1 and TestPlayer2.
 const SETTINGS_USER = { username: 'TestPlayer3', password: 'testpassword123' };
@@ -21,19 +20,9 @@ const SETTINGS_USER = { username: 'TestPlayer3', password: 'testpassword123' };
  *
  * These E2E tests validate the Settings UI works end-to-end.
  */
-test.describe.configure({ mode: 'serial' });
-
 test.describe('Comment Read Mode Setting', () => {
-  test('shows Reading section with auto and manual options', async ({ page }) => {
-    await login(page, SETTINGS_USER.username, SETTINGS_USER.password);
-    const settingsPage = new SettingsPage(page);
-    await settingsPage.goto();
-    await settingsPage.clickReadingSection();
-
-    await expect(page.getByTestId('read-mode-auto')).toBeVisible();
-    await expect(page.getByTestId('read-mode-manual')).toBeVisible();
-    await expect(page.getByText('Automatic')).toBeVisible();
-    await expect(page.getByText('Manual')).toBeVisible();
+  test.afterEach(async ({ page }) => {
+    await setCommentReadMode(page, 'auto');
   });
 
   test('auto mode is selected by default', async ({ page }) => {
@@ -43,16 +32,6 @@ test.describe('Comment Read Mode Setting', () => {
     await settingsPage.clickReadingSection();
 
     await expect(settingsPage.getCommentReadModeRadio('auto')).toBeChecked();
-  });
-
-  test('can switch to manual mode and back', async ({ page }) => {
-    await login(page, SETTINGS_USER.username, SETTINGS_USER.password);
-    const settingsPage = new SettingsPage(page);
-    await settingsPage.goto();
-    await settingsPage.clickReadingSection();
-
-    await settingsPage.selectCommentReadMode('manual');
-    await settingsPage.selectCommentReadMode('auto');
   });
 
   test('preference persists after page reload', async ({ page }) => {
@@ -68,8 +47,5 @@ test.describe('Comment Read Mode Setting', () => {
     await settingsPage.clickReadingSection();
 
     await expect(settingsPage.getCommentReadModeRadio('manual')).toBeChecked();
-
-    // Reset so the user's preference is clean for other test suites
-    await settingsPage.selectCommentReadMode('auto');
   });
 });

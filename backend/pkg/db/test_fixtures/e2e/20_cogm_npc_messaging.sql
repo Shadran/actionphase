@@ -15,6 +15,7 @@ DECLARE
   audience1_id INTEGER;
   p1_id INTEGER;
   game_id INTEGER;
+  phase347_id INTEGER;
 BEGIN
   SELECT id INTO gm_id       FROM users WHERE email = 'test_gm@example.com';
   SELECT id INTO audience1_id FROM users WHERE email = 'test_audience1@example.com';
@@ -65,12 +66,22 @@ BEGIN
     NOW() - INTERVAL '10 days', NOW()
   );
 
+  -- GM character (needed for pre-seeded post authorship)
+  INSERT INTO characters (
+    game_id, user_id, name, character_type, status, created_at, updated_at
+  ) VALUES (game_id, gm_id, 'GM Narrator', 'npc', 'approved', NOW() - INTERVAL '10 days', NOW());
+
   -- Unassigned NPCs controllable by co-GM
   INSERT INTO characters (
     game_id, user_id, name, character_type, status, created_at, updated_at
   ) VALUES
     (game_id, NULL, 'Mysterious Stranger', 'npc', 'approved', NOW() - INTERVAL '10 days', NOW()),
     (game_id, NULL, 'Town Guard',          'npc', 'approved', NOW() - INTERVAL '10 days', NOW());
+
+  -- Pre-seed a GM post so co-GM comment/reply tests don't need to create one at runtime
+  SELECT id INTO phase347_id FROM game_phases gp WHERE gp.game_id = 347 LIMIT 1;
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (game_id, phase347_id, gm_id, (SELECT id FROM characters c WHERE c.game_id = 347 AND c.user_id = gm_id LIMIT 1), 'Has anyone seen unusual activity?', 'post', 'game', '{}', NOW() - INTERVAL '1 hour');
 
   RAISE NOTICE 'Co-GM NPC Messaging fixture created: Game #347 (worker-offset applied)';
 END $$;

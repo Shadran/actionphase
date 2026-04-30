@@ -18,6 +18,8 @@ DECLARE
   gm_id INTEGER;
   p1_id INTEGER;
   p2_id INTEGER;
+  phase165_id INTEGER;
+  gm_char165_id INTEGER;
   phase610_id INTEGER;
   char610_p1_id INTEGER;
   char610_p2_id INTEGER;
@@ -118,13 +120,21 @@ BEGIN
     true,
     true,
     NOW() - INTERVAL '1 hour'
-  );
+  )
+  RETURNING id INTO phase165_id;
+
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES (165, gm_id, 'GM Test Character', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW())
+  RETURNING id INTO gm_char165_id;
 
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES
-    (165, gm_id, 'GM Test Character', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (165, p1_id, 'Test Player 1 Character', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()),
     (165, p2_id, 'Test Player 2 Character', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+
+  -- Pre-seed a GM post so mention tests don't need to create one at runtime
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (165, phase165_id, gm_id, gm_char165_id, 'Mission Briefing: Everyone report in!', 'post', 'game', '{}', NOW() - INTERVAL '30 minutes');
 
   RAISE NOTICE 'Created Game #165: E2E Common Room - Mentions';
 
@@ -296,6 +306,9 @@ BEGIN
   VALUES (606, 'common_room', 1, 'Discussion', 'Common room for testing.', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '23 hours', true, true, NOW() - INTERVAL '1 hour');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (606, gm_id, 'GM', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()), (606, p1_id, 'Player 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()), (606, p2_id, 'Player 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+  SELECT id INTO phase_id FROM game_phases WHERE game_id = 606 LIMIT 1;
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (606, phase_id, gm_id, (SELECT id FROM characters WHERE game_id = 606 AND user_id = gm_id LIMIT 1), 'Mission update for all crew', 'post', 'game', '{}', NOW() - INTERVAL '30 minutes');
 
   -- Game #607: "Player can comment on GM post"
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)
@@ -306,6 +319,9 @@ BEGIN
   VALUES (607, 'common_room', 1, 'Discussion', 'Common room for testing.', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '23 hours', true, true, NOW() - INTERVAL '1 hour');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (607, gm_id, 'GM', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()), (607, p1_id, 'Player 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()), (607, p2_id, 'Player 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+  SELECT id INTO phase_id FROM game_phases WHERE game_id = 607 LIMIT 1;
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (607, phase_id, gm_id, (SELECT id FROM characters WHERE game_id = 607 AND user_id = gm_id LIMIT 1), 'Let''s plan our approach', 'post', 'game', '{}', NOW() - INTERVAL '30 minutes');
 
   -- Game #608: "Players can reply to each others comments (nested replies)"
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)
@@ -316,6 +332,9 @@ BEGIN
   VALUES (608, 'common_room', 1, 'Discussion', 'Common room for testing.', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '23 hours', true, true, NOW() - INTERVAL '1 hour');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (608, gm_id, 'GM', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()), (608, p1_id, 'Player 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()), (608, p2_id, 'Player 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+  SELECT id INTO phase_id FROM game_phases WHERE game_id = 608 LIMIT 1;
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (608, phase_id, gm_id, (SELECT id FROM characters WHERE game_id = 608 AND user_id = gm_id LIMIT 1), 'What should we do next?', 'post', 'game', '{}', NOW() - INTERVAL '30 minutes');
 
   -- Game #609: "Multiple players can reply to the same comment"
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)
@@ -326,6 +345,9 @@ BEGIN
   VALUES (609, 'common_room', 1, 'Discussion', 'Common room for testing.', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '23 hours', true, true, NOW() - INTERVAL '1 hour');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (609, gm_id, 'GM', 'npc', 'approved', NOW() - INTERVAL '4 days', NOW()), (609, p1_id, 'Player 1', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW()), (609, p2_id, 'Player 2', 'player_character', 'approved', NOW() - INTERVAL '4 days', NOW());
+  SELECT id INTO phase_id FROM game_phases WHERE game_id = 609 LIMIT 1;
+  INSERT INTO messages (game_id, phase_id, author_id, character_id, content, message_type, visibility, mentioned_character_ids, created_at)
+  VALUES (609, phase_id, gm_id, (SELECT id FROM characters WHERE game_id = 609 AND user_id = gm_id LIMIT 1), 'Who wants to go north?', 'post', 'game', '{}', NOW() - INTERVAL '30 minutes');
 
   -- Game #610: "Deep nesting shows Continue this thread button at max depth"
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)

@@ -16,8 +16,6 @@ import { MessagingPage } from '../pages/MessagingPage';
  * - Uses assertion utilities for consistency
  * - Uses waitForModal and smart waits
  */
-test.describe.configure({ mode: 'serial' });
-
 test.describe('@mobile Private Messages Flow', () => {
   test('Players can send private messages to each other', async ({ browser }) => {
     const player1Context = await browser.newContext();
@@ -142,10 +140,7 @@ test.describe('@mobile Private Messages Flow', () => {
       await player3Messaging.sendMessage(player3Message);
 
       // === Verify Player 1 sees all messages from all participants ===
-      await player1Page.reload();
-      await player1Page.waitForLoadState('networkidle');
-
-      await player1Messaging.navigateToMessages();
+      await player1Messaging.goto(gameId);
       await player1Messaging.openConversation(groupTitle);
 
       // Verify all three messages are visible
@@ -279,9 +274,7 @@ test.describe('@mobile Private Messages Flow', () => {
       await playerMessaging.sendMessage(playerReply);
 
       // === Audience member sees the reply ===
-      await audiencePage.reload();
-      await audiencePage.waitForLoadState('networkidle');
-      await audienceMessaging.navigateToMessages();
+      await audienceMessaging.goto(gameId);
       await audienceMessaging.openConversation(narratorConvoTitle);
 
       await audienceMessaging.verifyMessageExists(playerReply);
@@ -347,9 +340,7 @@ test.describe('@mobile Private Messages Flow', () => {
       await playerMessaging.sendMessage(playerReply);
 
       // Co-GM sees player reply (confirms full bidirectional messaging as NPC)
-      await coGmPage.reload();
-      await coGmPage.waitForLoadState('networkidle');
-      await coGmMessaging.navigateToMessages();
+      await coGmMessaging.goto(gameId);
       await coGmMessaging.openConversation(strangerConvoTitle);
       await coGmMessaging.verifyMessageExists(playerReply);
 

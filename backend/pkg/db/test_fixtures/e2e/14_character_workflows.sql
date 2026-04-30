@@ -6,16 +6,7 @@
 BEGIN;
 
 -- Delete existing E2E character workflow games to prevent duplicates
-DELETE FROM games WHERE title IN (
-  'E2E Test: Character Creation',
-  'E2E Test: Character Approval - Pending State',
-  'E2E Test: Character Approval - View Pending',
-  'E2E Test: Character Approval - Approve',
-  'E2E Test: Character Approval - Reject',
-  'E2E Test: Character Approval - Resubmit',
-  'E2E Test: Character Approval - In Game',
-  'E2E Test: GM Messaging'
-);
+DELETE FROM games WHERE id IN (300, 301, 302, 600, 601, 602, 603, 604);
 
 DO $$
 DECLARE
@@ -86,6 +77,13 @@ BEGIN
     NOW() - INTERVAL '1 day'
   );
 
+  -- Deletable NPCs for character-deletion.spec.ts (no messages/actions — safe to delete)
+  -- Each test that deletes gets its own character since deletion is destructive
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES
+    (game_char_creation_id, NULL, 'Deletable NPC', 'npc', 'approved', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour'),
+    (game_char_creation_id, NULL, 'Cancel Delete NPC', 'npc', 'approved', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour');
+
   -- ============================================
   -- GAME #301: Character Pending State Test (character starts in pending state after creation)
   -- ============================================
@@ -107,6 +105,9 @@ BEGIN
   VALUES (game_char_pending_id, p1_id, 'player', 'active', NOW() - INTERVAL '2 days');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (game_char_pending_id, gm_id, 'E2E GM', 'npc', 'approved', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days');
+  -- Pre-created pending character for test assertions (no runtime creation needed)
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES (game_char_pending_id, p1_id, 'Pending State Test Character', 'player_character', 'pending', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour');
 
   -- ============================================
   -- GAME #321: Character View Pending Test (GM can view pending characters)
@@ -151,6 +152,9 @@ BEGIN
   VALUES (game_char_approve_id, p1_id, 'player', 'active', NOW() - INTERVAL '2 days');
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES (game_char_approve_id, gm_id, 'E2E GM', 'npc', 'approved', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days');
+  -- Pre-created pending character for GM approval test (no runtime creation needed)
+  INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
+  VALUES (game_char_approve_id, p1_id, 'Approval Test Character', 'player_character', 'pending', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour');
 
   -- ============================================
   -- GAME #323: Character Rejection Test (GM can reject character and player sees rejection)
@@ -375,7 +379,7 @@ BEGIN
   -- Update games sequence to avoid conflicts
   PERFORM setval('games_id_seq', 325);
 
-  RAISE NOTICE 'Character Workflow fixtures created: Games 300 301 302 600 601 602 603 604';
+  RAISE NOTICE 'Character Workflow fixtures created: Games 300 301 302 600 601 602 603 604 (301/601 include pre-baked pending characters)';
 END $$;
 
 SELECT 'E2E Character Workflow fixtures created successfully!' AS message;

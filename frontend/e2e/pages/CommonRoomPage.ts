@@ -281,6 +281,50 @@ export class CommonRoomPage {
   }
 
   /**
+   * Expand the comments panel for a post if it's currently collapsed.
+   * Safe to call even if comments are already expanded.
+   */
+  async expandComments(postContent: string) {
+    const postCard = this.getPostCard(postContent);
+    const commentsButton = postCard.locator('button', { hasText: /Comments/ }).filter({ visible: true }).first();
+    await commentsButton.waitFor({ state: 'visible', timeout: 10000 });
+    if ((await commentsButton.textContent())?.includes('Expand')) {
+      await commentsButton.click();
+      await this.page.waitForLoadState('networkidle');
+    }
+  }
+
+  /**
+   * Reply to an existing comment identified by its text content.
+   * @param parentCommentText - Text of the comment to reply to
+   * @param replyText - Text to write in the reply
+   * @param options.asCharacter - Character label to select before submitting (e.g. 'Mysterious Stranger')
+   */
+  async replyToComment(
+    parentCommentText: string,
+    replyText: string,
+    options: { asCharacter?: string } = {}
+  ) {
+    const commentContainer = this.page
+      .locator('[data-testid="threaded-comment"]')
+      .filter({ hasText: parentCommentText })
+      .locator('visible=true')
+      .first();
+
+    await commentContainer.getByRole('button', { name: 'Reply' }).locator('visible=true').first().click();
+
+    if (options.asCharacter) {
+      const characterSelect = commentContainer.locator('role=combobox').locator('visible=true').first();
+      await characterSelect.waitFor({ state: 'visible', timeout: 5000 });
+      await characterSelect.selectOption({ label: `Reply as ${options.asCharacter}` });
+    }
+
+    await commentContainer.locator('textarea').locator('visible=true').first().fill(replyText);
+    await commentContainer.locator('form').locator('visible=true').first().evaluate((f: HTMLFormElement) => f.requestSubmit());
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /**
    * Verify a post exists with specific content
    * @param content - Post content to verify
    */

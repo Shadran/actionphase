@@ -2,232 +2,103 @@ import { test, expect } from '@playwright/test';
 import { loginAs } from '../fixtures/auth-helpers';
 import { getFixtureGameId } from '../fixtures/game-helpers';
 import { AudiencePage } from '../pages/AudiencePage';
-import { MessagingPage } from '../pages/MessagingPage';
 
 /**
- * E2E Test: Audience Private Messages View
+ * E2E Tests: Audience Private Messages View
  *
  * Tests the read-only audience view of all private message conversations.
- * Verifies the enhanced UI with conversation cards, participant filtering,
- * date dividers, message grouping, and proper read-only enforcement.
+ * Uses E2E_AUDIENCE_PM fixture (game #360) which pre-seeds:
+ *   - "Audience Test Conversation": messages from both Char 1 and Char 2
+ *   - "Preview Test Conversation": one message ("Last message preview text")
  *
- * Uses E2E_MESSAGES fixture game which has existing private message conversations.
+ * Tests are independent — no runtime conversation creation needed.
  */
-test.describe('Audience Private Messages View', () => {
-  test('Audience can view all private messages with enhanced UI', async ({ browser }) => {
-    const audienceContext = await browser.newContext();
-    const player1Context = await browser.newContext();
 
-    const audiencePage = await audienceContext.newPage();
-    const player1Page = await player1Context.newPage();
+test.describe('@mobile Audience Private Messages View', () => {
 
-    try {
-      // === Setup: Player 1 creates a conversation with messages ===
-      await loginAs(player1Page, 'PLAYER_1');
-      const gameId = await getFixtureGameId(player1Page, 'E2E_MESSAGES');
+  test('Audience can view all private messages with enhanced UI', async ({ page }) => {
+    await loginAs(page, 'AUDIENCE');
+    const gameId = await getFixtureGameId(page, 'E2E_AUDIENCE_PM');
 
-      const player1Messaging = new MessagingPage(player1Page);
-      await player1Messaging.goto(gameId);
+    const audience = new AudiencePage(page);
+    await audience.goToAudience(gameId);
 
-      // Create a new conversation for testing
-      const testConversationTitle = `Audience Test Conversation ${Date.now()}`;
-      await player1Messaging.createConversation(testConversationTitle, ['E2E Test Char 2']);
+    // Verify view is displayed with read-only badge
+    await audience.verifyAllPrivateMessagesView();
 
-      // Send a few messages to test message grouping
-      const message1 = `First message from Player 1`;
-      const message2 = `Second message from Player 1`;
-      await player1Messaging.sendMessage(message1);
-      await player1Messaging.sendMessage(message2);
+    // Fixture conversation is visible in the list
+    await audience.verifyConversationExists('Audience Test Conversation');
 
-      // === Test: Audience accesses All Private Messages view ===
-      await loginAs(audiencePage, 'AUDIENCE');
+    // Participant avatars are displayed on conversation cards
+    const hasAvatars = await audience.verifyParticipantAvatars();
+    expect(hasAvatars).toBe(true);
 
-      const audience = new AudiencePage(audiencePage);
-      await audience.goToAudience(gameId);
+    // Open conversation and verify messages are displayed
+    await audience.openConversation('Audience Test Conversation');
+    await audience.verifyConversationHeader('Audience Test Conversation');
+    await audience.verifyMessageExists('First message from Player 1');
+    await audience.verifyMessageExists('Second message from Player 1');
 
-      // Verify view is displayed with read-only badge
-      await audience.verifyAllPrivateMessagesView();
+    // Audience cannot post — no message input
+    const isReadOnly = await audience.verifyReadOnly();
+    expect(isReadOnly).toBe(true);
 
-      // === Test: Conversation list shows enhanced UI ===
-      // Verify the test conversation exists in the list
-      await audience.verifyConversationExists(testConversationTitle);
-
-      // Verify participant avatars are displayed
-      const hasAvatars = await audience.verifyParticipantAvatars();
-      expect(hasAvatars).toBe(true);
-
-      // === Test: Open conversation and view messages ===
-      await audience.openConversation(testConversationTitle);
-
-      // Verify conversation header
-      await audience.verifyConversationHeader(testConversationTitle);
-
-      // Verify messages are displayed
-      await audience.verifyMessageExists(message1);
-      await audience.verifyMessageExists(message2);
-
-      // Verify read-only state (no message input)
-      const isReadOnly = await audience.verifyReadOnly();
-      expect(isReadOnly).toBe(true);
-
-      // === Test: Navigate back to conversation list ===
-      await audience.goBackToConversationList();
-      await audience.verifyAllPrivateMessagesView();
-
-    } finally {
-      await audienceContext.close();
-      await player1Context.close();
-    }
+    // Navigate back to list
+    await audience.goBackToConversationList();
+    await audience.verifyAllPrivateMessagesView();
   });
 
-  test('Audience can filter conversations by participants', async ({ browser }) => {
-    const audienceContext = await browser.newContext();
-    const audiencePage = await audienceContext.newPage();
+  test('Audience can filter conversations by participants', async ({ page }) => {
+    await loginAs(page, 'AUDIENCE');
+    const gameId = await getFixtureGameId(page, 'E2E_AUDIENCE_PM');
 
-    try {
-      await loginAs(audiencePage, 'AUDIENCE');
-      const gameId = await getFixtureGameId(audiencePage, 'E2E_MESSAGES');
+    const audience = new AudiencePage(page);
+    await audience.goToAudience(gameId);
 
-      const audience = new AudiencePage(audiencePage);
-      await audience.goToAudience(gameId);
+    // Wait for conversations to render, then record baseline count
+    await expect(page.locator('[data-testid="conversation-item"]').first()).toBeVisible({ timeout: 10000 });
+    const totalCount = await page.locator('[data-testid="conversation-item"]').count();
+    expect(totalCount).toBeGreaterThan(0);
 
-      // Verify participant filter section exists
-      await audience.verifyParticipantFilter();
+    // Filter by Char 1 — both fixture conversations include Char 1 as a participant
+    await audience.verifyParticipantFilter();
+    await audience.filterByParticipant('Audience Test Char 1');
+    await page.waitForLoadState('networkidle');
 
-      // Filter by a specific participant (using existing test character)
-      await audience.filterByParticipant('E2E Test Char 1');
+    // After filtering, at least the Audience Test Conversation should be visible
+    await audience.verifyConversationExists('Audience Test Conversation');
 
-      // Conversations should now be filtered
-      // (We can't assert exact count without knowing fixture data, but we verify filtering works)
-      await audiencePage.waitForLoadState('networkidle');
-
-      // Clear filters and verify count changes
-      await audience.clearFilters();
-      await audiencePage.waitForLoadState('networkidle');
-
-    } finally {
-      await audienceContext.close();
-    }
+    // Clear filter and verify count returns to baseline
+    await audience.clearFilters();
+    await page.waitForLoadState('networkidle');
+    const countAfterClear = await page.locator('[data-testid="conversation-item"]').count();
+    expect(countAfterClear).toBeGreaterThanOrEqual(totalCount);
   });
 
-  test('Audience sees message grouping and date dividers', async ({ browser }) => {
-    const audienceContext = await browser.newContext();
-    const player1Context = await browser.newContext();
-    const player2Context = await browser.newContext();
+  test('Audience cannot interact with conversations (read-only)', async ({ page }) => {
+    await loginAs(page, 'AUDIENCE');
+    const gameId = await getFixtureGameId(page, 'E2E_AUDIENCE_PM');
 
-    const audiencePage = await audienceContext.newPage();
-    const player1Page = await player1Context.newPage();
-    const player2Page = await player2Context.newPage();
+    const audience = new AudiencePage(page);
+    await audience.goToAudience(gameId);
 
-    try {
-      // === Setup: Create conversation with messages from different senders ===
-      await loginAs(player1Page, 'PLAYER_1');
-      const gameId = await getFixtureGameId(player1Page, 'E2E_MESSAGES');
+    // No message input on the conversation list view
+    const isReadOnly = await audience.verifyReadOnly();
+    expect(isReadOnly).toBe(true);
 
-      const player1Messaging = new MessagingPage(player1Page);
-      await player1Messaging.goto(gameId);
-
-      const groupingTestTitle = `Grouping Test ${Date.now()}`;
-      await player1Messaging.createConversation(groupingTestTitle, ['E2E Test Char 2']);
-
-      // Player 1 sends multiple messages (should be grouped)
-      await player1Messaging.sendMessage('Player 1 message 1');
-      await player1Messaging.sendMessage('Player 1 message 2');
-
-      // Player 2 replies (should start new group)
-      await loginAs(player2Page, 'PLAYER_2');
-      const player2Messaging = new MessagingPage(player2Page);
-      await player2Messaging.goto(gameId);
-      await player2Messaging.openConversation(groupingTestTitle);
-      await player2Messaging.sendMessage('Player 2 reply');
-
-      // === Test: Audience views the conversation ===
-      await loginAs(audiencePage, 'AUDIENCE');
-
-      const audience = new AudiencePage(audiencePage);
-      await audience.goToAudience(gameId);
-      await audience.openConversation(groupingTestTitle);
-
-      // Verify messages exist
-      await audience.verifyMessageExists('Player 1 message 1');
-      await audience.verifyMessageExists('Player 1 message 2');
-      await audience.verifyMessageExists('Player 2 reply');
-
-      // Verify date divider exists (should show "Today" for recent messages)
-      await audience.verifyDateDivider('Today');
-
-      // Note: Message grouping is visual, but we can verify sender names appear
-      // in a grouped manner (not repeated for every message)
-
-    } finally {
-      await audienceContext.close();
-      await player1Context.close();
-      await player2Context.close();
-    }
+    // No "New Conversation" button in audience view
+    await expect(page.getByRole('button', { name: /New Conversation/i })).not.toBeVisible();
   });
 
-  test('Audience cannot interact with conversations (read-only)', async ({ browser }) => {
-    const audienceContext = await browser.newContext();
-    const audiencePage = await audienceContext.newPage();
+  test('Audience sees last message preview on conversation cards', async ({ page }) => {
+    await loginAs(page, 'AUDIENCE');
+    const gameId = await getFixtureGameId(page, 'E2E_AUDIENCE_PM');
 
-    try {
-      await loginAs(audiencePage, 'AUDIENCE');
-      const gameId = await getFixtureGameId(audiencePage, 'E2E_MESSAGES');
+    const audience = new AudiencePage(page);
+    await audience.goToAudience(gameId);
 
-      const audience = new AudiencePage(audiencePage);
-      await audience.goToAudience(gameId);
-
-      // Verify read-only state (no message input should exist)
-      const isReadOnly = await audience.verifyReadOnly();
-      expect(isReadOnly).toBe(true);
-
-      // Verify there's no "New Conversation" button in audience view
-      const newConvoButton = audiencePage.getByRole('button', { name: /New Conversation/i });
-      const hasNewConvoButton = await newConvoButton.count();
-      expect(hasNewConvoButton).toBe(0);
-
-    } finally {
-      await audienceContext.close();
-    }
-  });
-
-  test('Audience sees last message preview on conversation cards', async ({ browser }) => {
-    const audienceContext = await browser.newContext();
-    const player1Context = await browser.newContext();
-
-    const audiencePage = await audienceContext.newPage();
-    const player1Page = await player1Context.newPage();
-
-    try {
-      // === Setup: Player 1 creates conversation with a message ===
-      await loginAs(player1Page, 'PLAYER_1');
-      const gameId = await getFixtureGameId(player1Page, 'E2E_MESSAGES');
-
-      const player1Messaging = new MessagingPage(player1Page);
-      await player1Messaging.goto(gameId);
-
-      const previewTestTitle = `Preview Test ${Date.now()}`;
-      await player1Messaging.createConversation(previewTestTitle, ['E2E Test Char 2']);
-
-      const lastMessage = 'This is the last message for preview testing';
-      await player1Messaging.sendMessage(lastMessage);
-
-      // === Test: Audience sees last message preview ===
-      await loginAs(audiencePage, 'AUDIENCE');
-
-      const audience = new AudiencePage(audiencePage);
-      await audience.goToAudience(gameId);
-
-      // Verify the conversation card shows last message preview
-      await audience.verifyConversationExists(previewTestTitle);
-
-      // The preview should contain part of the last message
-      // (truncated to 150 chars in backend query)
-      await audience.verifyLastMessagePreview(previewTestTitle, 'This is the last message');
-
-    } finally {
-      await audienceContext.close();
-      await player1Context.close();
-    }
+    // "Preview Test Conversation" has a single known last message
+    await audience.verifyConversationExists('Preview Test Conversation');
+    await audience.verifyLastMessagePreview('Preview Test Conversation', 'Last message preview text');
   });
 });

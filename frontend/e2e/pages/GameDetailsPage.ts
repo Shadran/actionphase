@@ -143,7 +143,8 @@ export class GameDetailsPage {
     const confirmButton = this.page.getByTestId('pause-game-confirm-button');
     await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
     await confirmButton.click();
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the modal to close — confirms the API call completed
+    await confirmButton.waitFor({ state: 'hidden', timeout: 10000 });
   }
 
   /**
@@ -169,7 +170,8 @@ export class GameDetailsPage {
     // Click confirm button in modal using testid (avoids ambiguity with initial button)
     const confirmButton = this.page.getByTestId('complete-game-confirm-button');
     await confirmButton.click();
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the modal to close — confirms the API call completed and onClose() was called
+    await confirmInput.waitFor({ state: 'hidden', timeout: 10000 });
   }
 
   /**
@@ -184,7 +186,8 @@ export class GameDetailsPage {
     const confirmButton = this.page.getByTestId('cancel-game-confirm-button');
     await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
     await confirmButton.click();
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the modal to close — confirms the API call completed
+    await confirmButton.waitFor({ state: 'hidden', timeout: 10000 });
   }
 
   /**

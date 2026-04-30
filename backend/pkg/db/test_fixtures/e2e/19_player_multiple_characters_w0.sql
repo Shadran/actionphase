@@ -26,6 +26,8 @@ BEGIN
   -- ============================================
   -- GAME #340: Player Multiple Characters Test
   -- ============================================
+  DELETE FROM games WHERE id = 340;
+
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)
   VALUES (
     340,
@@ -83,6 +85,18 @@ BEGIN
   INSERT INTO characters (game_id, user_id, name, character_type, status, created_at, updated_at)
   VALUES
     (game_id, NULL, 'Mysterious Sage', 'npc', 'approved', NOW() - INTERVAL '6 days', NOW());
+
+  -- Pre-seed a GM post so tests don't need a two-context setup to create one at runtime
+  INSERT INTO messages (
+    game_id, phase_id, author_id, character_id,
+    content, message_type, visibility, mentioned_character_ids, created_at
+  ) VALUES (
+    game_id, phase_id, gm_id,
+    (SELECT id FROM characters c WHERE c.game_id = 340 AND c.user_id IS NULL LIMIT 1),
+    'Character Selector Test Post',
+    'post', 'game', '{}',
+    NOW() - INTERVAL '1 hour'
+  );
 
   RAISE NOTICE 'Player Multiple Characters fixture created: Game #340 with Player1 having 2 characters (Aria Moonwhisper, Kael Shadowblade)';
 

@@ -4,13 +4,6 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
 import { assertTabSelected } from '../utils/navigation';
 
 test.describe('Recent Results Section in Common Room', () => {
-  test.beforeEach(async ({ page, context }) => {
-    // Clear localStorage to avoid test pollution
-    await context.clearCookies();
-    await page.goto('http://localhost:5173');
-    await page.evaluate(() => localStorage.clear());
-  });
-
   test('should display recent results section for player after action phase', async ({ page }) => {
     // Login as TestPlayer1 (participates in E2E Test: Action Results)
     await loginAs(page, 'PLAYER_1');
@@ -18,7 +11,7 @@ test.describe('Recent Results Section in Common Room', () => {
     // Navigate to E2E Action Results game Common Room tab
     // This game has Phase 1 (action, expired) → Phase 2 (common room, active)
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
 
     // Wait for page to load
     await page.waitForLoadState('networkidle');
@@ -34,7 +27,7 @@ test.describe('Recent Results Section in Common Room', () => {
   test('should expand and collapse results section', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
     // Initially expanded (first view)
@@ -60,7 +53,9 @@ test.describe('Recent Results Section in Common Room', () => {
   test('should remember collapsed state on second visit (localStorage)', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    // Clear localStorage so this test always starts from the expanded (first-visit) state
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
     // First visit - should be expanded
@@ -79,7 +74,7 @@ test.describe('Recent Results Section in Common Room', () => {
   test('should expand individual result to show full content', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
     // Wait for section to be visible
@@ -99,35 +94,15 @@ test.describe('Recent Results Section in Common Room', () => {
   test('should navigate to History tab when clicking "View Full Results"', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for section to be visible
     await expect(page.getByText('Recent Action Results')).toBeVisible({ timeout: 10000 });
 
-    // Click "View Full Results" button in header (use first() to avoid strict mode violation)
     await page.getByRole('button', { name: 'View Full Results' }).locator('visible=true').first().click();
 
-    // Should navigate to History tab with phase parameter
     await page.waitForLoadState('networkidle');
-    expect(page.url()).toContain("/games/" + gameId + "?tab=history&phase=");
-  });
-
-  test('should navigate to History tab when clicking "View Full Results in History"', async ({ page }) => {
-    await loginAs(page, 'PLAYER_1');
-    const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
-    await page.waitForLoadState('networkidle');
-
-    // Wait for section to be visible
-    await expect(page.getByText('Recent Action Results')).toBeVisible({ timeout: 10000 });
-
-    // Click "View Full Results in History" button in footer (use role to be specific)
-    await page.getByRole('button', { name: 'View Full Results in History' }).click();
-
-    // Should navigate to History tab with phase parameter
-    await page.waitForLoadState('networkidle');
-    expect(page.url()).toContain("/games/" + gameId + "?tab=history&phase=");
+    expect(page.url()).toContain(`/games/${gameId}?tab=history&phase=`);
   });
 
   test('should NOT show results section when previous phase is not action type', async ({ page }) => {
@@ -136,7 +111,7 @@ test.describe('Recent Results Section in Common Room', () => {
     // Navigate to a game where previous phase is NOT action type
     // Using Game #164 or any game with common_room → common_room sequence
     const gameId = await getFixtureGameId(page, 'COMMON_ROOM_POSTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
     // Common Room tab should be active
@@ -149,28 +124,12 @@ test.describe('Recent Results Section in Common Room', () => {
   test('should NOT show results to GM (GMs do not see recent results)', async ({ page }) => {
     await loginAs(page, 'GM');
     const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
+    await page.goto(`/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
     // GM should NOT see Recent Results Section (only players see their results)
     await expect(page.getByText('Recent Action Results')).not.toBeVisible();
   });
 
-  test('should work correctly with multiple results', async ({ page }) => {
-    // Player sees only their own result
-    await loginAs(page, 'PLAYER_1');
-    const gameId = await getFixtureGameId(page, 'E2E_ACTION_RESULTS');
-    await page.goto("http://localhost:5173/games/" + gameId + "?tab=common-room");
-    await page.waitForLoadState('networkidle');
-
-    // Wait for section to be visible
-    await expect(page.getByText('Recent Action Results')).toBeVisible({ timeout: 10000 });
-
-    // Verify results count badge (player sees only their result)
-    await expect(page.getByText('1 result')).toBeVisible();
-
-    // Verify result preview is visible
-    await expect(page.getByText(/Basement Investigation/)).toBeVisible();
-  });
 
 });

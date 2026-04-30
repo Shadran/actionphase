@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from '../fixtures/auth-helpers';
-import { getFixtureGameId } from '../fixtures/game-helpers';
+import { getFixtureGameId, getDeepLinkingCommentIds } from '../fixtures/game-helpers';
 
 /**
  * Deep Linking Regression Tests
@@ -37,114 +37,51 @@ test.describe('@mobile Deep Linking in Common Room', () => {
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for Common Room to load (phase data needs to be fetched)
     await page.locator('h2').filter({ hasText: /Common Room/ }).waitFor({ timeout: 10000 });
 
-    // Get all comments on the page
     const allCommentIds = await page.evaluate(() => {
       const comments = Array.from(document.querySelectorAll('[id^="comment-"]'));
       const idCounts = new Map<string, number>();
 
       comments.forEach(el => {
-        const id = el.id;
-        idCounts.set(id, (idCounts.get(id) || 0) + 1);
+        idCounts.set(el.id, (idCounts.get(el.id) || 0) + 1);
       });
 
       return {
         totalComments: comments.length,
         duplicates: Array.from(idCounts.entries()).filter(([, count]) => count > 1),
-        allIds: Array.from(idCounts.keys())
       };
     });
 
-    // CRITICAL REGRESSION CHECK: No comment ID should appear more than once
     expect(allCommentIds.duplicates).toEqual([]);
-
-    // Verify we have comments (sanity check)
     expect(allCommentIds.totalComments).toBeGreaterThan(0);
   });
 
-  test('should not have hidden duplicate comments in mobile view', async ({ page }) => {
-    await loginAs(page, 'GM');
-
-    // Set viewport to mobile size
-    await page.setViewportSize({ width: 375, height: 667 });
-
-    const gameId = await getFixtureGameId(page, 'DEEP_LINKING_TEST');
-    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room`);
-    await page.waitForLoadState('networkidle');
-
-    // Wait for Common Room to load (phase data needs to be fetched)
-    await page.locator('h2').filter({ hasText: /Common Room/ }).waitFor({ timeout: 10000 });
-
-    // Check for duplicate IDs (not just hidden comments, since mobile may hide deep threads)
-    const commentIdCheck = await page.evaluate(() => {
-      const comments = Array.from(document.querySelectorAll('[id^="comment-"]'));
-      const idCounts = new Map<string, number>();
-
-      comments.forEach(el => {
-        const id = el.id;
-        idCounts.set(id, (idCounts.get(id) || 0) + 1);
-      });
-
-      return {
-        totalComments: comments.length,
-        duplicates: Array.from(idCounts.entries()).filter(([, count]) => count > 1),
-        allIds: Array.from(idCounts.keys())
-      };
-    });
-
-    // CRITICAL REGRESSION CHECK: No comment ID should appear more than once
-    // (Mobile may hide deep threads, which is expected, but each visible comment should have unique ID)
-    expect(commentIdCheck.duplicates).toEqual([]);
-    expect(commentIdCheck.totalComments).toBeGreaterThan(0);
-  });
-
-  test('should scroll to and highlight a visible comment when using ?comment= parameter', async ({ page }) => {
+  test('should scroll to visible comments at shallow and deep levels via ?comment= parameter', async ({ page }) => {
     await loginAs(page, 'GM');
 
     const gameId = await getFixtureGameId(page, 'DEEP_LINKING_TEST');
 
-    // First, navigate to common room to get a comment ID from the DOM
+    // Navigate once to establish auth context, then fetch IDs via API
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for Common Room to load (phase data needs to be fetched)
-    await page.locator('h2').filter({ hasText: /Common Room/ }).waitFor({ timeout: 10000 });
+    const { shallowCommentId, deepCommentId } = await getDeepLinkingCommentIds(page, gameId);
 
-    // Wait for comments to be visible (they should be expanded by default)
-    await page.locator('[id^="comment-"]').locator('visible=true').first().waitFor({ timeout: 5000 });
+    for (const commentId of [shallowCommentId, deepCommentId]) {
+      await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
+      await page.waitForLoadState('networkidle');
 
-    // Get the third comment ID from the page (Level 3 comment)
-    const commentId = await page.evaluate(() => {
-      const comments = Array.from(document.querySelectorAll('[id^="comment-"]'));
-      // Get the 3rd comment (index 2) - this should be at depth 3
-      if (comments.length >= 3) {
-        return comments[2].id.replace('comment-', '').replace(/-desktop$|-mobile$/, '');
-      }
-      return null;
-    });
+      // URL param removed indicates deep-link logic completed
+      await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`), { timeout: 5000 });
 
-    // If no comments found, fail the test with a clear message
-    expect(commentId).not.toBeNull();
-
-    // Now navigate with the deep link
-    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
-    await page.waitForLoadState('networkidle');
-
-    // Wait for deep linking logic to remove the comment param from URL (indicates scroll completed)
-    await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`), { timeout: 5000 });
-
-    // Verify the comment is visible. Comments may have -desktop or -mobile suffix IDs
-    // (dual DOM rendering); use or() to match whichever variant is visible.
-    const comment = page.locator(`#comment-${commentId}`)
-      .or(page.locator(`#comment-${commentId}-mobile`))
-      .or(page.locator(`#comment-${commentId}-desktop`))
-      .locator('visible=true').first();
-    await expect(comment).toBeVisible();
-
-    // Verify the comment parameter was removed from URL (confirms deep link logic ran)
-    await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`));
+      // Handle -desktop/-mobile suffix IDs from dual DOM rendering
+      const comment = page.locator(`#comment-${commentId}`)
+        .or(page.locator(`#comment-${commentId}-mobile`))
+        .or(page.locator(`#comment-${commentId}-desktop`))
+        .locator('visible=true').first();
+      await expect(comment).toBeVisible();
+    }
   });
 
   test('should switch to posts tab when deep linking from newComments tab', async ({ page }) => {
@@ -152,91 +89,30 @@ test.describe('@mobile Deep Linking in Common Room', () => {
 
     const gameId = await getFixtureGameId(page, 'DEEP_LINKING_TEST');
 
-    // Get a comment ID first
+    // Navigate once to establish auth context, then fetch IDs via API
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for Common Room to load (phase data needs to be fetched)
-    await page.locator('h2').filter({ hasText: /Common Room/ }).waitFor({ timeout: 10000 });
-
-    // Wait for comments to be visible (they should be expanded by default)
-    await page.locator('[id^="comment-"]').locator('visible=true').first().waitFor({ timeout: 5000 });
-
-    const commentId = await page.evaluate(() => {
-      const comments = Array.from(document.querySelectorAll('[id^="comment-"]'));
-      if (comments.length >= 3) {
-        return comments[2].id.replace('comment-', '').replace(/-desktop$|-mobile$/, '');
-      }
-      return null;
-    });
-
-    expect(commentId).not.toBeNull();
+    const { shallowCommentId } = await getDeepLinkingCommentIds(page, gameId);
 
     // Navigate to New Comments tab
     await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&view=newComments`);
     await page.waitForLoadState('networkidle');
 
-    // Verify we're on New Comments tab
     const newCommentsButton = page.locator('button').filter({ hasText: /^New Comments$/ });
     await expect(newCommentsButton).toHaveClass(/border-accent-primary/);
 
-    // Now navigate with deep link
-    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
+    // Deep link — should switch to Posts tab
+    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${shallowCommentId}`);
     await page.waitForLoadState('networkidle');
 
-    // Verify we switched to Posts tab
     const postsButton = page.locator('button').filter({ hasText: /^Posts$/ });
     await expect(postsButton).toHaveClass(/border-accent-primary/);
 
-    // Verify the comment is visible (handle -desktop/-mobile suffix IDs from dual DOM)
-    const comment = page.locator(`#comment-${commentId}`)
-      .or(page.locator(`#comment-${commentId}-mobile`))
-      .or(page.locator(`#comment-${commentId}-desktop`))
+    const comment = page.locator(`#comment-${shallowCommentId}`)
+      .or(page.locator(`#comment-${shallowCommentId}-mobile`))
+      .or(page.locator(`#comment-${shallowCommentId}-desktop`))
       .locator('visible=true').first();
     await expect(comment).toBeVisible();
-  });
-
-  test('should scroll to a deeply nested comment', async ({ page }) => {
-    await loginAs(page, 'GM');
-
-    const gameId = await getFixtureGameId(page, 'DEEP_LINKING_TEST');
-
-    // Get a deeply nested comment ID (5th comment - Level 5)
-    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room`);
-    await page.waitForLoadState('networkidle');
-
-    // Wait for Common Room to load (phase data needs to be fetched)
-    await page.locator('h2').filter({ hasText: /Common Room/ }).waitFor({ timeout: 10000 });
-
-    // Wait for comments to be visible (they should be expanded by default)
-    await page.locator('[id^="comment-"]').locator('visible=true').first().waitFor({ timeout: 5000 });
-
-    const commentId = await page.evaluate(() => {
-      const comments = Array.from(document.querySelectorAll('[id^="comment-"]'));
-      // Get the 5th comment (index 4) - this should be at max depth
-      // Strip -desktop/-mobile suffix to get the numeric ID
-      if (comments.length >= 5) {
-        return comments[4].id.replace('comment-', '').replace(/-desktop$|-mobile$/, '');
-      }
-      return null;
-    });
-
-    // Level 5 should be visible, but fail the test if not found
-    expect(commentId).not.toBeNull();
-
-    // Navigate with deep link
-    await page.goto(`http://localhost:5173/games/${gameId}?tab=common-room&comment=${commentId}`);
-    await page.waitForLoadState('networkidle');
-
-    // Wait for deep linking logic to remove the comment param from URL (indicates scroll completed)
-    await expect(page).toHaveURL(new RegExp(`games/${gameId}\\?tab=common-room$`), { timeout: 5000 });
-
-    // Verify comment is visible (handle -desktop/-mobile suffix IDs from dual DOM)
-    const comment = page.locator(`#comment-${commentId}`)
-      .or(page.locator(`#comment-${commentId}-mobile`))
-      .or(page.locator(`#comment-${commentId}-desktop`))
-      .locator('visible=true').first();
-    await expect(comment).toBeVisible();
-
   });
 });

@@ -20,7 +20,7 @@ import { GameDetailsPage } from '../pages/GameDetailsPage';
  * - Improved reliability with dedicated POM methods
  */
 
-test.describe('@mobile Game Lifecycle Management', () => {
+test.describe('Game Lifecycle Management', () => {
   // Run tests serially to avoid race conditions with game state changes
   test.describe.configure({ mode: 'serial' });
 
@@ -41,12 +41,13 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Start the game using POM (handles kebab menu)
     await gamePage.startGame();
 
-    // Refresh to see new state
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    // Wait for badge to update before reloading (confirms API completed)
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/in.?progress/i, { timeout: 10000 });
 
-    // Should still see game actions menu (for pause/complete options)
-    await expect(gameActionsMenu).toBeVisible({ timeout: 10000 });
+    // Reload to verify state persisted to the database
+    await page.reload();
+    await expect(statusBadge).toContainText(/in.?progress/i, { timeout: 10000 });
   });
 
   test('GM can pause game with confirmation', async ({ page }) => {
@@ -63,12 +64,13 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Pause the game using POM (handles confirmation modal)
     await gamePage.pauseGame();
 
-    // Refresh to see new state
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    // Wait for badge to update before reloading (confirms API completed)
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/paused/i, { timeout: 10000 });
 
-    // Game actions menu should still be visible (GM can resume)
-    await expect(gameActionsMenu).toBeVisible({ timeout: 10000 });
+    // Reload to verify state persisted to the database
+    await page.reload();
+    await expect(statusBadge).toContainText(/paused/i, { timeout: 10000 });
   });
 
   test('GM can resume paused game', async ({ page }) => {
@@ -85,12 +87,13 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Resume the game using POM (handles kebab menu)
     await gamePage.resumeGame();
 
-    // Refresh to see new state
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    // Wait for badge to update before reloading (confirms API completed)
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/in.?progress/i, { timeout: 10000 });
 
-    // Game actions menu should still be visible (GM can pause/complete)
-    await expect(gameActionsMenu).toBeVisible({ timeout: 10000 });
+    // Reload to verify state persisted to the database
+    await page.reload();
+    await expect(statusBadge).toContainText(/in.?progress/i, { timeout: 10000 });
   });
 
   test('GM can complete game with confirmation', async ({ page }) => {
@@ -107,12 +110,12 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Complete the game using POM (handles confirmation modal)
     await gamePage.completeGame();
 
-    // Refresh to see new state
+    // Refresh to verify state transition persisted
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // In completed state, GM management buttons should not be visible
-    await expect(page.getByRole('button', { name: /Start Game|Pause Game|Resume Game|Complete Game|Cancel Game/ })).not.toBeVisible();
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/completed/i, { timeout: 10000 });
   });
 
   test('GM can cancel recruitment game', async ({ page }) => {
@@ -129,12 +132,12 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Cancel the game using POM (handles kebab menu + confirmation modal)
     await gamePage.cancelGame();
 
-    // Refresh to see new state
+    // Refresh to verify state transition persisted
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // In cancelled state, game actions menu should show Delete option
-    await expect(gameActionsMenu).toBeVisible();
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/cancel/i, { timeout: 10000 });
   });
 
   test('Player cannot see game lifecycle management controls', async ({ page }) => {
@@ -159,18 +162,12 @@ test.describe('@mobile Game Lifecycle Management', () => {
     // Verify game title
     await expect(page.getByText('E2E Test: Game Lifecycle - Cancel')).toBeVisible({ timeout: 10000 });
 
-    // Ensure the game is cancelled before trying to delete it.
-    // The prior test may have already cancelled it (serial mode), but if not, cancel it now.
+    // Test 5 (serial predecessor) cancels this same fixture game — assert it's cancelled
     const statusBadge = page.getByTestId('game-status-badge');
     await statusBadge.waitFor({ state: 'visible', timeout: 5000 });
-    const currentStatus = await statusBadge.textContent();
-    if (!currentStatus?.toLowerCase().includes('cancel')) {
-      await gamePage.cancelGame();
-      await page.reload();
-      await page.waitForLoadState('networkidle');
-    }
+    await expect(statusBadge).toContainText(/cancel/i);
 
-    // Now delete the game using POM (handles kebab menu + confirmation modal)
+    // Delete the game using POM (handles kebab menu + confirmation modal)
     await gamePage.deleteGame();
 
     // Should redirect to games list after deletion

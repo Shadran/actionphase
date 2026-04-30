@@ -16,8 +16,6 @@ import { assertTextVisible } from '../utils/assertions';
  * - Improved consistency with GameDetailsPage
  */
 test.describe('GM Creates Game & Recruits Players', () => {
-  // Configure tests to run serially to avoid database conflicts
-  test.describe.configure({ mode: 'serial' });
 
   // Helper function to create a game using POM
   async function createTestGame(page: Page) {
@@ -47,31 +45,27 @@ test.describe('GM Creates Game & Recruits Players', () => {
     // Create a game
     const { gameTitle } = await createTestGame(page);
 
-    // Verify we're on game details page with the correct title
+    // Verify we're on game details page with correct title and initial state
     await assertTextVisible(page, gameTitle);
-    await assertTextVisible(page, 'Setup'); // Initial state
+    await expect(page.getByTestId('game-status-badge')).toContainText(/setup/i);
   });
 
   test('GM can start recruitment for a game', async ({ page }) => {
-    // Login as GM
     await loginAs(page, 'GM');
-    await expect(page).toHaveURL('/dashboard');
 
-    // Create a game
+    // Create a fresh setup-state game to test recruitment transition
     const { gameTitle } = await createTestGame(page);
-
-    // Should be on game details page after creation
     await assertTextVisible(page, gameTitle);
-    await assertTextVisible(page, 'Setup');
 
     // Start recruitment using GameDetailsPage
     const gamePage = new GameDetailsPage(page);
     await gamePage.startRecruitment();
 
-    // Verify state changed to Recruitment (button no longer visible)
-    await expect(page.getByRole('button', { name: 'Start Recruitment' })).not.toBeVisible({ timeout: 5000 });
+    // Verify state badge updated to Recruiting Players
+    const statusBadge = page.getByTestId('game-status-badge');
+    await expect(statusBadge).toContainText(/recruiting/i, { timeout: 10000 });
 
-    // Verify recruitment-specific content
+    // Verify recruitment-specific content appeared
     await expect(page.getByRole('heading', { name: /Recruitment Deadline/i, level: 3 }).locator('visible=true').first()).toBeVisible();
   });
 

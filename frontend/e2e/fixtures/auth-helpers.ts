@@ -86,18 +86,22 @@ export async function logout(page: Page) {
   const hamburger = page.locator('button[aria-label="Menu"]');
   const isMobile = await hamburger.isVisible({ timeout: 2000 }).catch(() => false);
 
+  const logoutButton = page.locator('button:has-text("Logout")').locator('visible=true').first();
+
   if (isMobile) {
     // Mobile: click hamburger to open the mobile drawer
     await hamburger.click();
+    await logoutButton.waitFor({ state: 'visible', timeout: 5000 });
   } else {
-    // Desktop: hover user-menu-trigger to open the dropdown
+    // Desktop: the dropdown is hover-driven (onMouseEnter/onMouseLeave on the
+    // wrapper div). Hover the trigger to open it, then immediately hover the
+    // Logout button — the mouse stays inside the wrapper the whole time so
+    // onMouseLeave never fires.
     const userMenuTrigger = page.getByTestId('user-menu-trigger');
     await userMenuTrigger.hover();
+    await logoutButton.waitFor({ state: 'visible', timeout: 5000 });
+    await logoutButton.hover();
   }
-
-  // Wait for the Logout button to appear (in either drawer or dropdown)
-  const logoutButton = page.locator('button:has-text("Logout")').locator('visible=true').first();
-  await logoutButton.waitFor({ state: 'visible', timeout: 5000 });
 
   // Use Promise.all to handle the logout click and response concurrently
   // This ensures we catch the response even if navigation happens immediately

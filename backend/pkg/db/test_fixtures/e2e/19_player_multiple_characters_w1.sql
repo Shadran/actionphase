@@ -1,8 +1,8 @@
 -- E2E Test: Player with Multiple Characters
 -- Tests character selector functionality for players assigned to multiple characters
--- This is a worker-specific fixture (w0) for parallel E2E testing
+-- This is a worker-specific fixture (w1) for parallel E2E testing
 --
--- Game #341: Player Multiple Characters Test
+-- Game #10340: Player Multiple Characters Test
 -- - Player 1 has TWO approved characters in the same game
 -- - Tests that character selector appears and works correctly
 
@@ -19,16 +19,18 @@ DECLARE
   char2_id INTEGER;
 BEGIN
   -- Get user IDs
-  SELECT id INTO gm_id FROM users WHERE email = 'test_gm@example.com';
-  SELECT id INTO p1_id FROM users WHERE email = 'test_player1@example.com';
-  SELECT id INTO p2_id FROM users WHERE email = 'test_player2@example.com';
+  SELECT id INTO gm_id FROM users WHERE email = 'test_gm_1@example.com';
+  SELECT id INTO p1_id FROM users WHERE email = 'test_player1_1@example.com';
+  SELECT id INTO p2_id FROM users WHERE email = 'test_player2_1@example.com';
 
   -- ============================================
-  -- GAME #341: Player Multiple Characters Test
+  -- GAME #10340: Player Multiple Characters Test
   -- ============================================
+  DELETE FROM games WHERE id = 10340;
+
   INSERT INTO games (id, title, description, genre, gm_user_id, max_players, state, is_public, created_at, updated_at)
   VALUES (
-    341,
+    10340,
     'E2E Test: Player Multiple Characters',
     'Game for testing character selector with player assigned to multiple characters.',
     'Test Framework',
@@ -40,7 +42,7 @@ BEGIN
     NOW()
   );
 
-  game_id := 341;
+  game_id := 10340;
 
   -- Add game participants
   INSERT INTO game_participants (game_id, user_id, role, status, joined_at)
@@ -84,7 +86,19 @@ BEGIN
   VALUES
     (game_id, NULL, 'Mysterious Sage', 'npc', 'approved', NOW() - INTERVAL '6 days', NOW());
 
-  RAISE NOTICE 'Player Multiple Characters fixture created: Game #341 with Player1 having 2 characters (Aria Moonwhisper, Kael Shadowblade)';
+  -- Pre-seed a GM post so tests don't need a two-context setup to create one at runtime
+  INSERT INTO messages (
+    game_id, phase_id, author_id, character_id,
+    content, message_type, visibility, mentioned_character_ids, created_at
+  ) VALUES (
+    game_id, phase_id, gm_id,
+    (SELECT id FROM characters c WHERE c.game_id = 10340 AND c.user_id IS NULL LIMIT 1),
+    'Character Selector Test Post',
+    'post', 'game', '{}',
+    NOW() - INTERVAL '1 hour'
+  );
+
+  RAISE NOTICE 'Player Multiple Characters fixture created: Game #10340 with Player1_1 having 2 characters (Aria Moonwhisper, Kael Shadowblade)';
 
 END $$;
 

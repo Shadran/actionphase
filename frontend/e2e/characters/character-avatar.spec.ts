@@ -4,7 +4,6 @@ import { getFixtureGameId } from '../fixtures/game-helpers';
 import { GameDetailsPage } from '../pages/GameDetailsPage';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,21 +33,6 @@ const __dirname = path.dirname(__filename);
  */
 
 test.describe('Character Avatar Feature', () => {
-  // Cleanup uploaded avatars after all tests to prevent state leakage
-  test.afterAll(async () => {
-    const uploadsDir = path.join(__dirname, '../../../backend/uploads/avatars/characters');
-    try {
-      const files = await fs.readdir(uploadsDir, { recursive: true });
-      for (const file of files) {
-        if (file.endsWith('.jpg') || file.endsWith('.png')) {
-          const filePath = path.join(uploadsDir, file);
-          await fs.unlink(filePath).catch(() => {});
-        }
-      }
-    } catch {
-      // Directory might not exist, ignore
-    }
-  });
 
   test('Character owner can upload, view, and delete avatar', async ({ page }) => {
     await loginAs(page, 'PLAYER_1');
@@ -129,11 +113,12 @@ test.describe('Character Avatar Feature', () => {
     await gamePage.goto(gameId);
     await gamePage.goToCharacters();
 
-    // Player 2 opens Player 1's character sheet (Edit Sheet should not be visible for other players' chars)
-    // If Edit Sheet is not available, verify upload button is also not available
-    const player1CharCard = page.locator('div').filter({ hasText: 'E2E Test Char 1' }).filter({ hasText: 'test_player1' });
-    const uploadButtonInOtherCard = player1CharCard.locator('button[title="Upload Avatar"]');
-    await expect(uploadButtonInOtherCard).not.toBeVisible();
+    // Find Player 1's character card — must exist before asserting the upload button is absent
+    const player1CharCard = page.getByTestId('character-card').filter({ hasText: 'E2E Test Char 1' });
+    await expect(player1CharCard).toBeVisible({ timeout: 10000 });
+
+    // Player 2 should not see an upload button on another player's character
+    await expect(player1CharCard.locator('button[title="Upload Avatar"]')).not.toBeVisible();
   });
 
   test('GM can upload avatar for any character', async ({ page }) => {

@@ -65,6 +65,7 @@ export const AudienceConversationCard: React.FC<AudienceConversationCardProps> =
   return (
     <Link
       to={href}
+      data-testid="conversation-item"
       onClick={(e) => {
         if (e.ctrlKey || e.metaKey) return;
         onClick();

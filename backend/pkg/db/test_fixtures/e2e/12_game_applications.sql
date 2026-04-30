@@ -5,12 +5,12 @@
 --
 -- IDEMPOTENT: Safe to run multiple times - deletes existing data before recreating
 --
--- Game IDs: 329-333, 346 (offset by worker: Worker 1 = 10329-10333, 10346, etc.)
+-- Game IDs: 329-333, 341, 346 (offset by worker: Worker 1 = 10329-10333, 10341, 10346, etc.)
 
 BEGIN;
 
 -- Delete existing game application test games to prevent duplicates
-DELETE FROM games WHERE id IN (329, 330, 331, 332, 333, 346);
+DELETE FROM games WHERE id IN (329, 330, 331, 332, 333, 341, 346);
 
 DO $$
 DECLARE
@@ -25,6 +25,7 @@ DECLARE
   game3_id INT := 331;
   game4_id INT := 332;
   game5_id INT := 333;
+  game7_id INT := 341;
   game6_id INT := 346;
 BEGIN
   -- Get user IDs
@@ -219,6 +220,40 @@ BEGIN
   );
 
   -- ============================================
+  -- Game #341: For testing public applicants list visibility
+  -- ============================================
+  INSERT INTO games (
+    id,
+    title,
+    description,
+    genre,
+    gm_user_id,
+    max_players,
+    state,
+    is_public,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    game7_id,
+    'E2E Test: Game Application - Public List',
+    'Recruitment game with pre-seeded applications for testing public applicant list.',
+    'Fantasy',
+    gm_id,
+    5,
+    'recruitment',
+    true,
+    NOW() - INTERVAL '3 days',
+    NOW()
+  );
+
+  -- Pre-seed applications from PLAYER_2 and PLAYER_3 (no conditional logic needed in tests)
+  INSERT INTO game_applications (game_id, user_id, role, message, status, applied_at)
+  VALUES
+    (game7_id, player2_id, 'player', 'I want to join!', 'pending', NOW() - INTERVAL '2 hours'),
+    (game7_id, player3_id, 'player', 'Count me in!', 'pending', NOW() - INTERVAL '1 hour');
+
+  -- ============================================
   -- Game #334: For testing audience joining during character_creation
   -- ============================================
   INSERT INTO games (
@@ -258,7 +293,7 @@ BEGIN
     NOW() - INTERVAL '2 days'
   );
 
-  RAISE NOTICE 'Game Application Workflow fixtures created: Games % % % % % %', game1_id, game2_id, game3_id, game4_id, game5_id, game6_id;
+  RAISE NOTICE 'Game Application Workflow fixtures created: Games % % % % % % %', game1_id, game2_id, game3_id, game4_id, game5_id, game7_id, game6_id;
 
 END $$;
 
