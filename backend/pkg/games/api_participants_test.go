@@ -156,3 +156,78 @@ func TestGameAPI_DemoteFromCoGM(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
 }
+
+// TestGameAPI_RemovePlayer_AccessControl verifies that non-GMs cannot remove players
+// and that the GM cannot remove themselves.
+func TestGameAPI_RemovePlayer_AccessControl(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	t.Run("non-GM player cannot remove another player", func(t *testing.T) {
+		req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/games/%d/participants/%d", game.ID, gm.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("GM cannot remove themselves from the game", func(t *testing.T) {
+		req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/games/%d/participants/%d", game.ID, gm.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		// GM removing themselves returns 409 Conflict
+		assert.Equal(t, http.StatusConflict, rec.Code)
+	})
+}
+
+// TestGameAPI_LeaveGame_NotAssociated documents the current behavior when a user
+// who has no participant record AND no application tries to leave a game.
+// Note: LeaveGame uses UPDATE...WHERE which silently affects zero rows, so the
+// 404 branch only fires when GetGameApplicationByUserAndGame also returns an error.
+// Currently, when RemovePlayer's underlying UPDATE succeeds (zero rows affected),
+// participantRemoved=true and the handler returns 204 even for true outsiders.
+// This test documents the actual behavior.
+func TestGameAPI_LeaveGame_NotAssociated(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	outsider := testDB.CreateTestUser(t, "outsider", "outsider@example.com")
+
+	outsiderToken, err := core.CreateTestJWTTokenForUser(app, outsider)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/games/%d/leave", game.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+outsiderToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	// Current behavior: RemovePlayer (UPDATE WHERE) affects 0 rows without error,
+	// so participantRemoved=true and the handler returns 204. The 404 branch
+	// requires both the participant removal AND application lookup to fail.
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}

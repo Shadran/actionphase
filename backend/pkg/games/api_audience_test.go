@@ -500,3 +500,58 @@ func TestGameAPI_ListAllActionSubmissions(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
 }
+
+// TestGameAPI_ListAudienceNPCs tests GET /api/v1/games/{id}/characters/audience-npcs
+func TestGameAPI_ListAudienceNPCs(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "npc_assignments", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	t.Run("returns 200 with empty list when no audience NPCs exist", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/characters/audience-npcs", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var body map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		_, ok := body["npcs"]
+		assert.True(t, ok, "response should contain 'npcs' key")
+	})
+
+	t.Run("authenticated player can list audience NPCs", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/characters/audience-npcs", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+
+	t.Run("invalid game ID returns 400", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/games/notanumber/characters/audience-npcs", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}

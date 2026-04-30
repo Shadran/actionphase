@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -420,5 +421,102 @@ func TestCreateGame_ValidationErrors(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestSplitCommaSeparated verifies that the custom comma-splitting helpers
+// correctly parse comma-separated query params. A silent bug here would cause
+// GetFilteredGames to ignore genre/tag filters entirely.
+func TestSplitCommaSeparated(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected []string
+	}{
+		{"fantasy,scifi,horror", []string{"fantasy", "scifi", "horror"}},
+		{"fantasy, scifi , horror", []string{"fantasy", "scifi", "horror"}},
+		{"single", []string{"single"}},
+		{"", nil},
+		{",,,", nil},
+		{"  spaces  ,  more  ", []string{"spaces", "more"}},
+	}
+
+	for _, tc := range cases {
+		got := splitCommaSeparated(tc.input)
+		if len(got) != len(tc.expected) {
+			t.Errorf("splitCommaSeparated(%q): got %v, want %v", tc.input, got, tc.expected)
+			continue
+		}
+		for i := range tc.expected {
+			if got[i] != tc.expected[i] {
+				t.Errorf("splitCommaSeparated(%q)[%d]: got %q, want %q", tc.input, i, got[i], tc.expected[i])
+			}
+		}
+	}
+}
+
+// TestDeleteGame_NonCancelledGame verifies that deleting a game that is not in
+// "cancelled" state returns 400. Silent failure here lets GMs destroy active games.
+func TestDeleteGame_NonCancelledGame(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	if err != nil {
+		t.Fatalf("failed to create token: %v", err)
+	}
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Active Game")
+
+	// Game starts in "setup" state, which is not "cancelled"
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/games/%d", game.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	// Must reject deletion of non-cancelled games
+	if rec.Code != http.StatusBadRequest && rec.Code != http.StatusConflict {
+		t.Errorf("expected 400 or 409 for deleting non-cancelled game, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+}
+
+// TestUpdateGameState_NonGMForbidden verifies that players cannot change game state.
+// A broken auth check here lets any participant advance or cancel a game.
+func TestUpdateGameState_NonGMForbidden(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	if err != nil {
+		t.Fatalf("failed to create token: %v", err)
+	}
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	if err != nil {
+		t.Fatalf("failed to add participant: %v", err)
+	}
+
+	body := `{"state":"recruitment"}`
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/games/%d/state", game.ID), bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+playerToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for non-GM state update, got %d (body: %s)", rec.Code, rec.Body.String())
 	}
 }
