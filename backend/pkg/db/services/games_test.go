@@ -1687,3 +1687,64 @@ func TestGameService_UpdateGameState_AutoCreateGamemasterNPC(t *testing.T) {
 		core.AssertEqual(t, 0, gamemasterCount, "Should have no Gamemaster NPC for non-character_creation state")
 	})
 }
+
+// TestGameService_RemovePlayer verifies the transactional remove-player operation
+// which soft-deletes the participant AND deactivates their characters atomically.
+// Silent failure here means a removed player retains their characters in the game.
+func TestGameService_RemovePlayer(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "sessions", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(player.ID), "player")
+	if err != nil {
+		t.Fatalf("failed to add participant: %v", err)
+	}
+
+	// Create a character for the player
+	char, err := characterService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        core.Int32Ptr(int32(player.ID)),
+		Name:          "PlayerChar",
+		CharacterType: "player_character",
+	})
+	if err != nil {
+		t.Fatalf("failed to create character: %v", err)
+	}
+
+	t.Run("removes participant and deactivates characters atomically", func(t *testing.T) {
+		err := gameService.RemovePlayer(ctx, game.ID, int32(player.ID), int32(gm.ID))
+		if err != nil {
+			t.Fatalf("RemovePlayer failed: %v", err)
+		}
+
+		// Player should no longer be an active participant
+		participants, err := gameService.GetActiveParticipants(ctx, game.ID)
+		if err != nil {
+			t.Fatalf("GetActiveParticipants failed: %v", err)
+		}
+		for _, p := range participants {
+			if p.UserID == int32(player.ID) {
+				t.Errorf("removed player is still listed as an active participant")
+			}
+		}
+
+		// Player's character should be deactivated
+		queries := models.New(testDB.Pool)
+		updatedChar, err := queries.GetCharacter(ctx, char.ID)
+		if err != nil {
+			t.Fatalf("failed to fetch character after removal: %v", err)
+		}
+		if updatedChar.IsActive {
+			t.Errorf("expected character is_active=false after player removal, got true")
+		}
+	})
+}

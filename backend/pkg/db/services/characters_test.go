@@ -1247,3 +1247,117 @@ func TestCharacterService_RenameCharacter(t *testing.T) {
 		core.AssertError(t, err, "Should fail with invalid character ID")
 	})
 }
+
+// TestCharacterService_ReassignCharacter verifies that ownership transfer changes
+// the character's user_id in the database. Silent failure here means the character
+// still appears under the old owner after a player removal.
+func TestCharacterService_ReassignCharacter(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "games", "sessions", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	characterService := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	newOwner := testDB.CreateTestUser(t, "newowner", "newowner@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	char, err := characterService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        core.Int32Ptr(int32(player.ID)),
+		Name:          "TransferMe",
+		CharacterType: "player_character",
+	})
+	if err != nil {
+		t.Fatalf("failed to create character: %v", err)
+	}
+
+	t.Run("reassigns character to new owner", func(t *testing.T) {
+		updated, err := characterService.ReassignCharacter(ctx, char.ID, int32(newOwner.ID))
+		if err != nil {
+			t.Fatalf("ReassignCharacter failed: %v", err)
+		}
+		if !updated.UserID.Valid || updated.UserID.Int32 != int32(newOwner.ID) {
+			t.Errorf("expected new owner user_id %d, got %+v", newOwner.ID, updated.UserID)
+		}
+	})
+
+	t.Run("returns error for non-existent character", func(t *testing.T) {
+		_, err := characterService.ReassignCharacter(ctx, 99999, int32(newOwner.ID))
+		if err == nil {
+			t.Error("expected error for non-existent character, got nil")
+		}
+	})
+}
+
+// TestCharacterService_DeactivatePlayerCharacters verifies that all player characters
+// for a user in a game are marked inactive. Silent failure leaves characters active
+// after a player is removed, which corrupts game state.
+func TestCharacterService_DeactivatePlayerCharacters(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "games", "sessions", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	characterService := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	otherPlayer := testDB.CreateTestUser(t, "other", "other@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	// Create two characters for the target player
+	char1, err := characterService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(player.ID)),
+		Name: "Char1", CharacterType: "player_character",
+	})
+	if err != nil {
+		t.Fatalf("create char1: %v", err)
+	}
+	char2, err := characterService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(player.ID)),
+		Name: "Char2", CharacterType: "player_character",
+	})
+	if err != nil {
+		t.Fatalf("create char2: %v", err)
+	}
+
+	// Create a character for a different player — must not be affected
+	otherChar, err := characterService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(otherPlayer.ID)),
+		Name: "OtherChar", CharacterType: "player_character",
+	})
+	if err != nil {
+		t.Fatalf("create otherChar: %v", err)
+	}
+
+	err = characterService.DeactivatePlayerCharacters(ctx, game.ID, int32(player.ID))
+	if err != nil {
+		t.Fatalf("DeactivatePlayerCharacters failed: %v", err)
+	}
+
+	queries := models.New(testDB.Pool)
+
+	for _, id := range []int32{char1.ID, char2.ID} {
+		c, err := queries.GetCharacter(ctx, id)
+		if err != nil {
+			t.Fatalf("fetch character %d: %v", id, err)
+		}
+		if c.IsActive {
+			t.Errorf("character %d: expected is_active=false after deactivation", id)
+		}
+	}
+
+	// Other player's character should still be active
+	oc, err := queries.GetCharacter(ctx, otherChar.ID)
+	if err != nil {
+		t.Fatalf("fetch otherChar: %v", err)
+	}
+	if !oc.IsActive {
+		t.Errorf("other player's character was incorrectly deactivated")
+	}
+}

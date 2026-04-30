@@ -532,3 +532,201 @@ func TestNotificationService_NotifyCommonRoomPost(t *testing.T) {
 		assert.True(t, found, "non-poster participants should receive the post notification")
 	})
 }
+
+// TestNotificationService_GetUnreadNotifications verifies that only unread notifications
+// are returned and that the limit is respected. Also exercises convertUnreadRowToCore.
+func TestNotificationService_GetUnreadNotifications(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	user := testDB.CreateTestUser(t, "unread_user", "unread@example.com")
+
+	// Create 5 notifications
+	for i := 0; i < 5; i++ {
+		_, err := service.CreateNotification(ctx, &core.CreateNotificationRequest{
+			UserID: int32(user.ID),
+			Type:   core.NotificationTypePrivateMessage,
+			Title:  "Unread notification",
+		})
+		require.NoError(t, err)
+	}
+
+	// Mark 2 as read
+	all, err := service.GetUserNotifications(ctx, int32(user.ID), 2, 0)
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+	err = service.MarkAsRead(ctx, all[0].ID, int32(user.ID))
+	require.NoError(t, err)
+	err = service.MarkAsRead(ctx, all[1].ID, int32(user.ID))
+	require.NoError(t, err)
+
+	t.Run("returns only unread notifications", func(t *testing.T) {
+		unread, err := service.GetUnreadNotifications(ctx, int32(user.ID), 100)
+		require.NoError(t, err)
+		assert.Equal(t, 3, len(unread))
+		for _, n := range unread {
+			assert.False(t, n.IsRead, "GetUnreadNotifications should only return unread notifications")
+		}
+	})
+
+	t.Run("respects limit parameter", func(t *testing.T) {
+		unread, err := service.GetUnreadNotifications(ctx, int32(user.ID), 2)
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(unread))
+	})
+
+	t.Run("zero limit returns all unread", func(t *testing.T) {
+		unread, err := service.GetUnreadNotifications(ctx, int32(user.ID), 0)
+		require.NoError(t, err)
+		assert.Equal(t, 3, len(unread))
+	})
+}
+
+// TestNotificationService_CreateBulkNotifications verifies that bulk creation reaches
+// all target users. Fire-and-forget errors should not surface to the caller.
+func TestNotificationService_CreateBulkNotifications(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	user1 := testDB.CreateTestUser(t, "bulk1", "bulk1@example.com")
+	user2 := testDB.CreateTestUser(t, "bulk2", "bulk2@example.com")
+	user3 := testDB.CreateTestUser(t, "bulk3", "bulk3@example.com")
+
+	t.Run("creates notifications for all users", func(t *testing.T) {
+		err := service.CreateBulkNotifications(ctx,
+			[]int32{int32(user1.ID), int32(user2.ID), int32(user3.ID)},
+			&core.CreateNotificationRequest{
+				Type:  core.NotificationTypePrivateMessage,
+				Title: "Bulk notification",
+			},
+		)
+		require.NoError(t, err)
+
+		for _, uid := range []int{user1.ID, user2.ID, user3.ID} {
+			notifs, err := service.GetUserNotifications(ctx, int32(uid), 10, 0)
+			require.NoError(t, err)
+			assert.Len(t, notifs, 1, "each user should have received exactly one notification")
+		}
+	})
+
+	t.Run("empty user list is a no-op and returns nil", func(t *testing.T) {
+		err := service.CreateBulkNotifications(ctx, []int32{},
+			&core.CreateNotificationRequest{
+				Type:  core.NotificationTypePrivateMessage,
+				Title: "Should not be created",
+			},
+		)
+		require.NoError(t, err)
+	})
+}
+
+// TestNotificationService_NotifyCommentReply verifies title format and notification type.
+// A wrong type means the frontend renders it with the wrong icon/copy.
+func TestNotificationService_NotifyCommentReply(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	author := testDB.CreateTestUser(t, "author", "author@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	replyID := int32(42)
+	err := service.NotifyCommentReply(ctx, int32(author.ID), replyID, game.ID, "Replier")
+	require.NoError(t, err)
+
+	notifs, err := service.GetUserNotifications(ctx, int32(author.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, notifs, 1)
+	assert.Equal(t, core.NotificationTypeCommentReply, notifs[0].Type)
+	assert.Contains(t, notifs[0].Title, "Replier")
+	assert.Contains(t, notifs[0].Title, "replied")
+}
+
+// TestNotificationService_NotifyCharacterMention verifies title format and notification type.
+// A wrong type means mention alerts are invisible to the mentioned character's owner.
+func TestNotificationService_NotifyCharacterMention(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	charOwner := testDB.CreateTestUser(t, "charowner", "charowner@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	commentID := int32(99)
+	err := service.NotifyCharacterMention(ctx, int32(charOwner.ID), commentID, game.ID, "Mentioner", "MentionedChar")
+	require.NoError(t, err)
+
+	notifs, err := service.GetUserNotifications(ctx, int32(charOwner.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, notifs, 1)
+	assert.Equal(t, core.NotificationTypeCharacterMention, notifs[0].Type)
+	assert.Contains(t, notifs[0].Title, "Mentioner")
+	assert.Contains(t, notifs[0].Title, "MentionedChar")
+}
+
+// TestNotificationService_NotifyActionSubmitted verifies type and title for GM action alerts.
+// A wrong type or missing notification means the GM doesn't know a player submitted an action.
+func TestNotificationService_NotifyActionSubmitted(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	actionID := int32(7)
+	err := service.NotifyActionSubmitted(ctx, int32(gm.ID), actionID, game.ID, "BraveHero")
+	require.NoError(t, err)
+
+	notifs, err := service.GetUserNotifications(ctx, int32(gm.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, notifs, 1)
+	assert.Equal(t, core.NotificationTypeActionSubmitted, notifs[0].Type)
+	assert.Contains(t, notifs[0].Title, "BraveHero")
+	assert.Contains(t, notifs[0].Title, "submitted")
+}
+
+// TestNotificationService_NotifyActionResult verifies type and title for player result alerts.
+// A wrong type means players don't see their action outcome notification.
+func TestNotificationService_NotifyActionResult(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	resultID := int32(3)
+	err := service.NotifyActionResult(ctx, int32(player.ID), resultID, game.ID, "Storm the Castle")
+	require.NoError(t, err)
+
+	notifs, err := service.GetUserNotifications(ctx, int32(player.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, notifs, 1)
+	assert.Equal(t, core.NotificationTypeActionResult, notifs[0].Type)
+	assert.Contains(t, notifs[0].Title, "Storm the Castle")
+	assert.Contains(t, notifs[0].Title, "result")
+}

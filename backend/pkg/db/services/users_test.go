@@ -678,3 +678,49 @@ func TestUserService_CheckUserBanned(t *testing.T) {
 		assert.True(t, banned)
 	})
 }
+
+// TestUserService_SearchUsers verifies that the case-insensitive partial-match search
+// returns matching users and excludes non-matching ones. Silent failure here means
+// GM/admin user-search flows return empty results.
+func TestUserService_SearchUsers(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	_, err := service.CreateUser(&core.User{Username: "alice_gamer", Password: "pass", Email: "alice@example.com"})
+	require.NoError(t, err)
+	_, err = service.CreateUser(&core.User{Username: "bob_plays", Password: "pass", Email: "bob@example.com"})
+	require.NoError(t, err)
+	_, err = service.CreateUser(&core.User{Username: "charlie", Password: "pass", Email: "charlie@example.com"})
+	require.NoError(t, err)
+
+	t.Run("returns matching users for partial query", func(t *testing.T) {
+		results, err := service.SearchUsers(ctx, "gamer")
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, "alice_gamer", results[0].Username)
+	})
+
+	t.Run("search is case-insensitive", func(t *testing.T) {
+		results, err := service.SearchUsers(ctx, "ALICE")
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, "alice_gamer", results[0].Username)
+	})
+
+	t.Run("returns empty slice when no match", func(t *testing.T) {
+		results, err := service.SearchUsers(ctx, "zzznomatch")
+		require.NoError(t, err)
+		assert.Len(t, results, 0)
+	})
+
+	t.Run("returns all matching users for broad query", func(t *testing.T) {
+		results, err := service.SearchUsers(ctx, "a")
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(results), 2, "should match alice_gamer and charlie at minimum")
+	})
+}

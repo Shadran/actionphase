@@ -727,3 +727,107 @@ func TestGameApplicationService_PublishApplicationStatuses(t *testing.T) {
 		// In a real scenario, you'd verify the published_at field is set
 	})
 }
+
+// TestGameApplicationService_DeleteRejectedApplications verifies that rejected
+// applications are removed after a recruitment phase ends. Silent failure means
+// stale rejected applications accumulate in the DB.
+func TestGameApplicationService_DeleteRejectedApplications(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_applications", "games", "sessions", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	_ = app
+	service := &GameApplicationService{DB: testDB.Pool}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player1 := testDB.CreateTestUser(t, "player1", "player1@example.com")
+	player2 := testDB.CreateTestUser(t, "player2", "player2@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Recruitment Game")
+
+	// Transition game to recruitment so applications are allowed
+	_, err := gameService.UpdateGameState(ctx, game.ID, "recruitment")
+	require.NoError(t, err)
+
+	// Submit applications
+	app1, err := service.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
+		GameID: game.ID, UserID: int32(player1.ID), Role: "player",
+	})
+	require.NoError(t, err)
+	app2, err := service.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
+		GameID: game.ID, UserID: int32(player2.ID), Role: "player",
+	})
+	require.NoError(t, err)
+
+	// Reject both (RejectGameApplication takes applicationID, reviewerID)
+	err = service.RejectGameApplication(ctx, app1.ID, int32(gm.ID))
+	require.NoError(t, err)
+	err = service.RejectGameApplication(ctx, app2.ID, int32(gm.ID))
+	require.NoError(t, err)
+
+	// Verify rejected applications exist before cleanup
+	before, err := service.GetGameApplications(ctx, game.ID)
+	require.NoError(t, err)
+	rejectedCount := 0
+	for _, a := range before {
+		if a.Status.String == "rejected" {
+			rejectedCount++
+		}
+	}
+	assert.Equal(t, 2, rejectedCount, "should have 2 rejected applications before cleanup")
+
+	// Delete rejected applications
+	err = service.DeleteRejectedApplications(ctx, game.ID)
+	require.NoError(t, err)
+
+	// Verify they are gone
+	after, err := service.GetGameApplications(ctx, game.ID)
+	require.NoError(t, err)
+	for _, a := range after {
+		assert.NotEqual(t, "rejected", a.Status.String, "no rejected applications should remain after cleanup")
+	}
+}
+
+// TestGameApplicationService_GetPublicGameApplicants verifies that the public applicant
+// list returns usernames without exposing status or review information.
+func TestGameApplicationService_GetPublicGameApplicants(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_applications", "games", "sessions", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	_ = app
+	service := &GameApplicationService{DB: testDB.Pool}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player1 := testDB.CreateTestUser(t, "applicant1", "applicant1@example.com")
+	player2 := testDB.CreateTestUser(t, "applicant2", "applicant2@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Public Game")
+
+	_, err := gameService.UpdateGameState(ctx, game.ID, "recruitment")
+	require.NoError(t, err)
+
+	_, err = service.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
+		GameID: game.ID, UserID: int32(player1.ID), Role: "player",
+	})
+	require.NoError(t, err)
+	_, err = service.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
+		GameID: game.ID, UserID: int32(player2.ID), Role: "player",
+	})
+	require.NoError(t, err)
+
+	applicants, err := service.GetPublicGameApplicants(ctx, game.ID)
+	require.NoError(t, err)
+	assert.Len(t, applicants, 2, "should return both applicants")
+
+	usernames := make([]string, len(applicants))
+	for i, a := range applicants {
+		usernames[i] = a.Username
+	}
+	assert.Contains(t, usernames, player1.Username)
+	assert.Contains(t, usernames, player2.Username)
+}
