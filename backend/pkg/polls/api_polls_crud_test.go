@@ -303,6 +303,35 @@ func TestPollCRUD_DeletePoll(t *testing.T) {
 	})
 }
 
+// TestPollCRUD_GetPoll_NonParticipant tests that a user not in the game cannot view a poll
+func TestPollCRUD_GetPoll_NonParticipant(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPollCRUDTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	outsider := testDB.CreateTestUser(t, "outsider", "outsider@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	outsiderToken, err := core.CreateTestJWTTokenForUser(app, outsider)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	pollID := createTestPoll(t, router, game.ID, gmToken)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/polls/%d", pollID), nil)
+	req.Header.Set("Authorization", "Bearer "+outsiderToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
 // TestPollCRUD_ListGamePolls tests GET /api/v1/games/{gameId}/polls
 func TestPollCRUD_ListGamePolls(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
@@ -370,5 +399,79 @@ func TestPollCRUD_ListGamePolls(t *testing.T) {
 		router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("response includes user_has_voted field", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/polls", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response []map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.NotEmpty(t, response)
+		_, hasField := response[0]["user_has_voted"]
+		assert.True(t, hasField, "each poll should include user_has_voted field")
+	})
+}
+
+// TestPollCRUD_ListGamePolls_IncludeExpired tests the include_expired query parameter
+func TestPollCRUD_ListGamePolls_IncludeExpired(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPollCRUDTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	// Create an active poll via API
+	createTestPoll(t, router, game.ID, gmToken)
+
+	// Create an expired poll directly via service
+	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
+		GameID:          game.ID,
+		CreatedByUserID: int32(gm.ID),
+		Question:        "Expired poll",
+		Deadline:        time.Now().Add(-1 * time.Hour),
+		Options: []core.PollOptionInput{
+			{Text: "A", DisplayOrder: 1},
+			{Text: "B", DisplayOrder: 2},
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("without include_expired returns only active polls", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/polls", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response []interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Len(t, response, 1, "should only return active polls by default")
+	})
+
+	t.Run("with include_expired=true returns all polls", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/polls?include_expired=true", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response []interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Len(t, response, 2, "should return both active and expired polls")
 	})
 }

@@ -46,10 +46,12 @@ func setupMessageAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mu
 				r.With(core.RequireEmailVerificationMiddleware(app.Pool)).Post("/{gameId}/posts", messageHandler.CreatePost)
 				r.Patch("/{gameId}/posts/{postId}", messageHandler.UpdatePost)
 				r.With(core.RequireEmailVerificationMiddleware(app.Pool)).Post("/{gameId}/posts/{postId}/comments", messageHandler.CreateComment)
+				r.Patch("/{gameId}/posts/{postId}/comments/{commentId}", messageHandler.UpdateComment)
 				r.Delete("/{gameId}/posts/{postId}/comments/{commentId}", messageHandler.DeleteComment)
 				r.Get("/{gameId}/posts/{postId}/comments-with-threads", messageHandler.GetPostCommentsWithThreads)
 				r.Post("/{gameId}/posts/{postId}/comments/{commentId}/toggle-read", messageHandler.ToggleCommentRead)
 				r.Get("/{gameId}/manual-read-comment-ids", messageHandler.GetManualReadCommentIDs)
+				r.Get("/{gameId}/comments/recent", messageHandler.ListRecentCommentsWithParents)
 			})
 		})
 
@@ -868,5 +870,263 @@ func TestMessageAPI_GetCharacterComments(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		items := response["messages"].([]interface{})
 		assert.Len(t, items, 0)
+	})
+}
+
+// TestMessageAPI_UpdateComment tests PATCH /api/v1/games/{gameId}/posts/{postId}/comments/{commentId}
+func TestMessageAPI_UpdateComment(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "messages", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupMessageAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	other := testDB.CreateTestUser(t, "other", "other@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+	otherToken, err := core.CreateTestJWTTokenForUser(app, other)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	messageService := &messages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(other.ID), "player")
+	require.NoError(t, err)
+
+	gmChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(gm.ID)), Name: "GM Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+	playerChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player.ID)), Name: "Player Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	post, err := messageService.CreatePost(context.Background(), core.CreatePostRequest{
+		GameID: game.ID, AuthorID: int32(gm.ID), CharacterID: gmChar.ID, Content: "Announcement.", Visibility: "game",
+	})
+	require.NoError(t, err)
+
+	comment, err := messageService.CreateComment(context.Background(), core.CreateCommentRequest{
+		GameID: game.ID, ParentID: post.ID, AuthorID: int32(player.ID), CharacterID: playerChar.ID,
+		Content: "Original comment.", Visibility: "game",
+	})
+	require.NoError(t, err)
+
+	commentURL := fmt.Sprintf("/api/v1/games/%d/posts/%d/comments/%d", game.ID, post.ID, comment.ID)
+
+	t.Run("author can edit own comment", func(t *testing.T) {
+		body := UpdateCommentRequest{Content: "Edited comment."}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", commentURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Equal(t, "Edited comment.", response["content"])
+	})
+
+	t.Run("non-author cannot edit comment", func(t *testing.T) {
+		body := UpdateCommentRequest{Content: "Sneaky edit."}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", commentURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+otherToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("GM cannot edit player's comment", func(t *testing.T) {
+		body := UpdateCommentRequest{Content: "GM editing player comment."}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", commentURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+}
+
+// TestMessageAPI_ListRecentCommentsWithParents tests GET /api/v1/games/{gameId}/comments/recent
+func TestMessageAPI_ListRecentCommentsWithParents(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "messages", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupMessageAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	messageService := &messages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	gmChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(gm.ID)), Name: "GM Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+	playerChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player.ID)), Name: "Player Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	post, err := messageService.CreatePost(context.Background(), core.CreatePostRequest{
+		GameID: game.ID, AuthorID: int32(gm.ID), CharacterID: gmChar.ID, Content: "Post.", Visibility: "game",
+	})
+	require.NoError(t, err)
+	_, err = messageService.CreateComment(context.Background(), core.CreateCommentRequest{
+		GameID: game.ID, ParentID: post.ID, AuthorID: int32(player.ID), CharacterID: playerChar.ID,
+		Content: "A reply.", Visibility: "game",
+	})
+	require.NoError(t, err)
+
+	recentURL := fmt.Sprintf("/api/v1/games/%d/comments/recent", game.ID)
+
+	t.Run("returns comments with pagination metadata", func(t *testing.T) {
+		req := httptest.NewRequest("GET", recentURL, nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.NotNil(t, response["comments"])
+		pagination := response["pagination"].(map[string]interface{})
+		assert.NotNil(t, pagination["limit"])
+		assert.NotNil(t, pagination["offset"])
+		assert.NotNil(t, pagination["total"])
+	})
+
+	t.Run("player can also retrieve recent comments", func(t *testing.T) {
+		req := httptest.NewRequest("GET", recentURL, nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+
+	t.Run("returns 400 for invalid limit", func(t *testing.T) {
+		req := httptest.NewRequest("GET", recentURL+"?limit=bad", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 400 for invalid offset", func(t *testing.T) {
+		req := httptest.NewRequest("GET", recentURL+"?offset=-5", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 400 for zero limit", func(t *testing.T) {
+		req := httptest.NewRequest("GET", recentURL+"?limit=0", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}
+
+// TestMessageAPI_GetCharacterComments_InvalidParams tests invalid pagination params for GetCharacterComments
+func TestMessageAPI_GetCharacterComments_InvalidParams(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "messages", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupMessageAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	gmChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(gm.ID)), Name: "GM Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	baseURL := fmt.Sprintf("/api/v1/characters/%d/comments", gmChar.ID)
+
+	t.Run("returns 400 for non-numeric limit", func(t *testing.T) {
+		req := httptest.NewRequest("GET", baseURL+"?limit=abc", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 400 for negative offset", func(t *testing.T) {
+		req := httptest.NewRequest("GET", baseURL+"?offset=-1", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 400 for zero limit", func(t *testing.T) {
+		req := httptest.NewRequest("GET", baseURL+"?limit=0", nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }

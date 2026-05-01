@@ -1165,11 +1165,26 @@ func TestConversationAPI_UpdateMessage(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	player2Token, err := core.CreateTestJWTTokenForUser(app, player2)
+	require.NoError(t, err)
+
+	// Player2 sends a message that player1 will try to edit
+	msg2, err := conversationService.SendMessage(context.Background(), db.SendMessageRequest{
+		ConversationID:    conversation.ID,
+		SenderUserID:      int32(player2.ID),
+		SenderCharacterID: char2.ID,
+		Content:           "Player2 original message",
+	})
+	require.NoError(t, err)
+
+	editURL := fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages/%d", game.ID, conversation.ID, msg.ID)
+	editURL2 := fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages/%d", game.ID, conversation.ID, msg2.ID)
+
 	t.Run("sender can edit their message", func(t *testing.T) {
 		body := map[string]string{"content": "Edited content"}
 		bodyJSON, _ := json.Marshal(body)
 
-		req := httptest.NewRequest("PATCH", fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages/%d", game.ID, conversation.ID, msg.ID), bytes.NewBuffer(bodyJSON))
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+player1Token)
 
@@ -1180,5 +1195,82 @@ func TestConversationAPI_UpdateMessage(t *testing.T) {
 		var response map[string]interface{}
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		assert.Equal(t, "Edited content", response["content"])
+	})
+
+	t.Run("player cannot edit another player's message", func(t *testing.T) {
+		body := map[string]string{"content": "Sneaky edit"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL2, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("returns 400 for empty content", func(t *testing.T) {
+		body := map[string]string{"content": ""}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("cannot edit message outside common room phase", func(t *testing.T) {
+		// Switch to action phase
+		actionPhase, err := phaseService.CreatePhase(context.Background(), core.CreatePhaseRequest{
+			GameID:    game.ID,
+			PhaseType: "action",
+		})
+		require.NoError(t, err)
+		err = phaseService.ActivatePhase(context.Background(), actionPhase.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		body := map[string]string{"content": "Edit during action phase"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+		assert.Contains(t, rec.Body.String(), "common room")
+
+		// Restore common room phase
+		err = phaseService.ActivatePhase(context.Background(), phase.ID, int32(gm.ID))
+		require.NoError(t, err)
+	})
+
+	t.Run("non-participant cannot edit a message", func(t *testing.T) {
+		player3 := testDB.CreateTestUser(t, "player3", "player3@example.com")
+		_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player3.ID), "player")
+		require.NoError(t, err)
+		player3Token, err := core.CreateTestJWTTokenForUser(app, player3)
+		require.NoError(t, err)
+		_ = player2Token
+
+		body := map[string]string{"content": "Outsider edit"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player3Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
 }

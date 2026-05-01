@@ -3,8 +3,12 @@ package users
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	"actionphase/pkg/storage"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -444,5 +448,140 @@ func TestUserAPI_GetUserProfileByUsername(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		core.AssertEqual(t, 404, w.Code, "Should return 404 for unknown username")
+	})
+}
+
+// setupUserAPITestRouterWithStorage creates a test router with a real storage backend wired in.
+func setupUserAPITestRouterWithStorage(app *core.App, testDB *core.TestDatabase) *chi.Mux {
+	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
+			userHandler := Handler{App: app}
+			r.Group(func(r chi.Router) {
+				r.Use(jwtauth.Verifier(tokenAuth))
+				r.Use(jwtauth.Authenticator(tokenAuth))
+				r.Use(core.RequireAuthenticationMiddleware(userService))
+
+				r.Post("/me/avatar", userHandler.UploadUserAvatar)
+				r.Delete("/me/avatar", userHandler.DeleteUserAvatar)
+			})
+		})
+	})
+	return r
+}
+
+// buildAvatarMultipartBody creates a multipart form body with an avatar file.
+func buildAvatarMultipartBody(t *testing.T, fieldName, filename, contentType string, content []byte) (*bytes.Buffer, string) {
+	t.Helper()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	part, err := w.CreateFormFile(fieldName, filename)
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	_, err = part.Write(content)
+	if err != nil {
+		t.Fatalf("failed to write form part: %v", err)
+	}
+	// Explicitly set the Content-Type for the part
+	_ = w.WriteField("_content_type", contentType)
+	w.Close()
+	return &body, w.FormDataContentType()
+}
+
+// TestUserAPI_UploadUserAvatar tests POST /users/me/avatar
+func TestUserAPI_UploadUserAvatar(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	localStorage := storage.NewLocalStorage("./test_uploads", "http://localhost:3000/uploads")
+	app := core.NewTestApp(testDB.Pool)
+	app.Storage = localStorage
+
+	router := setupUserAPITestRouterWithStorage(app, testDB)
+
+	user := testDB.CreateTestUser(t, "uploader", "uploader@example.com")
+	token, err := core.CreateTestJWTTokenForUser(app, user)
+	core.AssertNoError(t, err, "token creation should succeed")
+
+	t.Run("missing avatar field returns 400", func(t *testing.T) {
+		// Submit a multipart form with no 'avatar' field
+		var body bytes.Buffer
+		w := multipart.NewWriter(&body)
+		w.WriteField("unrelated_field", "value")
+		w.Close()
+
+		req := httptest.NewRequest("POST", "/api/v1/users/me/avatar", &body)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		core.AssertEqual(t, http.StatusBadRequest, rec.Code, "missing avatar file should return 400")
+	})
+
+	t.Run("invalid content type returns 400", func(t *testing.T) {
+		// Create a valid multipart form but with a non-image content type
+		var body bytes.Buffer
+		mw := multipart.NewWriter(&body)
+		h := make(map[string][]string)
+		h["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="avatar"; filename="test.txt"`)}
+		h["Content-Type"] = []string{"text/plain"}
+		part, _ := mw.CreatePart(h)
+		part.Write([]byte("not an image"))
+		mw.Close()
+
+		req := httptest.NewRequest("POST", "/api/v1/users/me/avatar", &body)
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		core.AssertEqual(t, http.StatusBadRequest, rec.Code, "invalid content type should return 400")
+	})
+
+	t.Run("valid PNG upload returns 201 with avatar_url", func(t *testing.T) {
+		// Minimal valid PNG (1x1 pixel)
+		minimalPNG := []byte{
+			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+			0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk length + type
+			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+			0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // bit depth, color type
+			0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, // IDAT
+			0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+			0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+			0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND
+			0x44, 0xAE, 0x42, 0x60, 0x82,
+		}
+
+		var body bytes.Buffer
+		mw := multipart.NewWriter(&body)
+		h := make(map[string][]string)
+		h["Content-Disposition"] = []string{`form-data; name="avatar"; filename="avatar.png"`}
+		h["Content-Type"] = []string{"image/png"}
+		part, _ := mw.CreatePart(h)
+		part.Write(minimalPNG)
+		mw.Close()
+
+		req := httptest.NewRequest("POST", "/api/v1/users/me/avatar", &body)
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		core.AssertEqual(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		core.AssertNoError(t, err, "response should be valid JSON")
+		_, hasURL := response["avatar_url"]
+		core.AssertTrue(t, hasURL, "response should contain avatar_url field")
 	})
 }

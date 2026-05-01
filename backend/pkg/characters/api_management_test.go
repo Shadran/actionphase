@@ -35,6 +35,17 @@ func setupCharacterManagementTestRouter(app *core.App, testDB *core.TestDatabase
 		r.Put("/{id}/rename", handler.RenameCharacter)
 		r.Delete("/{id}", handler.DeleteCharacter)
 		r.Post("/{id}/approve", handler.ApproveCharacter)
+		r.Post("/{id}/assign", handler.AssignNPC)
+		r.Put("/{id}/reassign", handler.ReassignCharacter)
+		r.Post("/{id}/data", handler.SetCharacterData)
+	})
+	router.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
+		r.Use(jwtauth.Verifier(tokenAuth))
+		r.Use(jwtauth.Authenticator(tokenAuth))
+		r.Use(core.RequireAuthenticationMiddleware(userService))
+
+		handler := &Handler{App: app}
+		r.Get("/inactive", handler.ListInactiveCharacters)
 	})
 	return router
 }
@@ -322,5 +333,367 @@ func TestCharacterAPI_ApproveCharacter(t *testing.T) {
 		router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+// TestCharacterAPI_AssignNPC tests POST /api/v1/characters/{id}/assign
+func TestCharacterAPI_AssignNPC(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterManagementTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	audience := testDB.CreateTestUser(t, "audience", "audience@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(audience.ID), "audience")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	npc, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		Name:          "NPC Character",
+		CharacterType: "npc",
+	})
+	require.NoError(t, err)
+
+	t.Run("GM can assign NPC to audience member", func(t *testing.T) {
+		body := AssignNPCRequest{AssignedUserID: int32(audience.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/characters/%d/assign", npc.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+	})
+
+	t.Run("GM cannot assign NPC to a player (not audience)", func(t *testing.T) {
+		body := AssignNPCRequest{AssignedUserID: int32(player.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/characters/%d/assign", npc.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("non-GM player cannot assign NPC", func(t *testing.T) {
+		body := AssignNPCRequest{AssignedUserID: int32(audience.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/characters/%d/assign", npc.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+// TestCharacterAPI_ReassignCharacter tests PUT /api/v1/characters/{id}/reassign
+func TestCharacterAPI_ReassignCharacter(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterManagementTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	newOwner := testDB.CreateTestUser(t, "newowner", "newowner@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(newOwner.ID), "player")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	t.Run("GM can reassign an inactive character", func(t *testing.T) {
+		char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        game.ID,
+			UserID:        int32Ptr(int32(player.ID)),
+			Name:          "Inactive Char",
+			CharacterType: "player_character",
+		})
+		require.NoError(t, err)
+
+		// Deactivate the character so it can be reassigned
+		err = characterService.DeactivatePlayerCharacters(context.Background(), game.ID, int32(player.ID))
+		require.NoError(t, err)
+
+		body := ReassignCharacterRequest{NewOwnerUserID: int32(newOwner.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/characters/%d/reassign", char.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Equal(t, float64(newOwner.ID), response["user_id"])
+	})
+
+	t.Run("GM cannot reassign an active character", func(t *testing.T) {
+		char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        game.ID,
+			UserID:        int32Ptr(int32(player.ID)),
+			Name:          "Active Char",
+			CharacterType: "player_character",
+		})
+		require.NoError(t, err)
+
+		body := ReassignCharacterRequest{NewOwnerUserID: int32(newOwner.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/characters/%d/reassign", char.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusConflict, rec.Code)
+	})
+
+	t.Run("non-GM player cannot reassign", func(t *testing.T) {
+		char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        game.ID,
+			UserID:        int32Ptr(int32(player.ID)),
+			Name:          "Another Char",
+			CharacterType: "player_character",
+		})
+		require.NoError(t, err)
+
+		body := ReassignCharacterRequest{NewOwnerUserID: int32(newOwner.ID)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/characters/%d/reassign", char.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+// TestCharacterAPI_ListInactiveCharacters tests GET /api/v1/games/{gameId}/characters/inactive
+func TestCharacterAPI_ListInactiveCharacters(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterManagementTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        int32Ptr(int32(player.ID)),
+		Name:          "To Be Deactivated",
+		CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	err = characterService.DeactivatePlayerCharacters(context.Background(), game.ID, int32(player.ID))
+	require.NoError(t, err)
+
+	listURL := fmt.Sprintf("/api/v1/games/%d/characters/inactive", game.ID)
+
+	t.Run("GM can list inactive characters", func(t *testing.T) {
+		req := httptest.NewRequest("GET", listURL, nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response []map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Len(t, response, 1)
+		assert.Equal(t, float64(char.ID), response[0]["id"])
+		assert.Equal(t, false, response[0]["is_active"])
+	})
+
+	t.Run("non-GM player cannot list inactive characters", func(t *testing.T) {
+		req := httptest.NewRequest("GET", listURL, nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+// TestCharacterAPI_SetCharacterData tests POST /api/v1/characters/{id}/data
+func TestCharacterAPI_SetCharacterData(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "character_data", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterManagementTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	other := testDB.CreateTestUser(t, "other", "other@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+	otherToken, err := core.CreateTestJWTTokenForUser(app, other)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(other.ID), "player")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	playerChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        int32Ptr(int32(player.ID)),
+		Name:          "Player Character",
+		CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	dataURL := fmt.Sprintf("/api/v1/characters/%d/data", playerChar.ID)
+
+	t.Run("character owner can set non-stat data", func(t *testing.T) {
+		body := CharacterDataRequest{
+			ModuleType: "biography",
+			FieldName:  "backstory",
+			FieldValue: "A long backstory.",
+			FieldType:  "text",
+			IsPublic:   true,
+		}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", dataURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+	})
+
+	t.Run("non-owner cannot set character data", func(t *testing.T) {
+		body := CharacterDataRequest{
+			ModuleType: "biography",
+			FieldName:  "backstory",
+			FieldValue: "Sneaky edit.",
+			FieldType:  "text",
+			IsPublic:   true,
+		}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", dataURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+otherToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("player cannot set stat fields (abilities)", func(t *testing.T) {
+		body := CharacterDataRequest{
+			ModuleType: "abilities",
+			FieldName:  "abilities",
+			FieldValue: `{"strength": 20}`,
+			FieldType:  "json",
+			IsPublic:   false,
+		}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", dataURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("GM can set stat fields", func(t *testing.T) {
+		body := CharacterDataRequest{
+			ModuleType: "abilities",
+			FieldName:  "abilities",
+			FieldValue: `{"strength": 18}`,
+			FieldType:  "json",
+			IsPublic:   false,
+		}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", dataURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
 }

@@ -198,6 +198,62 @@ func TestGameAPI_RemovePlayer_AccessControl(t *testing.T) {
 	})
 }
 
+// TestGameAPI_LeaveGame_WithPendingApplication tests that a user with only a pending
+// application (not a participant) can withdraw by calling leave — the application gets deleted.
+func TestGameAPI_LeaveGame_WithPendingApplication(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_applications", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	applicant := testDB.CreateTestUser(t, "applicant", "applicant@example.com")
+
+	applicantToken, err := core.CreateTestJWTTokenForUser(app, applicant)
+	require.NoError(t, err)
+
+	// Create a recruiting game so the application service allows applying
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	testDB.SetGameStateDirectly(t, game.ID, "recruitment")
+
+	// Create a pending application directly via service
+	appService := &db.GameApplicationService{DB: testDB.Pool}
+	application, err := appService.CreateGameApplication(context.Background(), core.CreateGameApplicationRequest{
+		GameID:  game.ID,
+		UserID:  int32(applicant.ID),
+		Role:    "player",
+		Message: "I'd like to join",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, application)
+
+	// Verify application exists
+	var countBefore int
+	err = testDB.Pool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM game_applications WHERE game_id = $1 AND user_id = $2", game.ID, applicant.ID,
+	).Scan(&countBefore)
+	require.NoError(t, err)
+	assert.Equal(t, 1, countBefore)
+
+	// Leave the game (applicant, not participant)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/games/%d/leave", game.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+applicantToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+
+	// Verify application was deleted
+	var countAfter int
+	err = testDB.Pool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM game_applications WHERE game_id = $1 AND user_id = $2", game.ID, applicant.ID,
+	).Scan(&countAfter)
+	require.NoError(t, err)
+	assert.Equal(t, 0, countAfter, "pending application should be deleted after leaving")
+}
+
 // TestGameAPI_LeaveGame_NotAssociated documents the current behavior when a user
 // who has no participant record AND no application tries to leave a game.
 // Note: LeaveGame uses UPDATE...WHERE which silently affects zero rows, so the

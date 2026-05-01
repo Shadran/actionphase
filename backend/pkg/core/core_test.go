@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -298,4 +299,169 @@ func TestMockUserService_ReturnsError(t *testing.T) {
 	u, err := svc.GetUserByID(999)
 	assert.Nil(t, u)
 	assert.Error(t, err)
+}
+
+// --- constants.go ---
+
+func TestIsValidGameState(t *testing.T) {
+	for _, s := range ValidGameStates {
+		assert.True(t, IsValidGameState(s), "expected %q to be valid", s)
+	}
+	assert.False(t, IsValidGameState(""), "empty string should be invalid")
+	assert.False(t, IsValidGameState("draft"), "unknown state should be invalid")
+	assert.False(t, IsValidGameState("IN_PROGRESS"), "case-sensitive: uppercase should be invalid")
+}
+
+func TestIsValidStateTransition(t *testing.T) {
+	// Valid forward transitions
+	assert.True(t, IsValidStateTransition(GameStateSetup, GameStateRecruitment))
+	assert.True(t, IsValidStateTransition(GameStateRecruitment, GameStateCharacterCreation))
+	assert.True(t, IsValidStateTransition(GameStateCharacterCreation, GameStateInProgress))
+	assert.True(t, IsValidStateTransition(GameStateInProgress, GameStatePaused))
+	assert.True(t, IsValidStateTransition(GameStatePaused, GameStateInProgress))
+	assert.True(t, IsValidStateTransition(GameStateInProgress, GameStateCompleted))
+
+	// Terminal states cannot transition
+	assert.False(t, IsValidStateTransition(GameStateCompleted, GameStateInProgress))
+	assert.False(t, IsValidStateTransition(GameStateCancelled, GameStateSetup))
+
+	// Skipping states is forbidden
+	assert.False(t, IsValidStateTransition(GameStateSetup, GameStateInProgress))
+	assert.False(t, IsValidStateTransition(GameStateRecruitment, GameStateCompleted))
+
+	// Unknown current state
+	assert.False(t, IsValidStateTransition("nonexistent", GameStateSetup))
+}
+
+func TestIsValidParticipantRole(t *testing.T) {
+	for _, r := range ValidParticipantRoles {
+		assert.True(t, IsValidParticipantRole(r), "expected %q to be valid", r)
+	}
+	assert.False(t, IsValidParticipantRole(""), "empty string should be invalid")
+	assert.False(t, IsValidParticipantRole("admin"), "unknown role should be invalid")
+	assert.False(t, IsValidParticipantRole("GM"), "case-sensitive: uppercase should be invalid")
+}
+
+func TestIsValidParticipantStatus(t *testing.T) {
+	for _, s := range ValidParticipantStatuses {
+		assert.True(t, IsValidParticipantStatus(s), "expected %q to be valid", s)
+	}
+	assert.False(t, IsValidParticipantStatus(""), "empty string should be invalid")
+	assert.False(t, IsValidParticipantStatus("suspended"), "unknown status should be invalid")
+}
+
+func TestIsValidApplicationStatus(t *testing.T) {
+	for _, s := range ValidApplicationStatuses {
+		assert.True(t, IsValidApplicationStatus(s), "expected %q to be valid", s)
+	}
+	assert.False(t, IsValidApplicationStatus(""), "empty string should be invalid")
+	assert.False(t, IsValidApplicationStatus("withdrawn"), "unknown status should be invalid")
+}
+
+func TestIsValidNotificationType(t *testing.T) {
+	for _, typ := range ValidNotificationTypes {
+		assert.True(t, IsValidNotificationType(typ), "expected %q to be valid", typ)
+	}
+	assert.False(t, IsValidNotificationType(""), "empty string should be invalid")
+	assert.False(t, IsValidNotificationType("unknown_event"), "unknown type should be invalid")
+	assert.False(t, IsValidNotificationType("ACTION_SUBMITTED"), "case-sensitive: uppercase should be invalid")
+}
+
+// --- notifications.go ---
+
+func TestCreateNotificationRequest_Validate(t *testing.T) {
+	str := func(s string) *string { return &s }
+
+	t.Run("valid request passes", func(t *testing.T) {
+		req := &CreateNotificationRequest{
+			UserID: 1,
+			Type:   NotificationTypeActionResult,
+			Title:  "Your action result is ready",
+		}
+		assert.NoError(t, req.Validate())
+	})
+
+	t.Run("invalid notification type fails", func(t *testing.T) {
+		req := &CreateNotificationRequest{
+			UserID: 1,
+			Type:   "not_a_real_type",
+			Title:  "Some title",
+		}
+		assert.Error(t, req.Validate(), "unknown notification type should fail validation")
+	})
+
+	t.Run("empty title fails", func(t *testing.T) {
+		req := &CreateNotificationRequest{
+			UserID: 1,
+			Type:   NotificationTypeActionResult,
+			Title:  "",
+		}
+		assert.Error(t, req.Validate(), "empty title should fail validation")
+	})
+
+	t.Run("title too long fails", func(t *testing.T) {
+		req := &CreateNotificationRequest{
+			UserID: 1,
+			Type:   NotificationTypeActionResult,
+			Title:  string(make([]byte, 256)), // 256 bytes > max 255
+		}
+		assert.Error(t, req.Validate(), "title exceeding 255 chars should fail")
+	})
+
+	t.Run("link URL too long fails", func(t *testing.T) {
+		req := &CreateNotificationRequest{
+			UserID:  1,
+			Type:    NotificationTypeActionResult,
+			Title:   "OK",
+			LinkURL: str(string(make([]byte, 501))), // 501 > max 500
+		}
+		assert.Error(t, req.Validate(), "link URL exceeding 500 chars should fail")
+	})
+}
+
+// --- email_verification_middleware.go ---
+
+func TestRequireEmailVerificationMiddleware_Disabled(t *testing.T) {
+	t.Setenv("REQUIRE_EMAIL_VERIFICATION", "false")
+
+	reached := false
+	mw := RequireEmailVerificationMiddleware(nil) // pool not used when disabled
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.True(t, reached, "handler should be called when verification is disabled")
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestGetUserEmailVerificationStatus(t *testing.T) {
+	if os.Getenv("SKIP_DB_TESTS") == "true" {
+		t.Skip("skipping DB test: SKIP_DB_TESTS=true")
+	}
+
+	testDB := NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	user := testDB.CreateTestUser(t, "verifytest", "verifytest@example.com")
+
+	ctx := context.Background()
+
+	// Newly created users are unverified by default
+	verified, err := GetUserEmailVerificationStatus(ctx, testDB.Pool, int32(user.ID))
+	require.NoError(t, err)
+	assert.False(t, verified, "new user should not be email-verified")
+
+	// Mark the user as verified directly
+	_, err = testDB.Pool.Exec(ctx, "UPDATE users SET email_verified = true WHERE id = $1", user.ID)
+	require.NoError(t, err)
+
+	verified, err = GetUserEmailVerificationStatus(ctx, testDB.Pool, int32(user.ID))
+	require.NoError(t, err)
+	assert.True(t, verified, "user should be verified after update")
 }
