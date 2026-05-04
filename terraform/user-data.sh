@@ -186,18 +186,7 @@ cat > /etc/logrotate.d/actionphase << 'EOF'
     copytruncate
 }
 
-# Postgres logs - managed by postgres logging_collector, just rotate the files
-/opt/actionphase/logs/postgres/*.log {
-    daily
-    rotate 14
-    compress
-    delaycompress
-    missingok
-    notifempty
-    copytruncate
-}
-
-# Nginx reverse proxy logs - signal nginx to reopen after rotate
+# Nginx reverse proxy logs
 /opt/actionphase/logs/nginx/*.log {
     daily
     rotate 14
@@ -205,11 +194,7 @@ cat > /etc/logrotate.d/actionphase << 'EOF'
     delaycompress
     missingok
     notifempty
-    create 644 ubuntu ubuntu
-    sharedscripts
-    postrotate
-        docker kill --signal=USR1 actionphase-nginx 2>/dev/null || true
-    endscript
+    copytruncate
 }
 
 # Frontend nginx logs
@@ -220,11 +205,7 @@ cat > /etc/logrotate.d/actionphase << 'EOF'
     delaycompress
     missingok
     notifempty
-    create 644 ubuntu ubuntu
-    sharedscripts
-    postrotate
-        docker kill --signal=USR1 actionphase-frontend 2>/dev/null || true
-    endscript
+    copytruncate
 }
 
 # Backup logs
