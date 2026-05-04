@@ -3,6 +3,7 @@ package messages
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	dbmodels "actionphase/pkg/db/models"
 	"actionphase/pkg/db/services/messages"
 	"bytes"
 	"context"
@@ -10,11 +11,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -870,6 +873,99 @@ func TestMessageAPI_GetCharacterComments(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		items := response["messages"].([]interface{})
 		assert.Len(t, items, 0)
+	})
+}
+
+// TestMessageAPI_GetCharacterComments_AnonymousGame tests that author_username is hidden
+// for players in anonymous games when viewing character comment history.
+func TestMessageAPI_GetCharacterComments_AnonymousGame(t *testing.T) {
+	if os.Getenv("SKIP_DB_TESTS") == "true" {
+		t.Skip("Skipping integration test - SKIP_DB_TESTS=true")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "messages", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupMessageAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "anon_gm2", "anon_gm2@example.com")
+	player := testDB.CreateTestUser(t, "anon_player2", "anon_player2@example.com")
+	otherPlayer := testDB.CreateTestUser(t, "anon_other2", "anon_other2@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	otherPlayerToken, err := core.CreateTestJWTTokenForUser(app, otherPlayer)
+	require.NoError(t, err)
+
+	queries := dbmodels.New(testDB.Pool)
+	ctx := context.Background()
+
+	anonGame, err := queries.CreateGame(ctx, dbmodels.CreateGameParams{
+		Title:       "Anonymous Character Test Game",
+		Description: pgtype.Text{String: "Test", Valid: true},
+		GmUserID:    int32(gm.ID),
+		IsAnonymous: true,
+	})
+	require.NoError(t, err)
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	messageService := &messages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	_, err = gameService.AddGameParticipant(ctx, anonGame.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(ctx, anonGame.ID, int32(otherPlayer.ID), "player")
+	require.NoError(t, err)
+
+	gmChar, err := characterService.CreateCharacter(ctx, db.CreateCharacterRequest{
+		GameID: anonGame.ID, UserID: int32Ptr(int32(gm.ID)), Name: "GM Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+	playerChar, err := characterService.CreateCharacter(ctx, db.CreateCharacterRequest{
+		GameID: anonGame.ID, UserID: int32Ptr(int32(player.ID)), Name: "Player Char", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	post, err := messageService.CreatePost(ctx, core.CreatePostRequest{
+		GameID: anonGame.ID, AuthorID: int32(gm.ID), CharacterID: gmChar.ID, Content: "A post.", Visibility: "game",
+	})
+	require.NoError(t, err)
+	_, err = messageService.CreateComment(ctx, core.CreateCommentRequest{
+		GameID: anonGame.ID, ParentID: post.ID, AuthorID: int32(player.ID), CharacterID: playerChar.ID,
+		Content: "Player's comment.", Visibility: "game",
+	})
+	require.NoError(t, err)
+
+	t.Run("GM sees author_username in anonymous game", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/characters/%d/comments", playerChar.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		items := response["messages"].([]interface{})
+		require.Len(t, items, 1)
+		item := items[0].(map[string]interface{})
+		assert.NotEmpty(t, item["author_username"], "GM should see the real username")
+	})
+
+	t.Run("other player sees empty author_username in anonymous game", func(t *testing.T) {
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/characters/%d/comments", playerChar.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+otherPlayerToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		items := response["messages"].([]interface{})
+		require.Len(t, items, 1)
+		item := items[0].(map[string]interface{})
+		assert.Equal(t, "", item["author_username"], "Player should not see username in anonymous game")
 	})
 }
 

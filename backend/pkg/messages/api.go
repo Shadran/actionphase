@@ -1431,6 +1431,25 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 		offset = parsedOffset
 	}
 
+	queries := models.New(h.App.Pool)
+
+	character, err := queries.GetCharacter(ctx, int32(characterID))
+	if err != nil {
+		h.App.ObsLogger.Error(ctx, "Failed to get character", "error", err, "character_id", characterID)
+		render.Render(w, r, core.ErrNotFound("character not found"))
+		return
+	}
+
+	game, err := queries.GetGame(ctx, character.GameID)
+	if err != nil {
+		h.App.ObsLogger.Error(ctx, "Failed to get game for character", "error", err, "game_id", character.GameID)
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+
+	userID, _ := getUserIDFromToken(r, h.App)
+	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
+
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 	messages, err := messageService.ListCharacterPostsAndComments(ctx, int32(characterID), int32(limit), int32(offset))
@@ -1449,6 +1468,10 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]map[string]interface{}, len(messages))
 	for i, msg := range messages {
+		authorUsername := msg.AuthorUsername
+		if !showUsernames {
+			authorUsername = ""
+		}
 		msgData := map[string]interface{}{
 			"id":                   msg.ID,
 			"game_id":              msg.GameID,
@@ -1462,19 +1485,23 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 			"edit_count":           msg.EditCount,
 			"deleted_at":           formatTimePtr(msg.DeletedAt),
 			"is_deleted":           msg.IsDeleted,
-			"author_username":      msg.AuthorUsername,
+			"author_username":      authorUsername,
 			"character_name":       msg.CharacterName,
 			"character_avatar_url": msg.CharacterAvatarUrl,
 		}
 
 		if msg.ParentContent != nil {
+			parentAuthorUsername := msg.ParentAuthorUsername
+			if !showUsernames {
+				parentAuthorUsername = nil
+			}
 			msgData["parent"] = map[string]interface{}{
 				"content":              msg.ParentContent,
 				"created_at":           formatTimePtr(msg.ParentCreatedAt),
 				"deleted_at":           formatTimePtr(msg.ParentDeletedAt),
 				"is_deleted":           msg.ParentIsDeleted,
 				"message_type":         msg.ParentMessageType,
-				"author_username":      msg.ParentAuthorUsername,
+				"author_username":      parentAuthorUsername,
 				"character_name":       msg.ParentCharacterName,
 				"character_avatar_url": msg.ParentCharacterAvatarUrl,
 			}

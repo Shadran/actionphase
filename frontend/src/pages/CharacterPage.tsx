@@ -234,8 +234,12 @@ function CharacterMessageCard({ message, onNavigate }: CharacterMessageCardProps
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-text-heading leading-tight">{message.character_name || message.author_username}</span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-content-tertiary">@{message.author_username}</span>
-              <span className="text-sm text-content-tertiary">·</span>
+              {message.author_username && (
+                <>
+                  <span className="text-sm text-content-tertiary">@{message.author_username}</span>
+                  <span className="text-sm text-content-tertiary">·</span>
+                </>
+              )}
               <span className="text-sm text-content-tertiary">{timeAgo}</span>
               {isEdited && <span className="text-sm text-content-tertiary">(edited)</span>}
             </div>
