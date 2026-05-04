@@ -633,44 +633,77 @@ restart target="backend":
 # LOGGING
 # ═══════════════════════════════════════════════════════════════════════════
 
-# View logs: backend, frontend, or all
+# View logs: just logs [target] [lines] [follow]
+# Targets: backend (default), frontend, nginx, postgres, all
 logs target="backend" lines="50" follow="false":
   #!/usr/bin/env bash
+  LOG_DIR=/opt/actionphase/logs
   case "{{target}}" in
     backend)
-      if [ "{{follow}}" = "true" ] || [ "{{follow}}" = "--follow" ]; then
-        tail -f /tmp/backend.log 2>/dev/null || echo "Backend log not found"
+      LOG_FILE="$LOG_DIR/backend/app.log"
+      if [ "{{follow}}" = "true" ]; then
+        tail -f "$LOG_FILE" 2>/dev/null | jq . 2>/dev/null || tail -f "$LOG_FILE"
       else
-        tail -n {{lines}} /tmp/backend.log 2>/dev/null || echo "Backend log not found"
+        tail -n {{lines}} "$LOG_FILE" 2>/dev/null | jq . 2>/dev/null || tail -n {{lines}} "$LOG_FILE"
       fi
       ;;
     frontend)
-      if [ "{{follow}}" = "true" ] || [ "{{follow}}" = "--follow" ]; then
-        tail -f /tmp/frontend.log 2>/dev/null || echo "Frontend log not found"
+      LOG_FILE="$LOG_DIR/frontend/access.log"
+      if [ "{{follow}}" = "true" ]; then
+        tail -f "$LOG_FILE"
       else
-        tail -n {{lines}} /tmp/frontend.log 2>/dev/null || echo "Frontend log not found"
+        tail -n {{lines}} "$LOG_FILE"
+      fi
+      ;;
+    nginx)
+      LOG_FILE="$LOG_DIR/nginx/access.log"
+      if [ "{{follow}}" = "true" ]; then
+        tail -f "$LOG_FILE"
+      else
+        tail -n {{lines}} "$LOG_FILE"
+      fi
+      ;;
+    postgres)
+      LOG_FILE=$(ls -t "$LOG_DIR"/postgres/postgresql-*.log 2>/dev/null | head -1)
+      if [ -z "$LOG_FILE" ]; then echo "No postgres log file found"; exit 1; fi
+      if [ "{{follow}}" = "true" ]; then
+        tail -f "$LOG_FILE"
+      else
+        tail -n {{lines}} "$LOG_FILE"
       fi
       ;;
     all)
-      echo "=== Backend Logs (last {{lines}} lines) ==="
-      tail -n {{lines}} /tmp/backend.log 2>/dev/null || echo "Backend log not found"
+      echo "=== Backend (last {{lines}} lines) ==="
+      tail -n {{lines}} "$LOG_DIR/backend/app.log" 2>/dev/null | jq -c . 2>/dev/null || tail -n {{lines}} "$LOG_DIR/backend/app.log" 2>/dev/null
       echo ""
-      echo "=== Frontend Logs (last {{lines}} lines) ==="
-      tail -n {{lines}} /tmp/frontend.log 2>/dev/null || echo "Frontend log not found"
+      echo "=== Nginx (last {{lines}} lines) ==="
+      tail -n {{lines}} "$LOG_DIR/nginx/access.log" 2>/dev/null
+      echo ""
+      echo "=== Frontend (last {{lines}} lines) ==="
+      tail -n {{lines}} "$LOG_DIR/frontend/access.log" 2>/dev/null
       ;;
     *)
-      echo "Usage: just logs [target] [lines] [--follow]"
-      echo ""
-      echo "Targets:"
-      echo "  backend     View backend logs (default)"
-      echo "  frontend    View frontend logs"
-      echo "  all         View all logs"
-      echo ""
-      echo "Options:"
-      echo "  lines       Number of lines to show (default: 50)"
-      echo "  --follow    Follow log in real-time"
+      echo "Usage: just logs [target] [lines] [follow]"
+      echo "Targets: backend (default), frontend, nginx, postgres, all"
       ;;
   esac
+
+# Search backend logs: just log-grep [pattern] [level] [lines]
+# level: all (default), error, warn, info, debug
+# Examples: just log-grep "user_id" | just log-grep "" error | just log-grep "correlation_id" all 500
+log-grep pattern="" level="all" lines="200":
+  #!/usr/bin/env bash
+  LOG_FILE=/opt/actionphase/logs/backend/app.log
+  if [ ! -f "$LOG_FILE" ]; then echo "Backend log not found: $LOG_FILE"; exit 1; fi
+  CMD="tail -n {{lines}} \"$LOG_FILE\""
+  if [ -n "{{pattern}}" ]; then
+    CMD="$CMD | grep -i '{{pattern}}'"
+  fi
+  if [ "{{level}}" != "all" ]; then
+    LEVEL=$(echo "{{level}}" | tr '[:lower:]' '[:upper:]')
+    CMD="$CMD | grep '\"level\":\"$LEVEL\"'"
+  fi
+  eval "$CMD" | jq . 2>/dev/null || eval "$CMD"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STATUS & HEALTH
