@@ -175,10 +175,32 @@ chmod +x /usr/local/bin/ec2-metadata
 # Set up log rotation
 echo "Configuring log rotation..."
 cat > /etc/logrotate.d/actionphase << 'EOF'
-# Application logs
-/opt/actionphase/logs/**/*.log {
+# Backend application logs - copytruncate because Go holds the file open
+/opt/actionphase/logs/backend/*.log {
     daily
-    rotate 30
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+# Postgres logs - managed by postgres logging_collector, just rotate the files
+/opt/actionphase/logs/postgres/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+# Nginx reverse proxy logs - signal nginx to reopen after rotate
+/opt/actionphase/logs/nginx/*.log {
+    daily
+    rotate 14
     compress
     delaycompress
     missingok
@@ -186,8 +208,22 @@ cat > /etc/logrotate.d/actionphase << 'EOF'
     create 644 ubuntu ubuntu
     sharedscripts
     postrotate
-        # Signal nginx to reopen log files
         docker kill --signal=USR1 actionphase-nginx 2>/dev/null || true
+    endscript
+}
+
+# Frontend nginx logs
+/opt/actionphase/logs/frontend/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ubuntu ubuntu
+    sharedscripts
+    postrotate
+        docker kill --signal=USR1 actionphase-frontend 2>/dev/null || true
     endscript
 }
 

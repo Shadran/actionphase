@@ -8,6 +8,7 @@ package observability
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"time"
@@ -44,32 +45,34 @@ type Logger struct {
 // - "production": JSON format optimized for log aggregation
 // - "test": Minimal output for testing
 func NewLogger(environment, level string) *Logger {
-	var handler slog.Handler
-
 	logLevel := parseLogLevel(level)
 
 	opts := &slog.HandlerOptions{
 		Level:     logLevel,
-		AddSource: environment == "development", // Add source file info in dev
+		AddSource: environment == "development",
 	}
 
+	var output io.Writer = os.Stdout
+
+	if logFile := os.Getenv("LOG_FILE"); logFile != "" {
+		if f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+			output = io.MultiWriter(os.Stdout, f)
+		}
+	}
+
+	var handler slog.Handler
 	switch environment {
 	case "production":
-		// JSON handler for production - better for log aggregation
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = slog.NewJSONHandler(output, opts)
 	case "test":
-		// Minimal handler for tests - reduce noise
 		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelError, // Only errors in tests
+			Level: slog.LevelError,
 		})
 	default:
-		// Text handler for development - human readable
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = slog.NewTextHandler(output, opts)
 	}
 
-	return &Logger{
-		logger: slog.New(handler),
-	}
+	return &Logger{logger: slog.New(handler)}
 }
 
 // parseLogLevel converts string log level to slog.Level

@@ -3,8 +3,18 @@
 # Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.logging.yml up -d
 
 services:
-  # PostgreSQL - Persist query logs
+  # PostgreSQL - Persist query logs via logging_collector
   db:
+    command: >
+      postgres
+      -c logging_collector=on
+      -c log_directory=/var/log/postgresql
+      -c log_filename=postgresql-%Y-%m-%d.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
+      -c log_min_duration_statement=1000
+      -c log_connections=off
+      -c log_disconnections=off
     volumes:
       - ./logs/postgres:/var/log/postgresql
     logging:
