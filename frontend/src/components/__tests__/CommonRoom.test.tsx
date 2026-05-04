@@ -681,6 +681,14 @@ describe('CommonRoom', () => {
         const getElementByIdSpy = vi.spyOn(document, 'getElementById');
         getElementByIdSpy.mockReturnValue(null);
 
+        // Add delay so loading indicator is observable before fetch resolves
+        server.use(
+          http.get('/api/v1/games/:gameId/messages/:messageId', async () => {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            return HttpResponse.json(mockComment);
+          })
+        );
+
         renderWithProviders(<CommonRoom gameId={1} />, {
           gameId: 1,
           initialEntries: ['/games/1?tab=common-room&view=posts&comment=123'],
