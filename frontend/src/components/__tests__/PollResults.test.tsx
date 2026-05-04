@@ -83,7 +83,7 @@ describe('PollResults', () => {
   it('does not show voter names when show_individual_votes is false and not GM/audience', () => {
     const results = makeResults({
       option_results: [
-        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, username: 'alice', character_name: 'Elara' }] },
+        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, character_name: 'Elara' }] },
       ],
       total_votes: 1,
     });
@@ -94,7 +94,7 @@ describe('PollResults', () => {
   it('shows voter names when isGM is true regardless of show_individual_votes', () => {
     const results = makeResults({
       option_results: [
-        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, username: 'alice', character_name: 'Elara' }] },
+        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, character_name: 'Elara' }] },
       ],
       total_votes: 1,
     });
@@ -105,30 +105,30 @@ describe('PollResults', () => {
   it('shows voter names when isAudience is true', () => {
     const results = makeResults({
       option_results: [
-        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, username: 'bob' }] },
+        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, character_name: 'Bob Character' }] },
       ],
       total_votes: 1,
     });
     renderWithProviders(<PollResults results={results} poll={basePoll} isAudience />);
-    expect(screen.getByText('bob')).toBeInTheDocument();
+    expect(screen.getByText('Bob Character')).toBeInTheDocument();
   });
 
   it('shows voter names when show_individual_votes is true on the poll', () => {
     const pollWithVotes = { ...basePoll, show_individual_votes: true };
     const results = makeResults({
       option_results: [
-        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, username: 'carol' }] },
+        { poll_option_id: 1, option_text: 'Forest', vote_count: 1, voters: [{ user_id: 2, character_name: 'Carol Character' }] },
       ],
       total_votes: 1,
       show_individual_votes: true,
     });
     renderWithProviders(<PollResults results={results} poll={pollWithVotes} />);
-    expect(screen.getByText('carol')).toBeInTheDocument();
+    expect(screen.getByText('Carol Character')).toBeInTheDocument();
   });
 
   it('shows full other responses list to GM', () => {
     const results = makeResults({
-      other_responses: [{ vote_id: 1, other_text: 'The river route', username: 'alice' }],
+      other_responses: [{ vote_id: 1, other_text: 'The river route', character_name: 'Alice' }],
     });
     renderWithProviders(<PollResults results={results} poll={basePoll} isGM />);
     expect(screen.getByText(/"The river route"/)).toBeInTheDocument();
@@ -138,8 +138,8 @@ describe('PollResults', () => {
   it('shows count-only other responses to non-GM players', () => {
     const results = makeResults({
       other_responses: [
-        { vote_id: 1, other_text: 'Secret route', username: 'alice' },
-        { vote_id: 2, other_text: 'Another route', username: 'bob' },
+        { vote_id: 1, other_text: 'Secret route', character_name: 'Alice' },
+        { vote_id: 2, other_text: 'Another route', character_name: 'Bob' },
       ],
     });
     renderWithProviders(<PollResults results={results} poll={basePoll} />);
@@ -149,7 +149,7 @@ describe('PollResults', () => {
 
   it('uses singular "response" for 1 other response to non-GM', () => {
     const results = makeResults({
-      other_responses: [{ vote_id: 1, other_text: 'Something', username: 'alice' }],
+      other_responses: [{ vote_id: 1, other_text: 'Something', character_name: 'Alice' }],
     });
     renderWithProviders(<PollResults results={results} poll={basePoll} />);
     expect(screen.getByText('1 custom response')).toBeInTheDocument();

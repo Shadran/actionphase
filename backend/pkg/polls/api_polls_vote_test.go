@@ -60,6 +60,10 @@ func setupPollVoteData(t *testing.T, testDB *core.TestDatabase, app *core.App, r
 	_, err := gameService.AddGameParticipant(context.Background(), gameRecord.ID, int32(player.ID), "player")
 	require.NoError(t, err)
 
+	// Player needs an approved character to vote
+	factory := core.NewTestDataFactory(testDB, t)
+	factory.NewCharacter().ForGame(gameRecord.ID).WithUserID(int32(player.ID)).PlayerCharacter().Approved().WithName("Vote Player Hero").Create()
+
 	// Create poll via service directly
 	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
 	created, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
@@ -101,7 +105,7 @@ func submitVoteReq(t *testing.T, router *chi.Mux, pollID int32, optionID int32, 
 func TestPollVote_Player_Succeeds_AndStateUpdated(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupVoteRouter(app, testDB)
@@ -122,7 +126,7 @@ func TestPollVote_Player_Succeeds_AndStateUpdated(t *testing.T) {
 func TestPollVote_GM_CannotVote_403(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupVoteRouter(app, testDB)
@@ -136,7 +140,7 @@ func TestPollVote_GM_CannotVote_403(t *testing.T) {
 func TestPollVote_Outsider_CannotVote_403(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupVoteRouter(app, testDB)
@@ -192,7 +196,7 @@ func TestPollVote_AudienceMember_CannotVote_403(t *testing.T) {
 func TestPollVote_AfterDeadline_400(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupVoteRouter(app, testDB)
@@ -204,6 +208,10 @@ func TestPollVote_AfterDeadline_400(t *testing.T) {
 	gameService := &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
 	_, err := gameService.AddGameParticipant(context.Background(), gameRecord.ID, int32(player.ID), "player")
 	require.NoError(t, err)
+
+	// Player needs an approved character to reach the deadline check
+	factory := core.NewTestDataFactory(testDB, t)
+	factory.NewCharacter().ForGame(gameRecord.ID).WithUserID(int32(player.ID)).PlayerCharacter().Approved().WithName("Deadline Player Hero").Create()
 
 	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
 	created, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
@@ -229,7 +237,7 @@ func TestPollVote_AfterDeadline_400(t *testing.T) {
 func TestPollVote_ChangeVote_UpdatesRecord(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupVoteRouter(app, testDB)

@@ -29,6 +29,13 @@ JOIN users u ON c.user_id = u.id
 WHERE c.game_id = $1 AND c.character_type = 'player_character'
 ORDER BY c.name;
 
+-- name: HasApprovedCharacterInGame :one
+-- Returns true if the user has at least one approved player_character in the game
+SELECT EXISTS (
+  SELECT 1 FROM characters
+  WHERE game_id = $1 AND user_id = $2 AND character_type = 'player_character' AND status = 'approved'
+) AS has_approved_character;
+
 -- name: GetNPCsByGame :many
 SELECT c.*, u.username as owner_username, na.assigned_user_id, au.username as assigned_username
 FROM characters c

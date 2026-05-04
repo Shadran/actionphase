@@ -51,8 +51,7 @@ export interface PollVote {
 
 export interface VoterInfo {
   user_id: number;
-  username: string;
-  character_name?: string;
+  character_name: string;
   other_response?: string;
 }
 
@@ -66,8 +65,7 @@ export interface OptionResult {
 export interface OtherResponse {
   vote_id: number;
   other_text: string;
-  username: string;
-  character_name?: string;
+  character_name: string;
 }
 
 export interface PollResults {

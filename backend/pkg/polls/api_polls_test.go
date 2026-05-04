@@ -195,6 +195,114 @@ func TestPollResultsAccess(t *testing.T) {
 	}
 }
 
+// TestPollResults_AnonymousGame tests that voter character names are visible in poll results
+// (usernames are no longer included in poll voter results at all)
+func TestPollResults_AnonymousGame(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPollTestRouter(app, testDB)
+
+	ctx := context.Background()
+	queries := db.New(testDB.Pool)
+
+	gmUser := testDB.CreateTestUser(t, "anon_poll_gm", "anon_poll_gm@example.com")
+	voterPlayer := testDB.CreateTestUser(t, "anon_poll_voter", "anon_poll_voter@example.com")
+	observerPlayer := testDB.CreateTestUser(t, "anon_poll_observer", "anon_poll_observer@example.com")
+
+	anonGame, err := queries.CreateGame(ctx, db.CreateGameParams{
+		Title:       "Anonymous Poll Test Game",
+		Description: pgtype.Text{String: "Test", Valid: true},
+		GmUserID:    int32(gmUser.ID),
+		IsAnonymous: true,
+	})
+	core.AssertNoError(t, err, "Creating anonymous game should succeed")
+
+	gameService := &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(ctx, anonGame.ID, int32(voterPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding voter player should succeed")
+	_, err = gameService.AddGameParticipant(ctx, anonGame.ID, int32(observerPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding observer player should succeed")
+
+	// Voter needs an approved character
+	factory := core.NewTestDataFactory(testDB, t)
+	factory.NewCharacter().ForGame(anonGame.ID).WithUserID(int32(voterPlayer.ID)).PlayerCharacter().Approved().WithName("Voter Hero").Create()
+
+	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
+	expiredDeadline := time.Now().Add(-24 * time.Hour)
+	poll, err := pollService.CreatePollWithOptions(ctx, core.CreatePollRequest{
+		GameID:              anonGame.ID,
+		CreatedByUserID:     int32(gmUser.ID),
+		Question:            "Anonymous Poll",
+		Deadline:            expiredDeadline,
+		ShowIndividualVotes: true,
+		AllowOtherOption:    false,
+		Options: []core.PollOptionInput{
+			{Text: "Option A", DisplayOrder: 1},
+		},
+	})
+	core.AssertNoError(t, err, "Creating poll should succeed")
+
+	// Cast a vote as voterPlayer (directly via service, bypassing API character check)
+	optionID := poll.Options[0].ID
+	_, err = pollService.SubmitVote(ctx, core.SubmitVoteRequest{
+		PollID:           poll.Poll.ID,
+		UserID:           int32(voterPlayer.ID),
+		SelectedOptionID: &optionID,
+	})
+	core.AssertNoError(t, err, "Submitting vote should succeed")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gmUser)
+	core.AssertNoError(t, err, "GM token creation should succeed")
+	observerToken, err := core.CreateTestJWTTokenForUser(app, observerPlayer)
+	core.AssertNoError(t, err, "Observer token creation should succeed")
+
+	makeRequest := func(token string) map[string]interface{} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/polls/"+strconv.Itoa(int(poll.Poll.ID))+"/results", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("pollId", strconv.Itoa(int(poll.Poll.ID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var resp map[string]interface{}
+		json.NewDecoder(w.Body).Decode(&resp)
+		return resp
+	}
+
+	t.Run("GM sees voter character name in anonymous game", func(t *testing.T) {
+		resp := makeRequest(gmToken)
+		optionResults := resp["option_results"].([]interface{})
+		voters := optionResults[0].(map[string]interface{})["voters"].([]interface{})
+		voter := voters[0].(map[string]interface{})
+		if voter["character_name"] == "" {
+			t.Error("GM should see voter character name")
+		}
+		if _, hasUsername := voter["username"]; hasUsername {
+			t.Error("Response should not include username field")
+		}
+	})
+
+	t.Run("player also sees voter character name in anonymous game", func(t *testing.T) {
+		resp := makeRequest(observerToken)
+		optionResults := resp["option_results"].([]interface{})
+		voters := optionResults[0].(map[string]interface{})["voters"].([]interface{})
+		voter := voters[0].(map[string]interface{})
+		if voter["character_name"] == "" {
+			t.Error("Player should see voter character name (character names are not anonymized)")
+		}
+		if _, hasUsername := voter["username"]; hasUsername {
+			t.Error("Response should not include username field")
+		}
+	})
+}
+
 // TestPollResultsAccess_NotInGame tests that users not in the game cannot view poll results
 func TestPollResultsAccess_NotInGame(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
@@ -365,7 +473,7 @@ func TestGetPoll_ShowsUserVoteOptionID(t *testing.T) {
 func TestPollVoting_GMAndCoGMBlocked(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "co_gms", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "co_gms", "game_participants", "characters", "games", "sessions", "users")
 
 	app := core.NewTestApp(testDB.Pool)
 	router := setupPollVoteTestRouter(app, testDB)
@@ -389,6 +497,10 @@ func TestPollVoting_GMAndCoGMBlocked(t *testing.T) {
 	// Add player as participant
 	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(playerUser.ID), "player")
 	core.AssertNoError(t, err, "Adding player to game should succeed")
+
+	// Give player an approved character (required to vote)
+	factory := core.NewTestDataFactory(testDB, t)
+	factory.NewCharacter().ForGame(game.ID).WithUserID(int32(playerUser.ID)).PlayerCharacter().Approved().WithName("Player Hero").Create()
 
 	// Create an active poll
 	pollDeadline := time.Now().Add(24 * time.Hour)
@@ -470,6 +582,88 @@ func TestPollVoting_GMAndCoGMBlocked(t *testing.T) {
 			core.AssertEqual(t, tc.expectedStatus, w.Code, tc.description)
 		})
 	}
+}
+
+// TestSubmitVote_RequiresApprovedCharacter verifies that a player without an approved character cannot vote
+func TestSubmitVote_RequiresApprovedCharacter(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "characters", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPollVoteTestRouter(app, testDB)
+	fixtures := testDB.SetupFixtures(t)
+
+	gmUser := fixtures.TestUser
+	noCharPlayer := testDB.CreateTestUser(t, "nochar_player", "nochar@example.com")
+	pendingCharPlayer := testDB.CreateTestUser(t, "pending_player", "pending@example.com")
+	approvedCharPlayer := testDB.CreateTestUser(t, "approved_player", "approved@example.com")
+
+	gameService := &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	game := testDB.CreateTestGame(t, int32(gmUser.ID), "Test Game")
+
+	_, err := gameService.AddGameParticipant(context.Background(), game.ID, int32(noCharPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding noCharPlayer should succeed")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(pendingCharPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding pendingCharPlayer should succeed")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(approvedCharPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding approvedCharPlayer should succeed")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	factory.NewCharacter().ForGame(game.ID).WithUserID(int32(pendingCharPlayer.ID)).PlayerCharacter().Pending().WithName("Pending Hero").Create()
+	factory.NewCharacter().ForGame(game.ID).WithUserID(int32(approvedCharPlayer.ID)).PlayerCharacter().Approved().WithName("Approved Hero").Create()
+
+	poll, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
+		GameID:              game.ID,
+		CreatedByUserID:     int32(gmUser.ID),
+		Question:            "Vote Test",
+		Deadline:            time.Now().Add(24 * time.Hour),
+		ShowIndividualVotes: false,
+		AllowOtherOption:    false,
+		Options: []core.PollOptionInput{
+			{Text: "Option A", DisplayOrder: 1},
+			{Text: "Option B", DisplayOrder: 2},
+		},
+	})
+	core.AssertNoError(t, err, "Creating poll should succeed")
+
+	noCharToken, err := core.CreateTestJWTTokenForUser(app, noCharPlayer)
+	core.AssertNoError(t, err, "noCharPlayer token should succeed")
+	pendingToken, err := core.CreateTestJWTTokenForUser(app, pendingCharPlayer)
+	core.AssertNoError(t, err, "pendingCharPlayer token should succeed")
+	approvedToken, err := core.CreateTestJWTTokenForUser(app, approvedCharPlayer)
+	core.AssertNoError(t, err, "approvedCharPlayer token should succeed")
+
+	makeVoteRequest := func(token string) int {
+		body := `{"selected_option_id":` + strconv.Itoa(int(poll.Options[0].ID)) + `}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/polls/"+strconv.Itoa(int(poll.Poll.ID))+"/vote",
+			io.NopCloser(strings.NewReader(body)))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("pollId", strconv.Itoa(int(poll.Poll.ID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	t.Run("player_without_character_cannot_vote", func(t *testing.T) {
+		core.AssertEqual(t, http.StatusForbidden, makeVoteRequest(noCharToken),
+			"Player with no character should be blocked from voting")
+	})
+
+	t.Run("player_with_pending_character_cannot_vote", func(t *testing.T) {
+		core.AssertEqual(t, http.StatusForbidden, makeVoteRequest(pendingToken),
+			"Player with only a pending character should be blocked from voting")
+	})
+
+	t.Run("player_with_approved_character_can_vote", func(t *testing.T) {
+		core.AssertEqual(t, http.StatusOK, makeVoteRequest(approvedToken),
+			"Player with approved character should be able to vote")
+	})
 }
 
 // setupListPollsByPhaseTestRouter creates a test router for listing polls by phase

@@ -836,6 +836,26 @@ func (q *Queries) GetUserNPCs(ctx context.Context, assignedUserID int32) ([]GetU
 	return items, nil
 }
 
+const hasApprovedCharacterInGame = `-- name: HasApprovedCharacterInGame :one
+SELECT EXISTS (
+  SELECT 1 FROM characters
+  WHERE game_id = $1 AND user_id = $2 AND character_type = 'player_character' AND status = 'approved'
+) AS has_approved_character
+`
+
+type HasApprovedCharacterInGameParams struct {
+	GameID int32       `json:"game_id"`
+	UserID pgtype.Int4 `json:"user_id"`
+}
+
+// Returns true if the user has at least one approved player_character in the game
+func (q *Queries) HasApprovedCharacterInGame(ctx context.Context, arg HasApprovedCharacterInGameParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasApprovedCharacterInGame, arg.GameID, arg.UserID)
+	var has_approved_character bool
+	err := row.Scan(&has_approved_character)
+	return has_approved_character, err
+}
+
 const listAudienceNPCs = `-- name: ListAudienceNPCs :many
 
 SELECT c.id, c.game_id, c.user_id, c.name, c.character_type, c.status, c.avatar_url, c.is_active, c.original_owner_user_id, c.created_at, c.updated_at, u.username as owner_username, na.assigned_user_id, au.username as assigned_username

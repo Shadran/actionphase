@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Request and Response Types
@@ -115,17 +116,15 @@ type OptionResult struct {
 
 // VoterInfo represents information about a voter (only shown if show_individual_votes = true)
 type VoterInfo struct {
-	UserID        int32   `json:"user_id"`
-	Username      string  `json:"username"`
-	CharacterName *string `json:"character_name,omitempty"`
+	UserID        int32  `json:"user_id"`
+	CharacterName string `json:"character_name"`
 }
 
 // OtherResponse represents a free-text "other" response
 type OtherResponse struct {
-	VoteID        int32   `json:"vote_id"`
-	OtherText     string  `json:"other_text"`
-	Username      string  `json:"username"`
-	CharacterName *string `json:"character_name,omitempty"`
+	VoteID        int32  `json:"vote_id"`
+	OtherText     string `json:"other_text"`
+	CharacterName string `json:"character_name"`
 }
 
 // Helper Functions
@@ -546,10 +545,13 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	for i, optRes := range results.OptionResults {
 		voters := make([]VoterInfo, len(optRes.Voters))
 		for j, voter := range optRes.Voters {
+			characterName := ""
+			if voter.CharacterName != nil {
+				characterName = *voter.CharacterName
+			}
 			voters[j] = VoterInfo{
 				UserID:        voter.UserID,
-				Username:      voter.Username,
-				CharacterName: voter.CharacterName,
+				CharacterName: characterName,
 			}
 		}
 
@@ -572,11 +574,14 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 
 	otherResponses := make([]OtherResponse, len(results.OtherResponses))
 	for i, other := range results.OtherResponses {
+		characterName := ""
+		if other.CharacterName != nil {
+			characterName = *other.CharacterName
+		}
 		otherResponses[i] = OtherResponse{
 			VoteID:        other.VoteID,
 			OtherText:     other.OtherText,
-			Username:      other.Username,
-			CharacterName: other.CharacterName,
+			CharacterName: characterName,
 		}
 	}
 
@@ -662,6 +667,23 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	if isAudience {
 		h.App.ObsLogger.Error(ctx, "Audience members cannot vote on polls")
 		render.Render(w, r, core.ErrForbidden("Audience members cannot vote on polls"))
+		return
+	}
+
+	// Players must have an approved character to vote
+	queries := db.New(h.App.Pool)
+	hasCharacter, err := queries.HasApprovedCharacterInGame(ctx, db.HasApprovedCharacterInGameParams{
+		GameID: poll.GameID,
+		UserID: pgtype.Int4{Int32: userID, Valid: true},
+	})
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to check character status")
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+	if !hasCharacter {
+		h.App.ObsLogger.Error(ctx, "Player does not have an approved character in this game")
+		render.Render(w, r, core.ErrForbidden("you must have an approved character to vote"))
 		return
 	}
 
