@@ -3,6 +3,7 @@ import { SimpleCountdown } from './CountdownTimer';
 import { PhaseActivationDialog } from './PhaseActivationDialog';
 import { DeletePhaseDialog } from './DeletePhaseDialog';
 import { usePhaseActivation } from '../hooks/usePhaseActivation';
+import { MarkdownPreview } from './MarkdownPreview';
 import { Button, DateTimeInput } from './ui';
 import {
   PHASE_TYPE_DESCRIPTIONS,
@@ -152,9 +153,12 @@ export function PhaseCard({
         </div>
 
         {/* Description */}
-        <p className="text-sm text-content-secondary leading-relaxed">
-          {phase.description || PHASE_TYPE_DESCRIPTIONS[phase.phase_type]}
-        </p>
+        <div className="text-sm text-content-secondary leading-relaxed">
+          {phase.description
+            ? <MarkdownPreview content={phase.description} />
+            : PHASE_TYPE_DESCRIPTIONS[phase.phase_type]
+          }
+        </div>
 
         {/* Countdown + Activate button */}
         <div className="flex items-center justify-between gap-3 pt-2">
@@ -206,9 +210,12 @@ export function PhaseCard({
                 </span>
               )}
             </div>
-            <p className="text-sm text-content-secondary">
-              {phase.description || PHASE_TYPE_DESCRIPTIONS[phase.phase_type]}
-            </p>
+            <div className="text-sm text-content-secondary">
+              {phase.description
+                ? <MarkdownPreview content={phase.description} />
+                : PHASE_TYPE_DESCRIPTIONS[phase.phase_type]
+              }
+            </div>
           </div>
         </div>
 

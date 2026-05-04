@@ -42,7 +42,7 @@ describe('CreatePhaseModal', () => {
       expect(screen.getByText('Create New Phase')).toBeInTheDocument();
       expect(screen.getByLabelText(/Phase Type/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Title/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
+      expect(screen.getByTestId('phase-description')).toBeInTheDocument();
       expect(screen.getByLabelText(/Deadline/i)).toBeInTheDocument();
     });
 
@@ -202,7 +202,7 @@ describe('CreatePhaseModal', () => {
         />
       );
 
-      const descriptionTextarea = screen.getByLabelText(/Description/i);
+      const descriptionTextarea = screen.getByTestId('phase-description');
       fireEvent.change(descriptionTextarea, { target: { value: 'Test description' } });
 
       const form = screen.getByRole('button', { name: /Create Phase/i }).closest('form');
@@ -386,7 +386,7 @@ describe('CreatePhaseModal', () => {
         />
       );
 
-      const descriptionTextarea = screen.getByLabelText(/Description/i);
+      const descriptionTextarea = screen.getByTestId('phase-description');
       expect(descriptionTextarea).not.toBeRequired();
     });
 

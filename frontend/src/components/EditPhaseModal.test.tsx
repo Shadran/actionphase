@@ -55,7 +55,7 @@ describe('EditPhaseModal', () => {
 
       expect(screen.getByText('Edit Phase')).toBeInTheDocument();
       expect(screen.getByLabelText(/Title/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
+      expect(screen.getByTestId('phase-description')).toBeInTheDocument();
       expect(screen.getByLabelText(/Auto-activate at/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Deadline/i)).toBeInTheDocument();
     });
@@ -84,7 +84,7 @@ describe('EditPhaseModal', () => {
       );
 
       expect(screen.getByLabelText(/Title/i)).toHaveValue('Original Title');
-      expect(screen.getByLabelText(/Description/i)).toHaveValue('Original description');
+      expect(screen.getByTestId('phase-description')).toHaveValue('Original description');
     });
 
     it('pre-populates start_time field when phase has a start_time', () => {
@@ -164,7 +164,7 @@ describe('EditPhaseModal', () => {
       );
 
       fireEvent.change(screen.getByLabelText(/Title/i), { target: { value: 'New Title' } });
-      fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: 'New description' } });
+      fireEvent.change(screen.getByTestId('phase-description'), { target: { value: 'New description' } });
       fireEvent.submit(screen.getByRole('button', { name: /Save Changes/i }).closest('form')!);
 
       expect(mockOnSubmit).toHaveBeenCalledWith(

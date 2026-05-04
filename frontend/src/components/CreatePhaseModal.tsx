@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { PHASE_TYPE_DESCRIPTIONS } from '../types/phases';
 import type { CreatePhaseRequest } from '../types/phases';
-import { Button, Select, Input, Textarea, DateTimeInput } from './ui';
+import { Button, Select, Input, DateTimeInput } from './ui';
 import { Modal } from './Modal';
+import { CommentEditor } from './CommentEditor';
 import { localDateTimeToUTC } from '../utils/timezone';
 
 interface CreatePhaseModalProps {
@@ -63,20 +64,20 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
             </div>
 
             <div>
-              <Textarea
-                id="phase-description"
-                label="Description (Optional)"
+              <label className="block text-sm font-medium text-content-primary mb-1">Description (Optional)</label>
+              <CommentEditor
                 value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({
+                onChange={(value) => setFormData(prev => ({
                   ...prev,
-                  description: e.target.value || undefined
+                  description: value || undefined
                 }))}
-                placeholder="Describe what happens in this phase..."
+                placeholder="Describe what happens in this phase. Supports markdown."
                 rows={3}
-                maxLength={500}
+                maxLength={2000}
                 showCharacterCount
-                helperText="Brief description of what happens in this phase (500 char max)"
+                textareaTestId="phase-description"
               />
+              <p className="mt-1 text-xs text-content-tertiary">Supports markdown. Shown to players during action submission.</p>
             </div>
 
             <div>

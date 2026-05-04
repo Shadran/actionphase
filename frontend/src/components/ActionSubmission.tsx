@@ -108,9 +108,14 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-content-primary">Action Submission</h2>
-            <p className="text-sm text-content-secondary mt-1">
-              {currentAction ? 'Update your action for this phase' : 'Submit your private action to the GM'}
-            </p>
+            <div className="text-sm text-content-secondary mt-1">
+              {currentAction
+                ? 'Update your action for this phase'
+                : currentPhase?.description
+                  ? <MarkdownPreview content={currentPhase.description} />
+                  : 'Submit your private action to the GM'
+              }
+            </div>
           </div>
           {currentPhase?.deadline && (
             <CountdownTimer
