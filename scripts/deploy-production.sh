@@ -56,19 +56,8 @@ fi
 
 # Check if docker-compose.logging.yml exists
 if [ ! -f docker-compose.logging.yml ]; then
-    echo -e "${YELLOW}⚠️  Warning: docker-compose.logging.yml not found${NC}"
-    echo "Log persistence is disabled. Logs will be lost when containers are removed."
-    echo "To enable log persistence, create docker-compose.logging.yml"
-    echo "See: docs/operations/LOGGING_STRATEGY.md"
-    echo ""
-    # Fall back to production-only compose files
+    echo -e "${YELLOW}⚠️  docker-compose.logging.yml not found, log persistence disabled${NC}"
     COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
-    read -p "Continue without log persistence? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Deployment cancelled"
-        exit 1
-    fi
 else
     echo -e "${GREEN}✓ Log persistence enabled via docker-compose.logging.yml${NC}"
 fi
@@ -97,30 +86,23 @@ else
     echo -e "${YELLOW}⚠️  Database container not running, skipping backup${NC}"
 fi
 
-# Build documentation before Docker images
-echo -e "${BLUE}📚 Building documentation...${NC}"
-if [ -d "docs-site" ]; then
-    cd docs-site
-    if [ ! -d "node_modules" ]; then
-        echo "Installing documentation dependencies..."
-        npm install
-    fi
-    echo "Building VitePress documentation..."
-    npm run docs:build
-    cd ..
-
-    # Embed documentation in backend
-    echo "Embedding documentation in backend..."
-    rm -rf backend/pkg/docs/dist
-    cp -r docs-site/.vitepress/dist backend/pkg/docs/dist
+# Build and embed documentation before Docker images
+echo -e "${BLUE}📚 Building and embedding documentation...${NC}"
+if command -v just &>/dev/null; then
+    just docs-embed
     echo -e "${GREEN}✓ Documentation built and embedded${NC}"
 else
-    echo -e "${YELLOW}⚠️  docs-site directory not found, skipping documentation build${NC}"
+    echo -e "${YELLOW}⚠️  'just' not found, skipping docs embed. Run 'just docs-embed' manually before deploying.${NC}"
 fi
 
 # Build new images
 echo -e "${BLUE}🔨 Building Docker images...${NC}"
-docker-compose ${COMPOSE_FILES} build --no-cache
+BUILD_FLAGS=""
+if [ "${NO_CACHE:-}" = "true" ] || [ "${1:-}" = "--no-cache" ]; then
+    BUILD_FLAGS="--no-cache"
+    echo -e "${YELLOW}Building with --no-cache${NC}"
+fi
+docker-compose ${COMPOSE_FILES} build ${BUILD_FLAGS}
 
 # Deploy with minimal downtime
 echo -e "${BLUE}🚀 Starting deployment...${NC}"

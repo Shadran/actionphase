@@ -47,10 +47,14 @@ usermod -aG docker ubuntu
 
 # Install Docker Compose
 echo "Installing Docker Compose..."
-COMPOSE_VERSION="2.24.0"
+COMPOSE_VERSION="2.40.3"
 curl -L "https://github.com/docker/compose/releases/download/v$${COMPOSE_VERSION}/docker-compose-linux-aarch64" \
     -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
+
+# Install just task runner
+echo "Installing just..."
+curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
 # Install AWS CLI
 echo "Installing AWS CLI..."
@@ -208,9 +212,10 @@ cat > /etc/motd << 'EOF'
 
 Quick Commands:
   cd /opt/actionphase       - Go to application directory
+  just --list               - Show available commands
+  just deploy               - Deploy latest changes
   docker-compose ps         - View container status
   docker-compose logs -f    - View logs
-  ./scripts/deploy-production.sh - Deploy updates
 
 First-time setup:
   1. cd /opt/actionphase

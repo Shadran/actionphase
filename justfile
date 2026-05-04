@@ -16,6 +16,15 @@
 help:
   @just --list
 
+# Deploy latest changes on this server (run from /opt/actionphase); use 'just deploy no-cache' to force full rebuild
+deploy no_cache="":
+  #!/usr/bin/env bash
+  if [ "{{no_cache}}" = "no-cache" ]; then
+    NO_CACHE=true ./scripts/deploy-production.sh
+  else
+    ./scripts/deploy-production.sh
+  fi
+
 # Launch Claude Code editor
 claude:
     CLAUDE_CONFIG_DIR="$HOME/.claude-personal" ~/.local/bin/claude
