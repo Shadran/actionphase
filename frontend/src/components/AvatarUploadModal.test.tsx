@@ -11,6 +11,23 @@ vi.mock('../hooks/useCharacterAvatar', () => ({
   useDeleteCharacterAvatar: vi.fn(),
 }));
 
+// Mock cropImage so tests don't need canvas support
+vi.mock('../utils/cropImage', () => ({
+  cropImage: vi.fn().mockResolvedValue(new Blob(['cropped'], { type: 'image/jpeg' })),
+}));
+
+// Mock react-easy-crop so tests don't depend on canvas/ResizeObserver.
+// Call onCropComplete via useEffect to avoid infinite re-render loops.
+vi.mock('react-easy-crop', () => ({
+  default: ({ onCropComplete }: { onCropComplete: (a: unknown, b: { x: number; y: number; width: number; height: number }) => void }) => {
+    React.useEffect(() => {
+      onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return <div data-testid="cropper" />;
+  },
+}));
+
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -24,6 +41,15 @@ const createWrapper = () => {
   );
 };
 
+/** Helper: select a file and advance to the crop step */
+const selectFile = async (fileInput: HTMLElement, file = new File(['test'], 'avatar.jpg', { type: 'image/jpeg' })) => {
+  // FileReader.readAsDataURL is sync-mocked in jsdom; fire the change event
+  fireEvent.change(fileInput, { target: { files: [file] } });
+  // Wait for the crop step to appear
+  await screen.findByTestId('cropper');
+  return file;
+};
+
 describe('AvatarUploadModal', () => {
   const mockUploadMutate = vi.fn();
   const mockDeleteMutate = vi.fn();
@@ -33,7 +59,6 @@ describe('AvatarUploadModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Setup default mock implementations
     vi.mocked(useUploadCharacterAvatar).mockReturnValue({
       mutate: mockUploadMutate,
       isPending: false,
@@ -94,7 +119,7 @@ describe('AvatarUploadModal', () => {
     expect(fileInput).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
   });
 
-  it('displays preview when file is selected', async () => {
+  it('advances to crop step when valid file is selected', async () => {
     render(
       <AvatarUploadModal
         isOpen={true}
@@ -105,14 +130,11 @@ describe('AvatarUploadModal', () => {
       { wrapper: createWrapper() }
     );
 
-    const file = new File(['test'], 'avatar.jpg', { type: 'image/jpeg' });
     const fileInput = screen.getByLabelText(/choose file/i);
+    await selectFile(fileInput);
 
-    fireEvent.change(fileInput, { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(screen.getByText(/preview/i)).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('cropper')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /crop & upload/i })).toBeInTheDocument();
   });
 
   it('validates file type and shows error for invalid types', async () => {
@@ -147,7 +169,6 @@ describe('AvatarUploadModal', () => {
       { wrapper: createWrapper() }
     );
 
-    // Create a file larger than 5MB
     const largeFile = new File([new ArrayBuffer(6 * 1024 * 1024)], 'large.jpg', {
       type: 'image/jpeg',
     });
@@ -160,7 +181,7 @@ describe('AvatarUploadModal', () => {
     });
   });
 
-  it('uploads file when upload button clicked', async () => {
+  it('uploads cropped file when Crop & Upload button clicked', async () => {
     render(
       <AvatarUploadModal
         isOpen={true}
@@ -172,22 +193,22 @@ describe('AvatarUploadModal', () => {
       { wrapper: createWrapper() }
     );
 
-    const file = new File(['test'], 'avatar.jpg', { type: 'image/jpeg' });
     const fileInput = screen.getByLabelText(/choose file/i);
+    await selectFile(fileInput);
 
-    fireEvent.change(fileInput, { target: { files: [file] } });
-
-    const uploadButton = await screen.findByRole('button', { name: /upload/i });
+    const uploadButton = screen.getByRole('button', { name: /crop & upload/i });
     fireEvent.click(uploadButton);
 
-    expect(mockUploadMutate).toHaveBeenCalledWith(
-      { characterId: 123, file },
-      expect.any(Object)
-    );
+    await waitFor(() => {
+      expect(mockUploadMutate).toHaveBeenCalledWith(
+        { characterId: 123, file: expect.any(File) },
+        expect.any(Object)
+      );
+    });
   });
 
   it('calls onUploadSuccess and closes modal on successful upload', async () => {
-    const mockMutate = vi.fn((variables, { onSuccess }) => {
+    const mockMutate = vi.fn((_, { onSuccess }) => {
       onSuccess({ data: { avatar_url: 'http://example.com/avatar.jpg' } });
     });
 
@@ -209,12 +230,10 @@ describe('AvatarUploadModal', () => {
       { wrapper: createWrapper() }
     );
 
-    const file = new File(['test'], 'avatar.jpg', { type: 'image/jpeg' });
     const fileInput = screen.getByLabelText(/choose file/i);
+    await selectFile(fileInput);
 
-    fireEvent.change(fileInput, { target: { files: [file] } });
-
-    const uploadButton = await screen.findByRole('button', { name: /upload/i });
+    const uploadButton = screen.getByRole('button', { name: /crop & upload/i });
     fireEvent.click(uploadButton);
 
     await waitFor(() => {
@@ -317,7 +336,7 @@ describe('AvatarUploadModal', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('disables upload button when no file selected', () => {
+  it('back button in crop step returns to file select', async () => {
     render(
       <AvatarUploadModal
         isOpen={true}
@@ -328,11 +347,17 @@ describe('AvatarUploadModal', () => {
       { wrapper: createWrapper() }
     );
 
-    const uploadButton = screen.getByRole('button', { name: /upload/i });
-    expect(uploadButton).toBeDisabled();
+    const fileInput = screen.getByLabelText(/choose file/i);
+    await selectFile(fileInput);
+
+    const backButton = screen.getByRole('button', { name: /back/i });
+    fireEvent.click(backButton);
+
+    expect(screen.getByLabelText(/choose file/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('cropper')).not.toBeInTheDocument();
   });
 
-  it('disables buttons during upload', () => {
+  it('disables Crop & Upload button during upload', async () => {
     vi.mocked(useUploadCharacterAvatar).mockReturnValue({
       mutate: mockUploadMutate,
       isPending: true,
@@ -349,6 +374,9 @@ describe('AvatarUploadModal', () => {
       />,
       { wrapper: createWrapper() }
     );
+
+    const fileInput = screen.getByLabelText(/choose file/i);
+    await selectFile(fileInput);
 
     const uploadButton = screen.getByRole('button', { name: /uploading/i });
     expect(uploadButton).toBeDisabled();

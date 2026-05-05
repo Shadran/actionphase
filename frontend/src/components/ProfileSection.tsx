@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Cropper from 'react-easy-crop';
+import type { Area, Point } from 'react-easy-crop';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiClient } from '../lib/api';
 import { Textarea, Button, Modal } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
 import { getInitials, getAvatarColor } from '../utils/avatar';
+import { cropImage } from '../utils/cropImage';
 
 export function ProfileSection() {
   const { currentUser } = useAuth();
@@ -16,9 +19,14 @@ export function ProfileSection() {
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [showBioPreview, setShowBioPreview] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarImageSrc, setAvatarImageSrc] = useState<string | null>(null);
+  const [avatarStep, setAvatarStep] = useState<'select' | 'crop'>('select');
+  const [avatarCrop, setAvatarCrop] = useState<Point>({ x: 0, y: 0 });
+  const [avatarZoom, setAvatarZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile update mutation
   const updateProfileMutation = useMutation({
@@ -43,7 +51,9 @@ export function ProfileSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       setAvatarFile(null);
-      setAvatarPreview(null);
+      setAvatarImageSrc(null);
+      setAvatarStep('select');
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
       showToast('Avatar uploaded successfully', 'success');
     },
     onError: (error: unknown) => {
@@ -73,42 +83,60 @@ export function ProfileSection() {
 
     if (!file) {
       setAvatarFile(null);
-      setAvatarPreview(null);
+      setAvatarImageSrc(null);
       return;
     }
 
-    // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setAvatarError('Invalid file type. Only JPG, PNG, and WebP are allowed.');
       setAvatarFile(null);
-      setAvatarPreview(null);
+      setAvatarImageSrc(null);
       return;
     }
 
-    // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
       setAvatarError(`File too large. Maximum size is 5MB (your file is ${fileSizeMB}MB).`);
       setAvatarFile(null);
-      setAvatarPreview(null);
+      setAvatarImageSrc(null);
       return;
     }
 
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
-      setAvatarPreview(reader.result as string);
+      setAvatarImageSrc(reader.result as string);
+      setAvatarFile(file);
+      setAvatarCrop({ x: 0, y: 0 });
+      setAvatarZoom(1);
+      setAvatarStep('crop');
     };
     reader.readAsDataURL(file);
-
-    setAvatarFile(file);
   };
 
-  const handleUploadAvatar = () => {
-    if (!avatarFile) return;
-    uploadAvatarMutation.mutate(avatarFile);
+  const onAvatarCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const handleUploadAvatar = async () => {
+    if (!avatarImageSrc || !croppedAreaPixels) return;
+    let blob: Blob;
+    try {
+      blob = await cropImage(avatarImageSrc, croppedAreaPixels);
+    } catch {
+      setAvatarError('Failed to process image. Please try again.');
+      return;
+    }
+    const file = new File([blob], avatarFile?.name ?? 'avatar.jpg', { type: 'image/jpeg' });
+    uploadAvatarMutation.mutate(file);
+  };
+
+  const handleAvatarBack = () => {
+    setAvatarStep('select');
+    setAvatarFile(null);
+    setAvatarImageSrc(null);
+    if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
   };
 
   const handleDeleteAvatar = () => {
@@ -123,7 +151,7 @@ export function ProfileSection() {
   };
 
   const displayNameForAvatar = currentUser?.username || 'User';
-  const currentAvatar = avatarPreview || currentUser?.avatar_url;
+  const currentAvatar = currentUser?.avatar_url;
   const hasChanges = bio !== (currentUser?.bio || '');
   const isLoading =
     updateProfileMutation.isPending ||
@@ -182,46 +210,82 @@ export function ProfileSection() {
 
           {/* Upload New Avatar */}
           <div className="space-y-3">
-            <div>
-              <label
-                htmlFor="avatar-upload"
-                className="block text-sm font-medium text-content-primary mb-2"
-              >
-                Upload New Avatar
-              </label>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleAvatarSelect}
-                disabled={isLoading}
-                className="block w-full text-sm text-content-tertiary
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-interactive-primary-subtle file:text-interactive-primary
-                  hover:file:bg-interactive-primary-subtle
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <p className="mt-1 text-xs text-content-tertiary">
-                JPG, PNG, or WebP. Max 5MB.
-              </p>
-            </div>
+            {avatarStep === 'select' && (
+              <div>
+                <label
+                  htmlFor="avatar-upload"
+                  className="block text-sm font-medium text-content-primary mb-2"
+                >
+                  Upload New Avatar
+                </label>
+                <input
+                  id="avatar-upload"
+                  ref={avatarFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarSelect}
+                  disabled={isLoading}
+                  className="block w-full text-sm text-content-tertiary
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-interactive-primary-subtle file:text-interactive-primary
+                    hover:file:bg-interactive-primary-subtle
+                    disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <p className="mt-1 text-xs text-content-tertiary">
+                  JPG, PNG, or WebP. Max 5MB.
+                </p>
+              </div>
+            )}
+
+            {avatarStep === 'crop' && avatarImageSrc && (
+              <div>
+                <p className="text-sm font-medium text-content-primary mb-2">Crop Avatar</p>
+                <div className="relative w-full mb-3" style={{ height: 280 }}>
+                  <Cropper
+                    image={avatarImageSrc}
+                    crop={avatarCrop}
+                    zoom={avatarZoom}
+                    aspect={1}
+                    onCropChange={setAvatarCrop}
+                    onZoomChange={setAvatarZoom}
+                    onCropComplete={onAvatarCropComplete}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-content-primary mb-1">
+                    Zoom
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.01}
+                    value={avatarZoom}
+                    onChange={(e) => setAvatarZoom(Number(e.target.value))}
+                    className="w-full accent-interactive-primary"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={handleAvatarBack} disabled={isLoading}>
+                    Back
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleUploadAvatar}
+                    loading={uploadAvatarMutation.isPending}
+                    disabled={!croppedAreaPixels || isLoading}
+                  >
+                    Crop & Upload
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {avatarError && (
               <p className="text-sm text-semantic-danger">{avatarError}</p>
-            )}
-
-            {avatarFile && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleUploadAvatar}
-                loading={uploadAvatarMutation.isPending}
-                disabled={isLoading}
-              >
-                Upload
-              </Button>
             )}
           </div>
         </div>

@@ -1,8 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
+import type { Area, Point } from 'react-easy-crop';
 import { useUploadCharacterAvatar, useDeleteCharacterAvatar } from '../hooks/useCharacterAvatar';
 import CharacterAvatar from './CharacterAvatar';
 import { Button, Alert } from './ui';
 import { Modal } from './Modal';
+import { cropImage } from '../utils/cropImage';
 
 interface AvatarUploadModalProps {
   isOpen: boolean;
@@ -16,30 +19,6 @@ interface AvatarUploadModalProps {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-/**
- * Modal for uploading or deleting character avatars
- *
- * Features:
- * - File selection with preview
- * - Client-side validation (type and size)
- * - Upload with progress indication
- * - Delete existing avatar (with confirmation)
- * - Error handling and display
- *
- * @example
- * ```tsx
- * <AvatarUploadModal
- *   isOpen={isModalOpen}
- *   onClose={() => setIsModalOpen(false)}
- *   characterId={character.id}
- *   characterName={character.name}
- *   currentAvatarUrl={character.avatar_url}
- *   onUploadSuccess={() => {
- *     console.log('Avatar uploaded!');
- *   }}
- * />
- * ```
- */
 const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
   isOpen,
   onClose,
@@ -48,9 +27,13 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
   currentAvatarUrl,
   onUploadSuccess,
 }) => {
+  const [step, setStep] = useState<'select' | 'crop'>('select');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = useUploadCharacterAvatar();
@@ -62,51 +45,53 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
 
     if (!file) {
       setSelectedFile(null);
-      setPreviewUrl(null);
+      setImageSrc(null);
       return;
     }
 
-    // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       setValidationError('Only JPG, PNG, and WebP images are allowed');
-      setSelectedFile(null);
-      setPreviewUrl(null);
       return;
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       setValidationError('File size must be less than 5MB');
-      setSelectedFile(null);
-      setPreviewUrl(null);
       return;
     }
 
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPreviewUrl(reader.result as string);
+      setImageSrc(reader.result as string);
+      setSelectedFile(file);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setStep('crop');
     };
     reader.readAsDataURL(file);
-
-    setSelectedFile(file);
   };
 
-  const handleUpload = () => {
-    if (!selectedFile) return;
+  const onCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const handleUpload = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+
+    let blob: Blob;
+    try {
+      blob = await cropImage(imageSrc, croppedAreaPixels);
+    } catch {
+      setValidationError('Failed to process image. Please try again.');
+      return;
+    }
+
+    const file = new File([blob], selectedFile?.name ?? 'avatar.jpg', { type: 'image/jpeg' });
 
     uploadMutation.mutate(
-      { characterId, file: selectedFile },
+      { characterId, file },
       {
         onSuccess: () => {
-          // Reset form
-          setSelectedFile(null);
-          setPreviewUrl(null);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-
-          // Call success callback and close modal
+          resetState();
           onUploadSuccess?.();
           onClose();
         },
@@ -116,9 +101,7 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
 
   const handleDelete = () => {
     // eslint-disable-next-line no-alert
-    if (!confirm('Are you sure you want to delete this avatar?')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this avatar?')) return;
 
     deleteMutation.mutate(characterId, {
       onSuccess: () => {
@@ -128,14 +111,26 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
     });
   };
 
-  const handleClose = () => {
-    // Reset state when closing
+  const handleBack = () => {
+    setStep('select');
+    setImageSrc(null);
     setSelectedFile(null);
-    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const resetState = () => {
+    setStep('select');
+    setSelectedFile(null);
+    setImageSrc(null);
     setValidationError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleClose = () => {
+    resetState();
     onClose();
   };
 
@@ -146,101 +141,130 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={`Upload Avatar for ${characterName}`}>
       <div>
-          {/* Current Avatar (if exists) */}
-          {currentAvatarUrl && (
-            <div className="mb-4">
-              <p className="text-sm text-content-secondary mb-2">Current Avatar:</p>
-              <div className="flex items-center gap-3">
-                <CharacterAvatar
-                  avatarUrl={currentAvatarUrl}
-                  characterName={characterName}
-                  size="lg"
-                />
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={handleDelete}
-                  disabled={isDeleting || isUploading}
-                >
-                  {isDeleting ? 'Removing...' : 'Remove Avatar'}
-                </Button>
+        {step === 'select' && (
+          <>
+            {/* Current Avatar */}
+            {currentAvatarUrl && (
+              <div className="mb-4">
+                <p className="text-sm text-content-secondary mb-2">Current Avatar:</p>
+                <div className="flex items-center gap-3">
+                  <CharacterAvatar
+                    avatarUrl={currentAvatarUrl}
+                    characterName={characterName}
+                    size="lg"
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={isDeleting || isUploading}
+                  >
+                    {isDeleting ? 'Removing...' : 'Remove Avatar'}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* File Input */}
-          <div className="mb-4">
-            <label
-              htmlFor="avatar-file-input"
-              className="block text-sm font-medium text-content-primary mb-2"
-            >
-              Choose File
-            </label>
-            <input
-              id="avatar-file-input"
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              disabled={isUploading || isDeleting}
-              className="block w-full text-sm text-content-tertiary
-                file:mr-4 file:py-2 file:px-4
-                file:rounded file:border-0
-                file:text-sm file:font-semibold
-                file:bg-interactive-primary-subtle file:text-interactive-primary
-                hover:file:bg-interactive-primary-subtle
-                disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <p className="mt-1 text-xs text-content-tertiary">
-              JPG, PNG, or WebP. Max 5MB.
-            </p>
-          </div>
-
-          {/* Preview */}
-          {previewUrl && (
+            {/* File Input */}
             <div className="mb-4">
-              <p className="text-sm font-medium text-content-primary mb-2">Preview:</p>
-              <div className="flex justify-center">
-                <img
-                  src={previewUrl}
-                  alt="Avatar preview"
-                  className="w-32 h-32 rounded-full object-cover border-2 border-theme-default"
-                />
-              </div>
+              <label
+                htmlFor="avatar-file-input"
+                className="block text-sm font-medium text-content-primary mb-2"
+              >
+                Choose File
+              </label>
+              <input
+                id="avatar-file-input"
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileChange}
+                disabled={isUploading || isDeleting}
+                className="block w-full text-sm text-content-tertiary
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-interactive-primary-subtle file:text-interactive-primary
+                  hover:file:bg-interactive-primary-subtle
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <p className="mt-1 text-xs text-content-tertiary">
+                JPG, PNG, or WebP. Max 5MB.
+              </p>
             </div>
-          )}
 
-          {/* Validation Error */}
-          {validationError && (
-            <Alert variant="danger" className="mb-4">
-              {validationError}
-            </Alert>
-          )}
+            {validationError && (
+              <Alert variant="danger" className="mb-4">
+                {validationError}
+              </Alert>
+            )}
 
-          {/* Upload/Delete Error */}
-          {hasError && (
-            <Alert variant="danger" className="mb-4">
-              {uploadMutation.error?.message || deleteMutation.error?.message || 'An error occurred'}
-            </Alert>
-          )}
+            {hasError && (
+              <Alert variant="danger" className="mb-4">
+                {uploadMutation.error?.message || deleteMutation.error?.message || 'An error occurred'}
+              </Alert>
+            )}
+          </>
+        )}
+
+        {step === 'crop' && imageSrc && (
+          <>
+            <div className="relative w-full mb-4" style={{ height: 300 }}>
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-content-primary mb-1">
+                Zoom
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-interactive-primary"
+              />
+            </div>
+
+            {hasError && (
+              <Alert variant="danger" className="mb-4">
+                {uploadMutation.error?.message || 'An error occurred'}
+              </Alert>
+            )}
+          </>
+        )}
       </div>
 
       {/* Footer */}
       <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-theme-default">
-        <Button
-          variant="ghost"
-          onClick={handleClose}
-          disabled={isUploading || isDeleting}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleUpload}
-          disabled={!selectedFile || isUploading || isDeleting || !!validationError}
-        >
-          {isUploading ? 'Uploading...' : 'Upload'}
-        </Button>
+        {step === 'select' ? (
+          <Button variant="ghost" onClick={handleClose} disabled={isUploading || isDeleting}>
+            Cancel
+          </Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={handleBack} disabled={isUploading}>
+              Back
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleUpload}
+              disabled={!croppedAreaPixels || isUploading}
+            >
+              {isUploading ? 'Uploading...' : 'Crop & Upload'}
+            </Button>
+          </>
+        )}
       </div>
     </Modal>
   );
