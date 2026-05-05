@@ -145,6 +145,7 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             game.IsAnonymous,
 		AutoAcceptAudience:      game.AutoAcceptAudience,
 		AllowGroupConversations: game.AllowGroupConversations,
+		PortraitAvatars:         game.PortraitAvatars,
 		CreatedAt:               game.CreatedAt.Time,
 		UpdatedAt:               game.UpdatedAt.Time,
 	}

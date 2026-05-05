@@ -282,7 +282,8 @@ function MessageViewer({
   error: Error | null;
   onBack: () => void;
 }) {
-  const { allGameCharacters } = useGameContext();
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
 
   const getAvatarUrl = useCallback((characterId: number | undefined): string | null =>
     allGameCharacters.find(c => c.id === characterId)?.avatar_url ?? null,
@@ -475,6 +476,7 @@ function MessageViewer({
                           avatarUrl={messageGroup.senderAvatar}
                           characterName={messageGroup.senderName}
                           size="md"
+                          shape={portraitAvatars ? 'portrait' : 'circle'}
                         />
                       </div>
 

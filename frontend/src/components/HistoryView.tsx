@@ -8,6 +8,7 @@ import { PhaseHistoryPolls } from './PhaseHistoryPolls';
 import { Button, Alert } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
 import CharacterAvatar from './CharacterAvatar';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import type { ActionWithDetails } from '../types/phases';
 import { useUrlParam } from '../hooks/useUrlParam';
 
@@ -24,6 +25,8 @@ interface HistoryViewProps {
 }
 
 export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience = false }: HistoryViewProps) {
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
   const [selectedPhaseId, setSelectedPhaseId] = useUrlParam<number | null>(
     'phase',
     null,
@@ -250,6 +253,7 @@ export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience =
                               <CharacterAvatar
                                 characterName={submission.character_name || 'Unknown'}
                                 size="md"
+                                shape={portraitAvatars ? 'portrait' : 'circle'}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start">
@@ -336,6 +340,7 @@ export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience =
                               <CharacterAvatar
                                 characterName={result.character_name || 'Unknown'}
                                 size="md"
+                                shape={portraitAvatars ? 'portrait' : 'circle'}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start mb-1">

@@ -443,8 +443,8 @@ export const ThreadedComment = memo(function ThreadedComment({
             <CharacterAvatar
               avatarUrl={comment.character_avatar_url}
               characterName={comment.character_name}
+              size="md"
               shape="portrait"
-              className="!w-[60px] !h-[90px]"
             />
           </div>
         )}

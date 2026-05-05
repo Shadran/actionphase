@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
 import CharacterAvatar from './CharacterAvatar';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import type { Character } from '../types/characters';
 
 interface ParentCommentPreviewProps {
@@ -19,6 +20,7 @@ interface ParentCommentPreviewProps {
   mentionedCharacters?: Character[];
   defaultExpanded?: boolean;
   hideViewInThread?: boolean;
+  portraitAvatars?: boolean;
 }
 
 /**
@@ -38,7 +40,10 @@ export function ParentCommentPreview({
   mentionedCharacters = [],
   defaultExpanded = false,
   hideViewInThread = false,
+  portraitAvatars: portraitAvatarsProp,
 }: ParentCommentPreviewProps) {
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = portraitAvatarsProp ?? gameContext?.game?.portrait_avatars ?? false;
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   // If there's no parent content, don't render anything
@@ -64,6 +69,7 @@ export function ParentCommentPreview({
               avatarUrl={characterAvatarUrl}
               characterName={characterName}
               size="xs"
+              shape={portraitAvatars ? 'portrait' : 'circle'}
             />
           )}
           {characterName ? (
@@ -114,11 +120,17 @@ export function ParentCommentPreview({
           />
         </div>
       ) : (
-        <div className="text-sm text-content-secondary line-clamp-2 relative">
-          {content}
-          {content && content.length > 100 && (
-            <span className="text-content-tertiary"> ...</span>
-          )}
+        <div className="text-sm text-content-secondary line-clamp-2">
+          <MarkdownPreview
+            content={content || ''}
+            mentionedCharacters={mentionedCharacters?.map(char => ({
+              id: char.id,
+              name: char.name,
+              username: char.username,
+              character_type: char.character_type,
+              avatar_url: char.avatar_url ?? undefined
+            }))}
+          />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { apiClient } from '../lib/api';
 import { useCharacterComments } from '../hooks/useCharacterComments';
 import { useCharacterStats } from '../hooks/useCharacterStats';
 import CharacterAvatar from '../components/CharacterAvatar';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import { ParentCommentPreview } from '../components/ParentCommentPreview';
 import { MarkdownPreview } from '../components/MarkdownPreview';
 import { Spinner, Alert, Badge, Card, CardBody } from '../components/ui';
@@ -26,6 +27,7 @@ import { CharacterActivityStats } from '../components/CharacterActivityStats';
 export function CharacterPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
+  const gameContext = useOptionalGameContext();
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,6 +45,14 @@ export function CharacterPage() {
     queryFn: () => apiClient.characters.getCharacter(characterIdNum!).then(res => res.data),
     enabled: !!characterIdNum && !isNaN(characterIdNum),
   });
+
+  const { data: gameData } = useQuery({
+    queryKey: ['games', characterData?.game_id],
+    queryFn: () => apiClient.games.getGame(characterData!.game_id).then(res => res.data),
+    enabled: !!characterData?.game_id && !gameContext,
+  });
+
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? gameData?.portrait_avatars ?? false;
 
   const { data: statsData } = useCharacterStats(characterIdNum);
 
@@ -108,6 +118,7 @@ export function CharacterPage() {
                 avatarUrl={characterData.avatar_url}
                 characterName={characterData.name}
                 size="xl"
+                shape={portraitAvatars ? 'portrait' : 'circle'}
               />
               <div>
                 <h1 className="text-2xl font-bold text-text-heading">{characterData.name}</h1>
@@ -173,6 +184,7 @@ export function CharacterPage() {
                 <CharacterMessageCard
                   key={message.id}
                   message={message}
+                  portraitAvatars={portraitAvatars}
                   onNavigate={() => {
                     if (!characterData) return;
                     const url = `/games/${message.game_id}?tab=common-room&comment=${message.id}`;
@@ -199,9 +211,10 @@ export function CharacterPage() {
 interface CharacterMessageCardProps {
   message: CharacterMessage;
   onNavigate: () => void;
+  portraitAvatars: boolean;
 }
 
-function CharacterMessageCard({ message, onNavigate }: CharacterMessageCardProps) {
+function CharacterMessageCard({ message, onNavigate, portraitAvatars }: CharacterMessageCardProps) {
   const utcDateString = message.created_at.endsWith('Z')
     ? message.created_at
     : `${message.created_at}Z`;
@@ -221,6 +234,7 @@ function CharacterMessageCard({ message, onNavigate }: CharacterMessageCardProps
             authorUsername={message.parent.author_username}
             characterName={message.parent.character_name}
             characterAvatarUrl={message.parent.character_avatar_url}
+            portraitAvatars={portraitAvatars}
           />
         )}
 
@@ -230,6 +244,7 @@ function CharacterMessageCard({ message, onNavigate }: CharacterMessageCardProps
             avatarUrl={message.character_avatar_url}
             characterName={message.character_name || message.author_username}
             size="sm"
+            shape={portraitAvatars ? 'portrait' : 'circle'}
           />
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-text-heading leading-tight">{message.character_name || message.author_username}</span>

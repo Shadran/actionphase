@@ -222,7 +222,8 @@ function ActionSubmissionCard({ gameId, submission }: { gameId: number; submissi
   const [actionResult, setActionResult] = useState<ActionResultType | null>(null);
   const [loadingResult, setLoadingResult] = useState(false);
 
-  const { allGameCharacters } = useGameContext();
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
   const avatarUrl = submission.character_id
     ? (allGameCharacters.find(c => c.id === submission.character_id)?.avatar_url ?? null)
     : null;
@@ -282,6 +283,7 @@ function ActionSubmissionCard({ gameId, submission }: { gameId: number; submissi
                   characterName={submission.character_name}
                   avatarUrl={avatarUrl}
                   size="sm"
+                  shape={portraitAvatars ? 'portrait' : 'circle'}
                 />
                 <span className="font-semibold text-content-primary">
                   {submission.character_name}

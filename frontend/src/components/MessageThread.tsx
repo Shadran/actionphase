@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } fr
 import { Trash2, RefreshCw, Pencil } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConversation } from '../contexts/ConversationContext';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import { Button, Select, Alert } from './ui';
 import { CommentEditor } from './CommentEditor';
 import CharacterAvatar from './CharacterAvatar';
@@ -21,6 +22,8 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
   // Check if we're in a common room phase (when messaging is allowed)
   const isCommonRoomPhase = currentPhaseType === 'common_room';
   const { currentUser } = useAuth();
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
 
   // Get conversation data from context
   const {
@@ -361,6 +364,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                     avatarUrl={message.sender_avatar_url}
                     characterName={message.sender_character_name || message.sender_username}
                     size="md"
+                    shape={portraitAvatars ? 'portrait' : 'circle'}
                   />
                   <div className="flex flex-col flex-1">
                     <div className="flex items-baseline gap-2 mb-1">

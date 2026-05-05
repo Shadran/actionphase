@@ -47,7 +47,8 @@ export function CharactersList({
   const { isUserCharacter: isUserCharacterById } = useCharacterOwnership(gameId);
 
   // Read from GameContext — single source of truth for all game characters
-  const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters } = useGameContext();
+  const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
 
   // Refresh characters when visiting the People tab (mount refresh)
   useEffect(() => {
@@ -526,6 +527,8 @@ function CharacterCard({
   onViewSheet
 }: CharacterCardProps) {
   const navigate = useNavigate();
+  const { game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
 
   // Show stats for GMs, audience, owners, or anyone in a completed game
   const canViewStats = isOwner || userRole === 'gm' || userRole === 'co_gm' || userRole === 'audience' || gameState === 'completed';
@@ -541,6 +544,7 @@ function CharacterCard({
             avatarUrl={character.avatar_url}
             characterName={character.name}
             size="xl"
+            shape={portraitAvatars ? 'portrait' : 'circle'}
           />
           <div className="flex-grow min-w-0">
             <h4 className="font-semibold text-base text-content-primary mb-1.5" data-testid="character-name">
@@ -639,6 +643,7 @@ function CharacterCard({
             avatarUrl={character.avatar_url}
             characterName={character.name}
             size="xl"
+            shape={portraitAvatars ? 'portrait' : 'circle'}
           />
           <div className="flex-grow">
             <div className="flex items-center space-x-2 mb-1">

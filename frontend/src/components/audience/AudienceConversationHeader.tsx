@@ -2,6 +2,7 @@ import React from 'react';
 import type { AudienceConversationListItem } from '../../types/conversations';
 import { Badge, Button } from '../ui';
 import CharacterAvatar from '../CharacterAvatar';
+import { useGameContext } from '../../contexts/GameContext';
 
 interface AudienceConversationHeaderProps {
   conversation: AudienceConversationListItem;
@@ -18,6 +19,14 @@ export const AudienceConversationHeader: React.FC<AudienceConversationHeaderProp
   messageCount,
   onBack,
 }) => {
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
+
+  const getAvatarUrl = (characterId: number | null | undefined): string | null => {
+    if (!characterId) return null;
+    return allGameCharacters.find(c => c.id === characterId)?.avatar_url ?? null;
+  };
+
   // Get up to 5 participant avatars for display
   const getParticipantAvatars = () => {
     if (!conversation.participant_names) return [];
@@ -54,15 +63,15 @@ export const AudienceConversationHeader: React.FC<AudienceConversationHeaderProp
         {/* Avatars + Message count */}
         <div className="flex items-center justify-between gap-3">
           {/* Participant Avatars */}
-          <div className="flex items-center -space-x-2">
+          <div className={`flex items-center ${portraitAvatars ? 'gap-1' : '-space-x-2'}`}>
             {getParticipantAvatars().map((name, index) => (
               <div
                 key={index}
-                className="rounded-full border-2 border-bg-secondary shadow-sm"
+                className={`${portraitAvatars ? 'rounded' : 'rounded-full'} border-2 border-theme-default shadow-sm`}
                 style={{ zIndex: getParticipantAvatars().length - index }}
                 title={name}
               >
-                <CharacterAvatar characterName={name} size="sm" />
+                <CharacterAvatar characterName={name} avatarUrl={getAvatarUrl(conversation.participant_character_ids?.[index])} size="xs" shape={portraitAvatars ? 'portrait' : 'circle'} />
               </div>
             ))}
             {additionalParticipants > 0 && (
@@ -97,15 +106,15 @@ export const AudienceConversationHeader: React.FC<AudienceConversationHeaderProp
           </Button>
 
           {/* Participant Avatars */}
-          <div className="flex items-center -space-x-2 flex-shrink-0">
+          <div className={`flex items-center flex-shrink-0 ${portraitAvatars ? 'gap-1' : '-space-x-2'}`}>
             {getParticipantAvatars().map((name, index) => (
               <div
                 key={index}
-                className="rounded-full border-2 border-bg-secondary shadow-sm"
+                className={`${portraitAvatars ? 'rounded' : 'rounded-full'} border-2 border-theme-default shadow-sm`}
                 style={{ zIndex: getParticipantAvatars().length - index }}
                 title={name}
               >
-                <CharacterAvatar characterName={name} size="md" />
+                <CharacterAvatar characterName={name} avatarUrl={getAvatarUrl(conversation.participant_character_ids?.[index])} size="sm" shape={portraitAvatars ? 'portrait' : 'circle'} />
               </div>
             ))}
             {additionalParticipants > 0 && (

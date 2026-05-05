@@ -229,7 +229,8 @@ interface ActionCardProps {
 
 function ActionCard({ action, gameId, isExpanded, onToggleExpand }: ActionCardProps) {
   const [showResultForm, setShowResultForm] = useState(false);
-  const { allGameCharacters } = useGameContext();
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
   const avatarUrl = action.character_id
     ? (allGameCharacters.find(c => c.id === action.character_id)?.avatar_url ?? null)
     : null;
@@ -248,6 +249,7 @@ function ActionCard({ action, gameId, isExpanded, onToggleExpand }: ActionCardPr
                   characterName={action.character_name || action.username || ''}
                   avatarUrl={avatarUrl}
                   size="sm"
+                  shape={portraitAvatars ? 'portrait' : 'circle'}
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -288,6 +290,7 @@ function ActionCard({ action, gameId, isExpanded, onToggleExpand }: ActionCardPr
                 characterName={action.character_name || action.username || ''}
                 avatarUrl={avatarUrl}
                 size="md"
+                shape={portraitAvatars ? 'portrait' : 'circle'}
               />
             </div>
             <div className="flex-1 min-w-0">

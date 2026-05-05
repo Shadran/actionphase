@@ -31,7 +31,8 @@ export function CommentWithParentCard({
   isRead = false,
   onToggleRead,
 }: CommentWithParentCardProps) {
-  const { allGameCharacters } = useGameContext();
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
 
   const parentCharacterId = comment.parent_character_name
     ? allGameCharacters.find(c => c.name === comment.parent_character_name)?.id ?? null
@@ -71,6 +72,7 @@ export function CommentWithParentCard({
               avatarUrl={comment.character_avatar_url}
               characterName={comment.character_name || comment.author_username}
               size="sm"
+              shape={portraitAvatars ? 'portrait' : 'circle'}
             />
             <div className="flex flex-col flex-1">
               <div className="flex items-center gap-2 flex-wrap">

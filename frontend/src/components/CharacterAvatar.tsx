@@ -88,11 +88,19 @@ const CharacterAvatar: React.FC<CharacterAvatarProps> = ({
 
   const shouldShowImage = avatarUrl && !imageLoadError;
 
+  const portraitSizeClasses = {
+    xs: 'w-[32px] h-[48px]',
+    sm: 'w-[48px] h-[72px]',
+    md: 'w-[60px] h-[90px]',
+    lg: 'w-[80px] h-[120px]',
+    xl: 'w-[100px] h-[150px]',
+  };
+
   if (shape === 'portrait') {
     return (
       <div
         data-testid="character-avatar"
-        className={`w-[100px] h-[150px] rounded border-2 border-theme-default flex-shrink-0 ${className}`}
+        className={`${portraitSizeClasses[size]} rounded border-2 border-theme-default flex-shrink-0 ${className}`}
       >
         <div
           className={`w-full h-full rounded overflow-hidden flex items-center justify-center ${

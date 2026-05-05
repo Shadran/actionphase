@@ -17,7 +17,8 @@ export const AudienceConversationCard: React.FC<AudienceConversationCardProps> =
   onClick,
   isSelected = false
 }) => {
-  const { allGameCharacters } = useGameContext();
+  const { allGameCharacters, game } = useGameContext();
+  const portraitAvatars = game?.portrait_avatars ?? false;
   const [searchParams] = useSearchParams();
 
   const href = (() => {
@@ -86,18 +87,19 @@ export const AudienceConversationCard: React.FC<AudienceConversationCardProps> =
           {/* Header: Avatars + Recent indicator */}
           <div className="flex items-start justify-between gap-2">
             {/* Participant Avatars (Slack-style overlap) */}
-            <div className="flex items-center -space-x-2">
+            <div className={`flex items-center ${portraitAvatars ? 'gap-1' : '-space-x-2'}`}>
               {getParticipantAvatars().map((name, index) => (
                 <div
                   key={index}
-                  className="rounded-full border-2 border-bg-primary shadow-sm"
+                  className={`${portraitAvatars ? 'rounded' : 'rounded-full'} border-2 border-theme-default shadow-sm`}
                   style={{ zIndex: getParticipantAvatars().length - index }}
                   title={name}
                 >
                   <CharacterAvatar
                     characterName={name}
                     avatarUrl={getAvatarUrl(conversation.participant_character_ids?.[index])}
-                    size="md"
+                    size="sm"
+                    shape={portraitAvatars ? 'portrait' : 'circle'}
                   />
                 </div>
               ))}
