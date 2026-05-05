@@ -22,6 +22,7 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
     is_anonymous: false,
     auto_accept_audience: false,
     allow_group_conversations: true,
+    portrait_avatars: false,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +54,7 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
         is_anonymous: formData.is_anonymous,
         auto_accept_audience: formData.auto_accept_audience,
         allow_group_conversations: formData.allow_group_conversations ?? true,
+        portrait_avatars: formData.portrait_avatars ?? false,
       };
 
       const response = await apiClient.games.createGame(gameData);

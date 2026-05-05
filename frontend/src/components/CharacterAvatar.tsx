@@ -4,6 +4,7 @@ interface CharacterAvatarProps {
   avatarUrl?: string | null;
   characterName: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  shape?: 'circle' | 'portrait';
   className?: string;
 }
 
@@ -29,6 +30,7 @@ const CharacterAvatar: React.FC<CharacterAvatarProps> = ({
   avatarUrl,
   characterName,
   size = 'md',
+  shape = 'circle',
   className = '',
 }) => {
   const [imageLoadError, setImageLoadError] = useState(false);
@@ -85,6 +87,32 @@ const CharacterAvatar: React.FC<CharacterAvatarProps> = ({
   };
 
   const shouldShowImage = avatarUrl && !imageLoadError;
+
+  if (shape === 'portrait') {
+    return (
+      <div
+        data-testid="character-avatar"
+        className={`w-[100px] h-[150px] rounded border-2 border-theme-default flex-shrink-0 ${className}`}
+      >
+        <div
+          className={`w-full h-full rounded overflow-hidden flex items-center justify-center ${
+            !shouldShowImage ? `${getColorClass(characterName)} text-white font-semibold text-2xl` : ''
+          }`}
+        >
+          {shouldShowImage ? (
+            <img
+              src={avatarUrl}
+              alt={characterName}
+              className="w-full h-full object-cover"
+              onError={() => setImageLoadError(true)}
+            />
+          ) : (
+            <span>{getInitials(characterName)}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

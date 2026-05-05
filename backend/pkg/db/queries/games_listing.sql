@@ -16,6 +16,7 @@ SELECT
   g.is_anonymous,
   g.auto_accept_audience,
   g.allow_group_conversations,
+  g.portrait_avatars,
   g.created_at,
   g.updated_at,
 

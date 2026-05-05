@@ -18,6 +18,7 @@ type CreateGameRequest struct {
 	IsAnonymous             bool                `json:"is_anonymous"`
 	AutoAcceptAudience      bool                `json:"auto_accept_audience"`
 	AllowGroupConversations bool                `json:"allow_group_conversations"`
+	PortraitAvatars         bool                `json:"portrait_avatars"`
 }
 
 func (r *CreateGameRequest) Bind(req *http.Request) error {
@@ -46,6 +47,7 @@ type UpdateGameRequest struct {
 	IsAnonymous             bool       `json:"is_anonymous"`
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
+	PortraitAvatars         bool       `json:"portrait_avatars"`
 }
 
 func (r *UpdateGameRequest) Bind(req *http.Request) error {

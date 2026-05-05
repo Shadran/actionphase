@@ -11,6 +11,7 @@ export interface GameFormData {
   is_anonymous?: boolean;
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
+  portrait_avatars?: boolean;
 }
 
 interface GameFormFieldsProps {
@@ -122,6 +123,14 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         label="Allow Group Conversations (players can create private messages with 3+ participants)"
         checked={formData.allow_group_conversations ?? true}
         onChange={(e) => onChange('allow_group_conversations', e.target.checked)}
+      />
+
+      {/* Portrait Avatars */}
+      <Checkbox
+        id="portrait_avatars"
+        label="Portrait Avatars (character images float left with text flowing around them)"
+        checked={formData.portrait_avatars ?? false}
+        onChange={(e) => onChange('portrait_avatars', e.target.checked)}
       />
     </>
   );

@@ -25,6 +25,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
     is_anonymous: false,
     auto_accept_audience: false,
     allow_group_conversations: true,
+    portrait_avatars: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         is_anonymous: game.is_anonymous || false,
         auto_accept_audience: game.auto_accept_audience || false,
         allow_group_conversations: game.allow_group_conversations ?? true,
+        portrait_avatars: game.portrait_avatars ?? false,
       });
       setError(null);
     }
@@ -81,6 +83,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         is_anonymous: formData.is_anonymous,
         auto_accept_audience: formData.auto_accept_audience,
         allow_group_conversations: formData.allow_group_conversations ?? true,
+        portrait_avatars: formData.portrait_avatars ?? false,
       };
 
       await apiClient.games.updateGame(game.id, updateData);

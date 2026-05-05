@@ -36,6 +36,7 @@ interface ThreadedCommentProps {
   readOnly?: boolean; // Disable all interactive features (for history view)
   parentComment?: Message | CommentTreeNode | null; // Parent comment for smart character defaulting in nested replies
   variant?: 'desktop' | 'mobile'; // Used to create unique IDs for desktop vs mobile rendering
+  portraitAvatars?: boolean;
 }
 
 export const ThreadedComment = memo(function ThreadedComment({
@@ -56,7 +57,8 @@ export const ThreadedComment = memo(function ThreadedComment({
   onOpenThread,
   readOnly = false,
   parentComment = null,
-  variant
+  variant,
+  portraitAvatars = false,
 }: ThreadedCommentProps) {
   const { showSuccess, showError } = useToast();
   // Use local state to track the current comment data (for immediate UI updates)
@@ -435,14 +437,26 @@ export const ThreadedComment = memo(function ThreadedComment({
       className={`${getIndentPadding()} ${depth > 0 ? 'border-l-2 ' + borderColor : ''} ${bgColor} ${depth > 0 ? 'py-3 my-2' : 'py-2'} border-b border-theme-subtle`}
     >
       {/* Comment Header and Content */}
-      <div className={`${isUnread ? 'border border-semantic-warning rounded-lg p-3' : ''}${isManuallyRead ? ' opacity-50' : ''}`}>
-        <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-          <CharacterAvatar
-            avatarUrl={comment.character_avatar_url}
-            characterName={comment.character_name}
-            size="md"
-            className="md:w-12 md:h-12"
-          />
+      <div className={`${portraitAvatars ? 'overflow-hidden' : ''}${isUnread ? ' border border-semantic-warning rounded-lg p-3' : ''}${isManuallyRead ? ' opacity-50' : ''}`}>
+        {portraitAvatars && (
+          <div className="float-left mr-2 mb-1">
+            <CharacterAvatar
+              avatarUrl={comment.character_avatar_url}
+              characterName={comment.character_name}
+              shape="portrait"
+              className="!w-[60px] !h-[90px]"
+            />
+          </div>
+        )}
+        <div className={portraitAvatars ? '' : 'flex items-center gap-1.5 md:gap-2 mb-1'}>
+          {!portraitAvatars && (
+            <CharacterAvatar
+              avatarUrl={comment.character_avatar_url}
+              characterName={comment.character_name}
+              size="md"
+              className="md:w-12 md:h-12"
+            />
+          )}
           <div className="flex-1 min-w-0">
             {/* Desktop: horizontal layout */}
             <div className="hidden md:block">
@@ -846,6 +860,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="desktop"
+                                portraitAvatars={portraitAvatars}
                             />
                         ))
                     )}
@@ -889,6 +904,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="mobile"
+                                portraitAvatars={portraitAvatars}
                             />
                         ))
                     )}

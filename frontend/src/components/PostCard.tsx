@@ -28,6 +28,7 @@ interface PostCardProps {
   currentUserId?: number;
   'data-testid'?: string;
   readOnly?: boolean; // Disable all interactive features (for history view)
+  portraitAvatars?: boolean;
 }
 
 // Memoized comment list that only re-renders when commentTree changes
@@ -47,6 +48,7 @@ const CommentList = memo(function CommentList({
   onToggleRead,
   onOpenThread,
   readOnly,
+  portraitAvatars,
 }: {
   commentTree: CommentTreeNode[];
   gameId: number;
@@ -62,6 +64,7 @@ const CommentList = memo(function CommentList({
   onToggleRead: (commentId: number, currentlyRead: boolean) => void;
   onOpenThread: (comment: Message) => void;
   readOnly: boolean;
+  portraitAvatars?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -85,13 +88,14 @@ const CommentList = memo(function CommentList({
           onOpenThread={onOpenThread}
           readOnly={readOnly}
           parentComment={null}
+          portraitAvatars={portraitAvatars}
         />
       ))}
     </div>
   );
 });
 
-export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false }: PostCardProps) {
+export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false, portraitAvatars = false }: PostCardProps) {
   const [showComments, setShowComments] = useState(true);
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentTree, setCommentTree] = useState<CommentTreeNode[]>([]);
@@ -364,74 +368,183 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
       <div className="bg-interactive-primary-subtle border-b-2 border-interactive-primary">
         {/* Post Header - Always visible */}
         <div className="py-3 px-3 md:p-4 surface-base bg-opacity-90 border-b border-interactive-primary">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
+          {portraitAvatars ? (
+            /* Portrait mode: avatar floats left, name + content flow around it */
+            <div className="overflow-hidden">
+              <div className="float-left mr-3 mb-2">
                 <CharacterAvatar
                   avatarUrl={post.character_avatar_url}
                   characterName={post.character_name}
-                  size="lg"
-                  className="md:w-16 md:h-16"
+                  shape="portrait"
                 />
-                <div className="flex-1">
-                  <Link to={`/characters/${post.character_id}`} className="font-bold text-xl text-content-primary hover:underline">{post.character_name}</Link>
-                  <p className="text-sm text-content-secondary">
-                    {post.author_username ? `Posted by @${post.author_username} · ` : 'Posted '}{formatDate(post.created_at)}
-                    {post.is_edited && <span className="ml-1 text-content-tertiary">(edited)</span>}
-                    {isAuthor && (
-                      <span className="ml-2 text-xs bg-interactive-primary-subtle text-interactive-primary px-2 py-0.5 rounded">You</span>
-                    )}
-                    {isAuthor && !readOnly && !isEditing && (
-                      <button
-                        onClick={handleEdit}
-                        className="ml-2 text-xs text-interactive-primary hover:text-interactive-primary-hover underline"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </p>
+              </div>
+              <div>
+                <div className="flex items-start justify-between mb-1">
+                  <div>
+                    <Link to={`/characters/${post.character_id}`} className="font-bold text-xl text-content-primary hover:underline">{post.character_name}</Link>
+                    <p className="text-sm text-content-secondary">
+                      {post.author_username ? `Posted by @${post.author_username} · ` : 'Posted '}{formatDate(post.created_at)}
+                      {post.is_edited && <span className="ml-1 text-content-tertiary">(edited)</span>}
+                      {isAuthor && (
+                        <span className="ml-2 text-xs bg-interactive-primary-subtle text-interactive-primary px-2 py-0.5 rounded">You</span>
+                      )}
+                      {isAuthor && !readOnly && !isEditing && (
+                        <button
+                          onClick={handleEdit}
+                          className="ml-2 text-xs text-interactive-primary hover:text-interactive-primary-hover underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </p>
+                  </div>
+                  {localUnreadCommentIDs.length > 0 && (
+                    <span className="px-2 py-1 text-xs font-semibold bg-interactive-primary-subtle text-interactive-primary rounded">
+                      {localUnreadCommentIDs.length} new {localUnreadCommentIDs.length === 1 ? 'comment' : 'comments'}
+                    </span>
+                  )}
                 </div>
-                {localUnreadCommentIDs.length > 0 && (
-                  <span className="px-2 py-1 text-xs font-semibold bg-interactive-primary-subtle text-interactive-primary rounded">
-                    {localUnreadCommentIDs.length} new {localUnreadCommentIDs.length === 1 ? 'comment' : 'comments'}
-                  </span>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 mb-2">
+                  {isLongContent && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsPostCollapsed(!isPostCollapsed)}
+                      className="text-interactive-primary hover:text-interactive-primary-hover"
+                    >
+                    {isPostCollapsed ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        Show Full Post
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                        Collapse Post
+                      </>
+                    )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Post content flows around the floating portrait */}
+                {(!isLongContent || !isPostCollapsed) && (
+                  isEditing ? (
+                    <div className="space-y-3">
+                      <CommentEditor
+                        value={editContent}
+                        onChange={setEditContent}
+                        placeholder="Edit your post..."
+                        disabled={updatePostMutation.isPending}
+                        characters={characters}
+                        maxLength={50000}
+                        showCharacterCount={true}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="primary"
+                          onClick={handleSaveEdit}
+                          disabled={updatePostMutation.isPending || !editContent.trim() || editContent === post.content}
+                        >
+                          {updatePostMutation.isPending ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={handleCancelEdit}
+                          disabled={updatePostMutation.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <MarkdownPreview
+                      content={post.content}
+                      mentionedCharacters={characters}
+                      fullWidth
+                    />
+                  )
                 )}
               </div>
             </div>
-          </div>
+          ) : (
+            /* Standard circular avatar mode */
+            <>
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <CharacterAvatar
+                      avatarUrl={post.character_avatar_url}
+                      characterName={post.character_name}
+                      size="lg"
+                      className="md:w-16 md:h-16"
+                    />
+                    <div className="flex-1">
+                      <Link to={`/characters/${post.character_id}`} className="font-bold text-xl text-content-primary hover:underline">{post.character_name}</Link>
+                      <p className="text-sm text-content-secondary">
+                        {post.author_username ? `Posted by @${post.author_username} · ` : 'Posted '}{formatDate(post.created_at)}
+                        {post.is_edited && <span className="ml-1 text-content-tertiary">(edited)</span>}
+                        {isAuthor && (
+                          <span className="ml-2 text-xs bg-interactive-primary-subtle text-interactive-primary px-2 py-0.5 rounded">You</span>
+                        )}
+                        {isAuthor && !readOnly && !isEditing && (
+                          <button
+                            onClick={handleEdit}
+                            className="ml-2 text-xs text-interactive-primary hover:text-interactive-primary-hover underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </p>
+                    </div>
+                    {localUnreadCommentIDs.length > 0 && (
+                      <span className="px-2 py-1 text-xs font-semibold bg-interactive-primary-subtle text-interactive-primary rounded">
+                        {localUnreadCommentIDs.length} new {localUnreadCommentIDs.length === 1 ? 'comment' : 'comments'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 mt-2">
-            {/* Toggle Button for Long Content */}
-            {isLongContent && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsPostCollapsed(!isPostCollapsed)}
-                className="text-interactive-primary hover:text-interactive-primary-hover"
-              >
-              {isPostCollapsed ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                  Show Full Post
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                  Collapse Post
-                </>
-              )}
-              </Button>
-            )}
-          </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 mt-2">
+                {isLongContent && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsPostCollapsed(!isPostCollapsed)}
+                    className="text-interactive-primary hover:text-interactive-primary-hover"
+                  >
+                  {isPostCollapsed ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Show Full Post
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Collapse Post
+                    </>
+                  )}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Post Content - Collapsible for long content or Edit Mode */}
-        {(!isLongContent || !isPostCollapsed) && (
+        {/* Post Content - Only rendered in standard (non-portrait) mode */}
+        {!portraitAvatars && (!isLongContent || !isPostCollapsed) && (
           <div className="py-4 px-3 md:p-6 surface-base">
             {isEditing ? (
               // Edit Mode
@@ -589,6 +702,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
                 onToggleRead={handleToggleRead}
                 onOpenThread={handleOpenThread}
                 readOnly={readOnly}
+                portraitAvatars={portraitAvatars}
               />
 
               {/* Load More Button */}

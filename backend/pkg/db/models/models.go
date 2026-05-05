@@ -230,6 +230,7 @@ type Game struct {
 	IsAnonymous             bool               `json:"is_anonymous"`
 	AutoAcceptAudience      bool               `json:"auto_accept_audience"`
 	AllowGroupConversations bool               `json:"allow_group_conversations"`
+	PortraitAvatars         bool               `json:"portrait_avatars"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 }

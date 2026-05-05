@@ -150,6 +150,7 @@ SELECT
   g.is_anonymous,
   g.auto_accept_audience,
   g.allow_group_conversations,
+  g.portrait_avatars,
   g.created_at,
   g.updated_at,
 
@@ -278,6 +279,7 @@ type GetFilteredGamesRow struct {
 	IsAnonymous             bool               `json:"is_anonymous"`
 	AutoAcceptAudience      bool               `json:"auto_accept_audience"`
 	AllowGroupConversations bool               `json:"allow_group_conversations"`
+	PortraitAvatars         bool               `json:"portrait_avatars"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 	CurrentPlayers          int64              `json:"current_players"`
@@ -326,6 +328,7 @@ func (q *Queries) GetFilteredGames(ctx context.Context, arg GetFilteredGamesPara
 			&i.IsAnonymous,
 			&i.AutoAcceptAudience,
 			&i.AllowGroupConversations,
+			&i.PortraitAvatars,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CurrentPlayers,

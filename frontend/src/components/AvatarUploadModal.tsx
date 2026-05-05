@@ -14,6 +14,7 @@ interface AvatarUploadModalProps {
   characterName: string;
   currentAvatarUrl?: string | null;
   onUploadSuccess?: () => void;
+  portraitMode?: boolean;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -26,7 +27,10 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
   characterName,
   currentAvatarUrl,
   onUploadSuccess,
+  portraitMode = false,
 }) => {
+  const cropAspect = portraitMode ? 2 / 3 : 1;
+
   const [step, setStep] = useState<'select' | 'crop'>('select');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -214,7 +218,7 @@ const AvatarUploadModal: React.FC<AvatarUploadModalProps> = ({
                 image={imageSrc}
                 crop={crop}
                 zoom={zoom}
-                aspect={1}
+                aspect={cropAspect}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}

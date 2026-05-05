@@ -7,6 +7,7 @@ import { AbilitiesManager } from './AbilitiesManager';
 import { InventoryManager } from './InventoryManager';
 import CharacterAvatar from './CharacterAvatar';
 import AvatarUploadModal from './AvatarUploadModal';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import { Modal } from './Modal';
 import { TabNavigation } from './TabNavigation';
 import type { Tab } from './TabNavigation';
@@ -26,6 +27,9 @@ interface CharacterSheetProps {
 }
 
 export function CharacterSheet({ characterId, canEdit = false, canEditStats = false, onClose, isAnonymous = false, userRole, gameState }: CharacterSheetProps) {
+  const gameContext = useOptionalGameContext();
+  const portraitMode = gameContext?.game?.portrait_avatars ?? false;
+
   const [activeModule, setActiveModule] = useState('bio');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -487,6 +491,7 @@ export function CharacterSheet({ characterId, canEdit = false, canEditStats = fa
           characterId={character.id}
           characterName={character.name}
           currentAvatarUrl={character.avatar_url}
+          portraitMode={portraitMode}
           onUploadSuccess={() => {
             // Refetch character data to immediately show new avatar
             queryClient.refetchQueries({ queryKey: ['character', characterId] });

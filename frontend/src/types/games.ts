@@ -12,6 +12,7 @@ export interface Game {
   is_anonymous?: boolean;
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
+  portrait_avatars?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export interface CreateGameRequest {
   is_anonymous?: boolean;
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
+  portrait_avatars?: boolean;
 }
 
 export interface UpdateGameRequest extends CreateGameRequest {
@@ -67,6 +69,7 @@ export interface UpdateGameRequest extends CreateGameRequest {
   is_anonymous?: boolean;
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
+  portrait_avatars?: boolean;
 }
 
 export interface ApplyToGameRequest {

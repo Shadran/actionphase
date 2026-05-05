@@ -85,6 +85,7 @@ CREATE TABLE games (
     is_anonymous BOOLEAN NOT NULL DEFAULT FALSE,
     auto_accept_audience BOOLEAN DEFAULT FALSE NOT NULL,
     allow_group_conversations BOOLEAN NOT NULL DEFAULT TRUE,
+    portrait_avatars BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -61,6 +61,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             data.IsAnonymous,
 		AutoAcceptAudience:      data.AutoAcceptAudience,
 		AllowGroupConversations: data.AllowGroupConversations,
+		PortraitAvatars:         data.PortraitAvatars,
 	})
 
 	if err != nil {
@@ -89,6 +90,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             game.IsAnonymous,
 		AutoAcceptAudience:      game.AutoAcceptAudience,
 		AllowGroupConversations: game.AllowGroupConversations,
+		PortraitAvatars:         game.PortraitAvatars,
 		CreatedAt:               game.CreatedAt.Time,
 		UpdatedAt:               game.UpdatedAt.Time,
 	}
@@ -351,6 +353,7 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             data.IsAnonymous,
 		AutoAcceptAudience:      data.AutoAcceptAudience,
 		AllowGroupConversations: data.AllowGroupConversations,
+		PortraitAvatars:         data.PortraitAvatars,
 	})
 
 	if err != nil {
@@ -369,6 +372,7 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             updatedGame.IsAnonymous,
 		AutoAcceptAudience:      updatedGame.AutoAcceptAudience,
 		AllowGroupConversations: updatedGame.AllowGroupConversations,
+		PortraitAvatars:         updatedGame.PortraitAvatars,
 		CreatedAt:               updatedGame.CreatedAt.Time,
 		UpdatedAt:               updatedGame.UpdatedAt.Time,
 	}
@@ -481,6 +485,7 @@ func (h *Handler) GetGameWithDetails(w http.ResponseWriter, r *http.Request) {
 		IsAnonymous:             game.IsAnonymous,
 		AutoAcceptAudience:      game.AutoAcceptAudience,
 		AllowGroupConversations: game.AllowGroupConversations,
+		PortraitAvatars:         game.PortraitAvatars,
 		CurrentPlayers:          game.CurrentPlayers,
 		CreatedAt:               game.CreatedAt.Time,
 		UpdatedAt:               game.UpdatedAt.Time,
@@ -664,6 +669,7 @@ func (h *Handler) GetFilteredGames(w http.ResponseWriter, r *http.Request) {
 			IsAnonymous:             game.IsAnonymous,
 			AutoAcceptAudience:      game.AutoAcceptAudience,
 			AllowGroupConversations: game.AllowGroupConversations,
+			PortraitAvatars:         game.PortraitAvatars,
 			CreatedAt:               game.CreatedAt,
 			UpdatedAt:               game.UpdatedAt,
 			CurrentPlayers:          game.CurrentPlayers,

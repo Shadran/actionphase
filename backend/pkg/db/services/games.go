@@ -90,6 +90,7 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		IsAnonymous:             req.IsAnonymous,
 		AutoAcceptAudience:      req.AutoAcceptAudience,
 		AllowGroupConversations: req.AllowGroupConversations,
+		PortraitAvatars:         req.PortraitAvatars,
 	})
 
 	if err != nil {
@@ -359,6 +360,7 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		IsAnonymous:             req.IsAnonymous,
 		AutoAcceptAudience:      req.AutoAcceptAudience,
 		AllowGroupConversations: req.AllowGroupConversations,
+		PortraitAvatars:         req.PortraitAvatars,
 	})
 
 	return &updatedGame, err
@@ -677,6 +679,7 @@ func enrichedGameFromRow(row models.GetFilteredGamesRow) *core.EnrichedGameListI
 		IsAnonymous:             row.IsAnonymous,
 		AutoAcceptAudience:      row.AutoAcceptAudience,
 		AllowGroupConversations: row.AllowGroupConversations,
+		PortraitAvatars:         row.PortraitAvatars,
 		CreatedAt:               timestamptzToTime(row.CreatedAt),
 		UpdatedAt:               timestamptzToTime(row.UpdatedAt),
 		CurrentPlayers:          int32(row.CurrentPlayers),
