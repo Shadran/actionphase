@@ -120,7 +120,7 @@ export function ParentCommentPreview({
           />
         </div>
       ) : (
-        <div className="text-sm text-content-secondary line-clamp-2">
+        <div className="text-sm text-content-secondary line-clamp-2 [&_p]:my-0">
           <MarkdownPreview
             content={content || ''}
             mentionedCharacters={mentionedCharacters?.map(char => ({

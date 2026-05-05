@@ -2,7 +2,7 @@ import React from 'react';
 import type { AudienceConversationListItem } from '../../types/conversations';
 import { Badge, Button } from '../ui';
 import CharacterAvatar from '../CharacterAvatar';
-import { useGameContext } from '../../contexts/GameContext';
+import { useOptionalGameContext } from '../../contexts/GameContext';
 
 interface AudienceConversationHeaderProps {
   conversation: AudienceConversationListItem;
@@ -19,12 +19,12 @@ export const AudienceConversationHeader: React.FC<AudienceConversationHeaderProp
   messageCount,
   onBack,
 }) => {
-  const { allGameCharacters, game } = useGameContext();
-  const portraitAvatars = game?.portrait_avatars ?? false;
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
 
   const getAvatarUrl = (characterId: number | null | undefined): string | null => {
-    if (!characterId) return null;
-    return allGameCharacters.find(c => c.id === characterId)?.avatar_url ?? null;
+    if (!characterId || !gameContext) return null;
+    return gameContext.allGameCharacters.find(c => c.id === characterId)?.avatar_url ?? null;
   };
 
   // Get up to 5 participant avatars for display

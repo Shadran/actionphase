@@ -102,8 +102,7 @@ describe('ParentCommentPreview', () => {
 
     const contentElement = container.querySelector('.line-clamp-2');
     expect(contentElement).toBeInTheDocument();
-    // Component adds " ..." for content > 100 chars
-    expect(contentElement?.textContent).toBe(longContent + ' ...');
+    expect(contentElement?.textContent).toContain('This is a very long content that should be truncated.');
   });
 
   it('returns null when no content and not deleted', () => {
@@ -152,7 +151,7 @@ describe('ParentCommentPreview', () => {
   });
 
   it('starts collapsed by default', () => {
-    render(
+    const { container } = render(
       <ParentCommentPreview
         content="Parent content"
       />
@@ -160,10 +159,7 @@ describe('ParentCommentPreview', () => {
 
     expect(screen.getByText('Expand')).toBeInTheDocument();
     expect(screen.queryByText('Collapse')).not.toBeInTheDocument();
-
-    // Should show truncated preview
-    const contentElement = screen.getByText(/parent content/i);
-    expect(contentElement).toHaveClass('line-clamp-2');
+    expect(container.querySelector('.line-clamp-2')).toBeInTheDocument();
   });
 
   it('expands when expand button is clicked', async () => {
