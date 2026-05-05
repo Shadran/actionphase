@@ -62,12 +62,12 @@ test.describe('Character Avatar Feature', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testImagePath);
 
-    // Preview should appear
-    await expect(page.locator('text=Preview:')).toBeVisible();
+    // Crop step should appear
+    await expect(page.locator('text=Zoom')).toBeVisible();
 
     // Submit upload
-    const submitButton = page.locator('button:has-text("Upload")').locator('visible=true').first();
-    await expect(submitButton).toBeEnabled();
+    const submitButton = page.locator('button:has-text("Crop & Upload")').locator('visible=true').first();
+    await expect(submitButton).toBeEnabled({ timeout: 10000 });
 
     const uploadPromise = page.waitForResponse(
       resp => resp.url().includes('/avatar') && resp.request().method() === 'POST',
