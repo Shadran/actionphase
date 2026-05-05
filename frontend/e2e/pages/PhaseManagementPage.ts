@@ -53,7 +53,7 @@ export class PhaseManagementPage {
    * Get phase description textarea
    */
   get phaseDescriptionTextarea(): Locator {
-    return this.page.locator('textarea#phase-description');
+    return this.page.locator('textarea[data-testid="phase-description"]');
   }
 
   /**

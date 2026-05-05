@@ -11,6 +11,7 @@ import {
 } from '../fixtures/game-helpers';
 import { GameDetailsPage } from '../pages/GameDetailsPage';
 import { MessagingPage } from '../pages/MessagingPage';
+import { PhaseManagementPage } from '../pages/PhaseManagementPage';
 import { navigateToGameTab, assertTabVisible, assertTabNotVisible } from '../utils/navigation';
 
 /**
@@ -234,14 +235,12 @@ test.describe('Co-GM Management — Functional Capabilities', () => {
     await assertTabVisible(page, 'Phases');
     await navigateToGameTab(page, 'Phases');
 
-    await page.getByRole('button', { name: 'New Phase' }).click();
-    await expect(page.getByRole('heading', { name: 'Create New Phase' })).toBeVisible();
-
-    await page.getByLabel('Phase Type').selectOption('action');
-    await page.getByLabel(/Title/).fill('Co-GM Test Phase');
-    await page.getByLabel(/Description/).fill('Phase created by co-GM to test functionality');
-    await page.getByRole('button', { name: 'Create Phase' }).click();
-    await page.waitForLoadState('networkidle');
+    const phasePage = new PhaseManagementPage(page);
+    await phasePage.createPhase({
+      type: 'action',
+      title: 'Co-GM Test Phase',
+      description: 'Phase created by co-GM to test functionality',
+    });
 
     await expect(page.getByRole('heading', { name: 'Co-GM Test Phase' }).first()).toBeVisible();
   });
