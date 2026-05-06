@@ -47,8 +47,7 @@ export function CharactersList({
   const { isUserCharacter: isUserCharacterById } = useCharacterOwnership(gameId);
 
   // Read from GameContext — single source of truth for all game characters
-  const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters, game } = useGameContext();
-  const portraitAvatars = game?.portrait_avatars ?? false;
+  const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters } = useGameContext();
 
   // Refresh characters when visiting the People tab (mount refresh)
   useEffect(() => {

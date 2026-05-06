@@ -39,8 +39,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   const currentUserId = currentUser?.id;
 
   // Read character data and game settings from GameContext — single source of truth
-  const { userCharacters, allGameCharacters, game } = useGameContext();
-  const portraitAvatars = game?.portrait_avatars ?? false;
+  const { userCharacters, allGameCharacters } = useGameContext();
 
   const commentReadMode = useCommentReadMode();
   const toggleCommentReadMutation = useToggleCommentRead();
@@ -458,7 +457,6 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
                   currentUserId={currentUserId}
                   data-testid={`post-${post.id}`}
                   readOnly={!isCurrentPhase}
-                  portraitAvatars={portraitAvatars}
                 />
               ))}
             </div>

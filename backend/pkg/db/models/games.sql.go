@@ -1027,7 +1027,7 @@ WITH game_update AS (
     UPDATE games
     SET title = $2, description = $3, genre = $4, start_date = $5,
         end_date = $6, recruitment_deadline = $7, max_players = $8,
-        is_public = $9, is_anonymous = $10, updated_at = NOW()
+        is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13, updated_at = NOW()
     WHERE games.id = $1
     RETURNING id, title, description, gm_user_id, state, genre, start_date, end_date, recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, created_at, updated_at
 ),
@@ -1041,16 +1041,19 @@ SELECT gu.id, gu.title, gu.description, gu.gm_user_id, gu.state, gu.genre, gu.st
 `
 
 type UpdateGameAndAddGMParams struct {
-	ID                  int32              `json:"id"`
-	Title               string             `json:"title"`
-	Description         pgtype.Text        `json:"description"`
-	Genre               pgtype.Text        `json:"genre"`
-	StartDate           pgtype.Timestamptz `json:"start_date"`
-	EndDate             pgtype.Timestamptz `json:"end_date"`
-	RecruitmentDeadline pgtype.Timestamptz `json:"recruitment_deadline"`
-	MaxPlayers          pgtype.Int4        `json:"max_players"`
-	IsPublic            pgtype.Bool        `json:"is_public"`
-	IsAnonymous         bool               `json:"is_anonymous"`
+	ID                      int32              `json:"id"`
+	Title                   string             `json:"title"`
+	Description             pgtype.Text        `json:"description"`
+	Genre                   pgtype.Text        `json:"genre"`
+	StartDate               pgtype.Timestamptz `json:"start_date"`
+	EndDate                 pgtype.Timestamptz `json:"end_date"`
+	RecruitmentDeadline     pgtype.Timestamptz `json:"recruitment_deadline"`
+	MaxPlayers              pgtype.Int4        `json:"max_players"`
+	IsPublic                pgtype.Bool        `json:"is_public"`
+	IsAnonymous             bool               `json:"is_anonymous"`
+	AutoAcceptAudience      bool               `json:"auto_accept_audience"`
+	AllowGroupConversations bool               `json:"allow_group_conversations"`
+	PortraitAvatars         bool               `json:"portrait_avatars"`
 }
 
 type UpdateGameAndAddGMRow struct {
@@ -1085,6 +1088,9 @@ func (q *Queries) UpdateGameAndAddGM(ctx context.Context, arg UpdateGameAndAddGM
 		arg.MaxPlayers,
 		arg.IsPublic,
 		arg.IsAnonymous,
+		arg.AutoAcceptAudience,
+		arg.AllowGroupConversations,
+		arg.PortraitAvatars,
 	)
 	var i UpdateGameAndAddGMRow
 	err := row.Scan(

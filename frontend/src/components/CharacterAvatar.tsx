@@ -96,6 +96,14 @@ const CharacterAvatar: React.FC<CharacterAvatarProps> = ({
     xl: 'w-[100px] h-[150px]',
   };
 
+  const portraitTextSizeClasses = {
+    xs: 'text-sm',
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-xl',
+    xl: 'text-2xl',
+  };
+
   if (shape === 'portrait') {
     return (
       <div
@@ -104,7 +112,7 @@ const CharacterAvatar: React.FC<CharacterAvatarProps> = ({
       >
         <div
           className={`w-full h-full rounded overflow-hidden flex items-center justify-center ${
-            !shouldShowImage ? `${getColorClass(characterName)} text-white font-semibold text-2xl` : ''
+            !shouldShowImage ? `${getColorClass(characterName)} text-white font-semibold ${portraitTextSizeClasses[size]}` : ''
           }`}
         >
           {shouldShowImage ? (

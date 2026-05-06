@@ -12,6 +12,7 @@ import { Button, Select } from './ui';
 import { useAdminMode } from '../hooks/useAdminMode';
 import { useUpdateComment, useDeleteComment } from '../hooks/useCommentMutations';
 import { useGamePermissions } from '../hooks/useGamePermissions';
+import { useOptionalGameContext } from '../contexts/GameContext';
 import { ConfirmModal } from './ConfirmModal';
 import { logger } from '@/services/LoggingService';
 import type { CommentTreeNode } from '../lib/utils/commentTree';
@@ -36,7 +37,6 @@ interface ThreadedCommentProps {
   readOnly?: boolean; // Disable all interactive features (for history view)
   parentComment?: Message | CommentTreeNode | null; // Parent comment for smart character defaulting in nested replies
   variant?: 'desktop' | 'mobile'; // Used to create unique IDs for desktop vs mobile rendering
-  portraitAvatars?: boolean;
 }
 
 export const ThreadedComment = memo(function ThreadedComment({
@@ -58,7 +58,6 @@ export const ThreadedComment = memo(function ThreadedComment({
   readOnly = false,
   parentComment = null,
   variant,
-  portraitAvatars = false,
 }: ThreadedCommentProps) {
   const { showSuccess, showError } = useToast();
   // Use local state to track the current comment data (for immediate UI updates)
@@ -91,6 +90,8 @@ export const ThreadedComment = memo(function ThreadedComment({
   const hasPreloadedChildren = 'children' in comment && Array.isArray(comment.children) && comment.children.length > 0;
   const preloadedChildren = hasPreloadedChildren ? (comment as CommentTreeNode).children : [];
 
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
   const { adminModeEnabled } = useAdminMode();
   const { isGM } = useGamePermissions(gameId);
   const updateCommentMutation = useUpdateComment();
@@ -860,7 +861,6 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="desktop"
-                                portraitAvatars={portraitAvatars}
                             />
                         ))
                     )}
@@ -904,7 +904,6 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="mobile"
-                                portraitAvatars={portraitAvatars}
                             />
                         ))
                     )}

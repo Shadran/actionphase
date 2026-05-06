@@ -7,7 +7,6 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import CharacterAvatar from './CharacterAvatar';
-import { useOptionalGameContext } from '../contexts/GameContext';
 
 const ALLOWED_COLORS = new Set([
   'red', 'green', 'blue', 'purple', 'orange', 'gold', 'gray', 'teal', 'pink',
@@ -113,8 +112,6 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   className = '',
   fullWidth = false,
 }) => {
-  const gameContext = useOptionalGameContext();
-  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
   // State for tracking hovered mention
   const [hoveredMentionId, setHoveredMentionId] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
@@ -394,7 +391,6 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
               avatarUrl={hoveredCharacter.avatar_url}
               characterName={hoveredCharacter.name}
               size="sm"
-              shape={portraitAvatars ? 'portrait' : 'circle'}
             />
             <div>
               <div className="font-semibold text-white">{hoveredCharacter.name}</div>

@@ -17,6 +17,7 @@ import { logger } from '@/services/LoggingService';
 import { buildCommentTree, type CommentTreeNode } from '../lib/utils/commentTree';
 import { COMMENT_MAX_DEPTH } from '@/config/comments';
 import { usePostCollapseState } from '../hooks/usePostCollapseState';
+import { useOptionalGameContext } from '../contexts/GameContext';
 
 interface PostCardProps {
   post: Message;
@@ -28,7 +29,6 @@ interface PostCardProps {
   currentUserId?: number;
   'data-testid'?: string;
   readOnly?: boolean; // Disable all interactive features (for history view)
-  portraitAvatars?: boolean;
 }
 
 // Memoized comment list that only re-renders when commentTree changes
@@ -48,7 +48,6 @@ const CommentList = memo(function CommentList({
   onToggleRead,
   onOpenThread,
   readOnly,
-  portraitAvatars,
 }: {
   commentTree: CommentTreeNode[];
   gameId: number;
@@ -64,7 +63,6 @@ const CommentList = memo(function CommentList({
   onToggleRead: (commentId: number, currentlyRead: boolean) => void;
   onOpenThread: (comment: Message) => void;
   readOnly: boolean;
-  portraitAvatars?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -88,14 +86,13 @@ const CommentList = memo(function CommentList({
           onOpenThread={onOpenThread}
           readOnly={readOnly}
           parentComment={null}
-          portraitAvatars={portraitAvatars}
         />
       ))}
     </div>
   );
 });
 
-export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false, portraitAvatars = false }: PostCardProps) {
+export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false }: PostCardProps) {
   const [showComments, setShowComments] = useState(true);
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentTree, setCommentTree] = useState<CommentTreeNode[]>([]);
@@ -106,6 +103,8 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPostCollapsed, setIsPostCollapsed] = usePostCollapseState(post.id);
   const [threadModalComment, setThreadModalComment] = useState<Message | null>(null);
+  const gameContext = useOptionalGameContext();
+  const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
 
   // Pagination state
   const [offset, setOffset] = useState(0);
@@ -357,6 +356,42 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
     }
   };
 
+  const postContentBody = isEditing ? (
+    <div className="space-y-3">
+      <CommentEditor
+        value={editContent}
+        onChange={setEditContent}
+        placeholder="Edit your post..."
+        disabled={updatePostMutation.isPending}
+        characters={characters}
+        maxLength={50000}
+        showCharacterCount={true}
+      />
+      <div className="flex gap-2">
+        <Button
+          variant="primary"
+          onClick={handleSaveEdit}
+          disabled={updatePostMutation.isPending || !editContent.trim() || editContent === post.content}
+        >
+          {updatePostMutation.isPending ? 'Saving...' : 'Save'}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={handleCancelEdit}
+          disabled={updatePostMutation.isPending}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  ) : (
+    <MarkdownPreview
+      content={post.content}
+      mentionedCharacters={characters}
+      fullWidth
+    />
+  );
+
   // Determine if post content is long (more than 500 characters)
   const isLongContent = post.content.length > 500;
 
@@ -434,43 +469,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
                 </div>
 
                 {/* Post content flows around the floating portrait */}
-                {(!isLongContent || !isPostCollapsed) && (
-                  isEditing ? (
-                    <div className="space-y-3">
-                      <CommentEditor
-                        value={editContent}
-                        onChange={setEditContent}
-                        placeholder="Edit your post..."
-                        disabled={updatePostMutation.isPending}
-                        characters={characters}
-                        maxLength={50000}
-                        showCharacterCount={true}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          variant="primary"
-                          onClick={handleSaveEdit}
-                          disabled={updatePostMutation.isPending || !editContent.trim() || editContent === post.content}
-                        >
-                          {updatePostMutation.isPending ? 'Saving...' : 'Save'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={handleCancelEdit}
-                          disabled={updatePostMutation.isPending}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <MarkdownPreview
-                      content={post.content}
-                      mentionedCharacters={characters}
-                      fullWidth
-                    />
-                  )
-                )}
+                {(!isLongContent || !isPostCollapsed) && postContentBody}
               </div>
             </div>
           ) : (
@@ -546,43 +545,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
         {/* Post Content - Only rendered in standard (non-portrait) mode */}
         {!portraitAvatars && (!isLongContent || !isPostCollapsed) && (
           <div className="py-4 px-3 md:p-6 surface-base">
-            {isEditing ? (
-              // Edit Mode
-              <div className="space-y-3">
-                <CommentEditor
-                  value={editContent}
-                  onChange={setEditContent}
-                  placeholder="Edit your post..."
-                  disabled={updatePostMutation.isPending}
-                  characters={characters}
-                  maxLength={50000}
-                  showCharacterCount={true}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveEdit}
-                    disabled={updatePostMutation.isPending || !editContent.trim() || editContent === post.content}
-                  >
-                    {updatePostMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={handleCancelEdit}
-                    disabled={updatePostMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              // View Mode
-              <MarkdownPreview
-                content={post.content}
-                mentionedCharacters={characters}
-                fullWidth
-              />
-            )}
+            {postContentBody}
           </div>
         )}
       </div>
@@ -702,7 +665,6 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
                 onToggleRead={handleToggleRead}
                 onOpenThread={handleOpenThread}
                 readOnly={readOnly}
-                portraitAvatars={portraitAvatars}
               />
 
               {/* Load More Button */}
