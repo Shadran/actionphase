@@ -64,7 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
 
   // Derive authentication state from currentUser query
-  const isAuthenticated = !hasAuthError && currentUser != null;
+  const isAuthenticated = !hasAuthError && currentUser !== null && currentUser !== undefined;
 
   // Log user error if it occurs
   useEffect(() => {
