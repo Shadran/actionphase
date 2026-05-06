@@ -53,9 +53,18 @@ func TestHandlerTestContext_Example(t *testing.T) {
 		ctx.AssertStatusBadRequest(resp)
 	})
 
-	t.Run("accessing /me without auth returns 401", func(t *testing.T) {
+	t.Run("accessing /me without auth returns 200 with null user", func(t *testing.T) {
 		resp := ctx.GET("/api/v1/auth/me")
-		ctx.AssertStatusUnauthorized(resp)
+		ctx.AssertStatusOK(resp)
+
+		var meResp struct {
+			User *struct{} `json:"user"`
+		}
+		ctx.ParseJSONResponse(resp, &meResp)
+
+		if meResp.User != nil {
+			t.Error("Expected null user for unauthenticated request")
+		}
 	})
 
 	t.Run("accessing /me with auth returns user data", func(t *testing.T) {

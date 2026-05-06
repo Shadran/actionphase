@@ -286,8 +286,9 @@ func TestGetGameDeadlines_Success(t *testing.T) {
 	core.AssertEqual(t, "Second Deadline", response[1].Title, "Second deadline title should match")
 }
 
-// TestGetGameDeadlines_Unauthorized tests that non-participants cannot view deadlines
-func TestGetGameDeadlines_Unauthorized(t *testing.T) {
+// TestGetGameDeadlines_NonParticipant tests that any authenticated user can view deadlines,
+// even if they are not a GM or participant of the game.
+func TestGetGameDeadlines_NonParticipant(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
 
@@ -298,31 +299,30 @@ func TestGetGameDeadlines_Unauthorized(t *testing.T) {
 
 	router := setupDeadlineTestRouter(app, testDB)
 
-	// Create GM user and regular user
+	// Create GM user and a user who is not a participant
 	gmUser := testDB.CreateTestUser(t, "testgm", "testgm@example.com")
-	regularUser := testDB.CreateTestUser(t, "regularuser", "regular@example.com")
+	outsideUser := testDB.CreateTestUser(t, "outsideuser", "outside@example.com")
 
 	// Create a game owned by test GM
 	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
 	game, err := gameService.CreateGame(context.Background(), core.CreateGameRequest{
-		Title:       "Private Game",
-		Description: "Testing unauthorized access",
+		Title:       "Some Game",
+		Description: "Testing non-participant access",
 		GMUserID:    int32(gmUser.ID),
 		IsPublic:    false,
 	})
 	core.AssertNoError(t, err, "Game creation should succeed")
 
-	// Create auth token for user who is not GM or participant
-	accessToken, err := core.CreateTestJWTTokenForUser(app, regularUser)
+	// Non-participant should be able to view deadlines
+	accessToken, err := core.CreateTestJWTTokenForUser(app, outsideUser)
 	core.AssertNoError(t, err, "Test token creation should succeed")
 
-	// Try to get deadlines
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/deadlines", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	core.AssertEqual(t, http.StatusUnauthorized, w.Code, "Should return 401 Unauthorized")
+	core.AssertEqual(t, http.StatusOK, w.Code, "Non-participant should be able to view deadlines")
 }
 
 // TestUpdateDeadline_Success tests successful deadline update
