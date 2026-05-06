@@ -1,11 +1,14 @@
 import type { InputHTMLAttributes } from 'react';
 import { forwardRef } from 'react';
 import { cn } from '../../lib/theme/utils';
+import { HelpTooltip } from './HelpTooltip';
 
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
   helperText?: string;
+  /** Tooltip text shown on hover of a help icon next to the label. */
+  helpText?: string;
 }
 
 /**
@@ -30,7 +33,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
  * ```
  */
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ label, error, helperText, className, id, ...props }, ref) => {
+  ({ label, error, helperText, helpText, className, id, ...props }, ref) => {
     const checkboxId = id || props.name;
 
     return (
@@ -62,9 +65,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             {label && (
               <label
                 htmlFor={checkboxId}
-                className="text-sm font-medium text-content-primary cursor-pointer"
+                className="text-sm font-medium text-content-primary cursor-pointer inline-flex items-center gap-1"
               >
                 {label}
+                {helpText && <HelpTooltip text={helpText} />}
               </label>
             )}
             {error && <p className="text-sm text-semantic-danger mt-1">{error}</p>}

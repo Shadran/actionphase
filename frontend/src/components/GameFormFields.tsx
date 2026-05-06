@@ -104,23 +104,26 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
       {/* Anonymous Mode */}
       <Checkbox
         id="is_anonymous"
-        label="Anonymous Mode (hides character ownership and NPC status from players)"
-        checked={formData.is_anonymous || false}
+        label="Anonymous Mode"
+        helpText="Hides character ownership and NPC status from players. Players won't see which user controls which character, and NPCs appear indistinguishable from player characters."
+        checked={formData.is_anonymous ?? false}
         onChange={(e) => onChange('is_anonymous', e.target.checked)}
       />
 
       {/* Auto-Accept Audience */}
       <Checkbox
         id="auto_accept_audience"
-        label="Auto-Accept Audience Members (audience applications are automatically approved)"
-        checked={formData.auto_accept_audience || false}
+        label="Auto-Accept Audience Members"
+        helpText="Audience applications are automatically approved without GM review. Audience members can read the game but cannot post or submit actions."
+        checked={formData.auto_accept_audience ?? false}
         onChange={(e) => onChange('auto_accept_audience', e.target.checked)}
       />
 
       {/* Allow Group Conversations */}
       <Checkbox
         id="allow_group_conversations"
-        label="Allow Group Conversations (players can create private messages with 3+ participants)"
+        label="Allow Group Conversations"
+        helpText="Players can create private message threads with 3 or more participants. When disabled, private messages are limited to two people only."
         checked={formData.allow_group_conversations ?? true}
         onChange={(e) => onChange('allow_group_conversations', e.target.checked)}
       />
@@ -128,8 +131,9 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
       {/* Portrait Avatars */}
       <Checkbox
         id="portrait_avatars"
-        label="Portrait Avatars (character images float left with text flowing around them)"
-        checked={formData.portrait_avatars ?? false}
+        label="Portrait Avatars"
+        helpText="Character avatar images float to the left of post content, with text wrapping around them. Similar to the old Reddit flair images with a 2:3 aspect ratio, but larger."
+        checked={formData.portrait_avatars ?? true}
         onChange={(e) => onChange('portrait_avatars', e.target.checked)}
       />
     </>

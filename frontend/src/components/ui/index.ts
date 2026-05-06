@@ -82,3 +82,6 @@ export type { ModalProps } from './Modal';
 // MetadataItem
 export { MetadataItem, MetadataGroup, MetadataSeparator } from './MetadataItem';
 export type { MetadataItemProps } from './MetadataItem';
+
+// HelpTooltip
+export { HelpTooltip } from './HelpTooltip';
