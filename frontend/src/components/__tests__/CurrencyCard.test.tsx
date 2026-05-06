@@ -397,4 +397,40 @@ describe('CurrencyCard', () => {
       expect(screen.getByText('0')).toBeInTheDocument();
     });
   });
+
+  describe('Description uses markdown', () => {
+    it('renders markdown bold syntax in description as HTML, not raw text', () => {
+      const currency = { ...mockCurrency, description: '**Bold note**' };
+      render(
+        <CurrencyCard
+          currency={currency}
+          canEdit={false}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      // MarkdownPreview renders **text** as <strong>, not as literal asterisks
+      expect(screen.queryByText('**Bold note**')).not.toBeInTheDocument();
+      expect(screen.getByText('Bold note')).toBeInTheDocument();
+    });
+
+    it('renders Write/Preview tabs in edit mode for description field', async () => {
+      const user = userEvent.setup();
+      render(
+        <CurrencyCard
+          currency={mockCurrency}
+          canEdit={true}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      await user.click(screen.getByText('✎'));
+
+      // CommentEditor renders Write/Preview tabs — plain Input does not
+      expect(screen.getByRole('button', { name: /^write$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^preview$/i })).toBeInTheDocument();
+    });
+  });
 });

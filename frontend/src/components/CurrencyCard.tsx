@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { CurrencyEntry } from '../types/characters';
 import { Button, Input } from './ui';
+import { MarkdownPreview } from './MarkdownPreview';
+import { CommentEditor } from './CommentEditor';
 
 interface CurrencyCardProps {
   currency: CurrencyEntry;
@@ -108,15 +110,17 @@ export const CurrencyCard: React.FC<CurrencyCardProps> = ({ currency, canEdit, o
       {(currency.description || isEditing) && (
         <div className="mt-2">
           {isEditing ? (
-            <Input
-              type="text"
+            <CommentEditor
               value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              placeholder="Notes about this currency..."
-              className="text-sm"
+              onChange={setEditDescription}
+              placeholder="Notes about this currency... (Markdown supported)"
+              rows={2}
+              showPreviewByDefault={false}
             />
           ) : (
-            <p className="text-sm text-content-secondary whitespace-pre-line">{currency.description}</p>
+            <div className="text-sm">
+              <MarkdownPreview content={currency.description || ''} />
+            </div>
           )}
         </div>
       )}

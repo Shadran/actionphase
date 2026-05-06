@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Input } from '../ui';
+import { CommentEditor } from '../CommentEditor';
 
 export interface CurrencyFormData {
   type: string;
@@ -66,14 +67,19 @@ export const CurrencyForm: React.FC<CurrencyFormProps> = ({
         step="any"
       />
 
-      <Input
-        id="currency-description"
-        label="Description"
-        type="text"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Optional notes..."
-      />
+      <div>
+        <label htmlFor="currency-description" className="block text-sm font-medium text-content-primary mb-2">
+          Description <span className="text-xs text-content-tertiary font-normal">(Markdown supported)</span>
+        </label>
+        <CommentEditor
+          id="currency-description"
+          value={description}
+          onChange={setDescription}
+          placeholder="Optional notes..."
+          rows={2}
+          showPreviewByDefault={false}
+        />
+      </div>
 
       <div className={`flex justify-end gap-3 ${variant === 'modal' ? 'pt-4' : 'pt-2'}`}>
         <Button

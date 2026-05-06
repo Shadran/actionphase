@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Input, Textarea } from '../ui';
+import { Button, Input } from '../ui';
+import { CommentEditor } from '../CommentEditor';
 
 export interface SkillFormData {
   name: string;
@@ -76,14 +77,19 @@ export const SkillForm: React.FC<SkillFormProps> = ({
         placeholder="e.g., Combat, Social, Academic"
       />
 
-      <Textarea
-        id="skill-description"
-        label="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Describe this skill..."
-        rows={2}
-      />
+      <div>
+        <label htmlFor="skill-description" className="block text-sm font-medium text-content-primary mb-2">
+          Description <span className="text-xs text-content-tertiary font-normal">(Markdown supported)</span>
+        </label>
+        <CommentEditor
+          id="skill-description"
+          value={description}
+          onChange={setDescription}
+          placeholder="Describe this skill..."
+          rows={2}
+          showPreviewByDefault={false}
+        />
+      </div>
 
       <div className={`flex justify-end gap-3 ${variant === 'modal' ? 'pt-4' : 'pt-2'}`}>
         <Button

@@ -78,4 +78,33 @@ describe('ItemForm', () => {
       );
     });
   });
+
+  describe('Description field uses markdown editor', () => {
+    it('renders Write/Preview tabs for description field', () => {
+      render(
+        <ItemForm
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          submitLabel="Add Item"
+        />
+      );
+
+      // CommentEditor renders Write/Preview tabs — plain Textarea does not
+      expect(screen.getByRole('button', { name: /^write$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^preview$/i })).toBeInTheDocument();
+    });
+
+    it('pre-populates description editor with initial value', () => {
+      render(
+        <ItemForm
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          submitLabel="Add Item"
+          initialValues={{ description: 'A sharp blade' }}
+        />
+      );
+
+      expect(screen.getByDisplayValue('A sharp blade')).toBeInTheDocument();
+    });
+  });
 });
