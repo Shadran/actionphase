@@ -526,4 +526,26 @@ export const handlers = [
   http.get('/ping', () => {
     return HttpResponse.json({ message: 'pong' })
   }),
+
+  // Stub handlers for background requests made incidentally during component tests
+  http.get('/api/v1/auth/preferences', () => {
+    return HttpResponse.json({ preferences: {} })
+  }),
+
+  http.post('/api/v1/games/:gameId/posts/:postId/mark-read', () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/games/:gameId/manual-read-comment-ids', () => {
+    return HttpResponse.json([])
+  }),
+
+  http.get('/api/v1/characters/:id/stats', () => {
+    return HttpResponse.json({ stats: {} })
+  }),
+
+  http.get('/api/v1/games/:gameId/posts/:postId/comments-with-threads', () => {
+    return HttpResponse.json([])
+  }),
+
 ]

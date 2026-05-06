@@ -165,6 +165,35 @@ export const handlers = [
   http.get('/api/v1/games/:gameId/characters/mine', () => {
     return HttpResponse.json([]);
   }),
+
+  // Stub handlers for background requests made incidentally during component tests.
+  // Do NOT add stubs here for routes that have their own isolated-server hook tests
+  // (e.g. useNotifications, useReadTracking) — those tests create their own MSW server
+  // and both run simultaneously, so a stub here will intercept before the test's handler.
+  http.get('/api/v1/auth/preferences', () => {
+    return HttpResponse.json({ preferences: {} });
+  }),
+
+  http.get('/api/v1/games/:gameId/manual-read-comment-ids', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get('/api/v1/characters/:id/stats', () => {
+    return HttpResponse.json({ stats: {} });
+  }),
+
+  http.get('/api/v1/games/:gameId/posts/:postId/comments-with-threads', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get('/api/v1/games/:gameId/conversations', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get('/api/v1/games/:gameId/characters/controllable', () => {
+    return HttpResponse.json([]);
+  }),
+
 ];
 
 // Setup server with handlers

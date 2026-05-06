@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom'
 import { server } from './mocks/server'
 import { beforeAll, afterEach, afterAll, beforeEach } from 'vitest'
+import { logger } from './services/LoggingService'
+
+// Silence logger in tests — API errors, debug output etc. are not test behavior
+logger.setLevel('silent')
 
 // Mock ResizeObserver and IntersectionObserver globally before each test
 // These are needed by react-datepicker and infinite scroll components
