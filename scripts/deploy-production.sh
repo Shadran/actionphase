@@ -120,6 +120,21 @@ echo -e "${BLUE}📊 Deployment Status:${NC}"
 echo "=============================="
 docker-compose ${COMPOSE_FILES} ps
 
+# Wait for containers to become healthy
+echo ""
+echo -e "${BLUE}⏳ Waiting for services to become healthy...${NC}"
+MAX_WAIT=60
+WAIT_INTERVAL=5
+elapsed=0
+while [ $elapsed -lt $MAX_WAIT ]; do
+    if ! docker-compose ${COMPOSE_FILES} ps | grep -E "health: starting|starting" > /dev/null 2>&1; then
+        break
+    fi
+    sleep $WAIT_INTERVAL
+    elapsed=$((elapsed + WAIT_INTERVAL))
+    echo -e "  Waited ${elapsed}s..."
+done
+
 # Verify services
 echo ""
 echo -e "${BLUE}🔍 Service Health Checks:${NC}"
