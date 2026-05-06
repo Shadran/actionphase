@@ -19,7 +19,7 @@ vi.mock('../utils/cropImage', () => ({
 // Mock react-easy-crop so tests don't depend on canvas/ResizeObserver.
 // Call onCropComplete via useEffect to avoid infinite re-render loops.
 vi.mock('react-easy-crop', () => ({
-  default: ({ onCropComplete }: { onCropComplete: (a: unknown, b: { x: number; y: number; width: number; height: number }) => void }) => {
+  default: function MockCropper({ onCropComplete }: { onCropComplete: (a: unknown, b: { x: number; y: number; width: number; height: number }) => void }) {
     React.useEffect(() => {
       onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
