@@ -22,7 +22,7 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
     is_anonymous: false,
     auto_accept_audience: false,
     allow_group_conversations: true,
-    portrait_avatars: false,
+    portrait_avatars: true,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
