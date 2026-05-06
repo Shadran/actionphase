@@ -98,42 +98,12 @@ func (h *Handler) GetGameDeadlines(w http.ResponseWriter, r *http.Request) {
 	// Get includeExpired query parameter (defaults to false)
 	includeExpired := r.URL.Query().Get("includeExpired") == "true"
 
-	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
-	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
-		return
-	}
-
-	// Verify user has access to this game (either GM or participant)
+	// Verify the game exists
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	game, err := gameService.GetGame(ctx, int32(gameID))
+	_, err = gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
 		render.Render(w, r, core.ErrNotFound("Game not found"))
-		return
-	}
-
-	// Check if user is GM or participant
-	isGM := game.GmUserID == userID
-	isParticipant := false
-	if !isGM {
-		participants, err := gameService.GetGameParticipants(ctx, int32(gameID))
-		if err == nil {
-			for _, p := range participants {
-				if p.UserID == userID {
-					isParticipant = true
-					break
-				}
-			}
-		}
-	}
-
-	if !isGM && !isParticipant {
-		h.App.ObsLogger.Warn(ctx, "User is not GM or participant of game", "user_id", userID, "game_id", gameID)
-		render.Render(w, r, core.ErrUnauthorized("You don't have access to this game"))
 		return
 	}
 
