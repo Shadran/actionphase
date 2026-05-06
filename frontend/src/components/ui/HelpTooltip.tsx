@@ -27,12 +27,12 @@ export function HelpTooltip({ text }: HelpTooltipProps) {
         role="img"
       />
 
-      {/* Tooltip panel */}
+      {/* Tooltip panel — anchored left to stay within modal bounds */}
       <span
         role="tooltip"
         className="
           invisible group-hover:visible
-          absolute left-1/2 -translate-x-1/2 bottom-full mb-2
+          absolute left-0 bottom-full mb-2
           w-64 p-3 rounded-lg
           bg-surface-raised border border-border-primary shadow-lg
           text-xs text-content-primary font-normal
@@ -44,7 +44,7 @@ export function HelpTooltip({ text }: HelpTooltipProps) {
         {/* Arrow pointing down to icon */}
         <span
           className="
-            absolute top-full left-1/2 -translate-x-1/2 -mt-1
+            absolute top-full left-3 -mt-1
             border-8 border-transparent border-t-surface-raised
           "
         />

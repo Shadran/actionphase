@@ -1,4 +1,5 @@
-import { Input, Textarea, DateTimeInput, Checkbox } from './ui';
+import { Input, Textarea, DateTimeInput, Checkbox, Radio } from './ui';
+import { HelpTooltip } from './ui/HelpTooltip';
 
 export interface GameFormData {
   title: string;
@@ -128,14 +129,29 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         onChange={(e) => onChange('allow_group_conversations', e.target.checked)}
       />
 
-      {/* Portrait Avatars */}
-      <Checkbox
-        id="portrait_avatars"
-        label="Portrait Avatars"
-        helpText="Character avatar images float to the left of post content, with text wrapping around them. Similar to the old Reddit flair images with a 2:3 aspect ratio, but larger."
-        checked={formData.portrait_avatars ?? true}
-        onChange={(e) => onChange('portrait_avatars', e.target.checked)}
-      />
+      {/* Avatar Style */}
+      <div>
+        <div className="flex items-center gap-1 mb-2">
+          <span className="text-sm font-medium text-content-primary">Avatar Style</span>
+          <HelpTooltip text="Circular avatars appear as small round thumbnails beside each post. Portrait avatars have a 2:3 aspect ratio and float to the left with text wrapping around them, like the old Reddit flair images." />
+        </div>
+        <div className="flex gap-6">
+          <Radio
+            name="portrait_avatars"
+            value="circular"
+            label="Circular"
+            checked={!(formData.portrait_avatars ?? true)}
+            onChange={() => onChange('portrait_avatars', false)}
+          />
+          <Radio
+            name="portrait_avatars"
+            value="portrait"
+            label="Portrait"
+            checked={formData.portrait_avatars ?? true}
+            onChange={() => onChange('portrait_avatars', true)}
+          />
+        </div>
+      </div>
     </>
   );
 };
