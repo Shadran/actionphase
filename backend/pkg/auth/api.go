@@ -36,57 +36,46 @@ func (rd *Response) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// V1Me returns the current user's information
-// This endpoint provides the user_id and other details from the database
-// rather than relying on potentially stale JWT token data
+// V1Me returns the current user's information, or null if not authenticated.
+// This is a probe endpoint — it never returns 401. Unauthenticated requests
+// receive 200 with a null user so the frontend can check auth state without
+// triggering console errors.
 func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_current_user")()
 
-	// Get user_id from JWT token (stored in "sub" claim)
 	token, _, err := jwtauth.FromContext(ctx)
-	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get token from context", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+	if err != nil || token == nil {
+		render.JSON(w, r, map[string]interface{}{"user": nil})
 		return
 	}
 
 	userIDStr, ok := token.Get("sub")
 	if !ok {
-		h.App.ObsLogger.Error(ctx, "User ID not found in token")
-		render.Render(w, r, core.ErrUnauthorized("user id not found in token"))
+		render.JSON(w, r, map[string]interface{}{"user": nil})
 		return
 	}
 
-	// Convert user ID string to int
-	userID, err := fmt.Sscanf(userIDStr.(string), "%d", new(int))
-	if err != nil || userID == 0 {
-		h.App.ObsLogger.Error(ctx, "Invalid user ID in token", "user_id_str", userIDStr, "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid user id in token"))
-		return
-	}
-
-	// Parse user ID properly
 	var uid int
-	fmt.Sscanf(userIDStr.(string), "%d", &uid)
+	if _, err := fmt.Sscanf(userIDStr.(string), "%d", &uid); err != nil || uid == 0 {
+		render.JSON(w, r, map[string]interface{}{"user": nil})
+		return
+	}
 
-	// Look up current user from database
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	user, err := userService.User(uid)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", uid)
-		render.Render(w, r, core.ErrUnauthorized("user not found"))
+		render.JSON(w, r, map[string]interface{}{"user": nil})
 		return
 	}
 
 	h.App.ObsLogger.Info(ctx, "Current user retrieved", "user_id", uid)
 
-	// Return user information (without token)
 	response := &Response{
 		User:  user,
-		Token: "", // Don't include token in response
+		Token: "",
 	}
-
 	render.Render(w, r, response)
 }
 

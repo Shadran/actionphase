@@ -91,6 +91,9 @@ func (h *Handler) Start() {
 		r.Post("/verify-email", authHandler.V1VerifyEmail)                  // Verify email with token
 		r.Post("/complete-email-change", authHandler.V1CompleteEmailChange) // Complete email change with token
 
+		// Probe endpoint: returns current user if authenticated, null if not (no 401)
+		r.With(jwtauth.Verifier(h.getTokenAuth())).Get("/me", authHandler.V1Me)
+
 		// Protected routes (require authentication)
 		r.Group(func(r chi.Router) {
 			// Seek, verify and validate JWT tokens
@@ -100,7 +103,6 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 			r.Get("/refresh", authHandler.V1Refresh)
-			r.Get("/me", authHandler.V1Me)                                                                                 // Get current user info
 			r.Get("/preferences", authHandler.V1GetPreferences)                                                            // Get user preferences
 			r.Put("/preferences", authHandler.V1UpdatePreferences)                                                         // Update user preferences
 			r.Get("/users/search", authHandler.V1SearchUsers)                                                              // Search for users

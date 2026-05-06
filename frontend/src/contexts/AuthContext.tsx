@@ -49,14 +49,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     queryKey: ['currentUser'],
     queryFn: async () => {
       logger.debug('Checking authentication via /auth/me');
-      try {
-        const response = await apiClient.auth.getCurrentUser();
-        logger.debug('Authentication successful', { userId: response.data.id, username: response.data.username });
-        return response.data;
-      } catch (error) {
+      const response = await apiClient.auth.getCurrentUser();
+      if (!response.data || 'user' in response.data && response.data.user === null) {
         logger.debug('Not authenticated');
-        throw error;
+        return null;
       }
+      const user = response.data as import('../types/auth').User;
+      logger.debug('Authentication successful', { userId: user.id, username: user.username });
+      return user;
     },
     retry: false,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -64,12 +64,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
 
   // Derive authentication state from currentUser query
-  const isAuthenticated = !hasAuthError && currentUser !== undefined;
+  const isAuthenticated = !hasAuthError && currentUser != null;
 
   // Log user error if it occurs
   useEffect(() => {
     if (userError) {
-      logger.error('Failed to load user data', { error: userError });
+      const status = (userError as { response?: { status?: number } }).response?.status;
+      if (status === 401) {
+        logger.debug('Not authenticated (no session)');
+      } else {
+        logger.error('Failed to load user data', { error: userError });
+      }
       setAuthError(userError as Error);
     }
   }, [userError]);

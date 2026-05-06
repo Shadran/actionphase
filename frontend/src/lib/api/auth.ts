@@ -48,7 +48,7 @@ export class AuthApi extends BaseApiClient {
   }
 
   async getCurrentUser() {
-    return this.client.get<User>('/api/v1/auth/me');
+    return this.client.get<User | { user: null }>('/api/v1/auth/me');
   }
 
   async getPreferences() {

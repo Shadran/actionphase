@@ -84,8 +84,11 @@ export class BaseApiClient {
       async (error) => {
         const originalRequest = error.config;
 
-        // Log API error
-        logger.error('API Request Failed', {
+        // Log API error - downgrade auth check 401s to debug since they're expected when unauthenticated
+        const isExpected401 = error.response?.status === 401 &&
+          error.config?.url?.includes('/auth/me');
+        const logFn = isExpected401 ? logger.debug : logger.error;
+        logFn('API Request Failed', {
           method: error.config?.method?.toUpperCase(),
           url: error.config?.url,
           status: error.response?.status,
