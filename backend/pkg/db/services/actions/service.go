@@ -17,8 +17,7 @@ type ActionSubmissionService struct {
 }
 
 // Compile-time verification that ActionSubmissionService implements ActionSubmissionServiceInterface
-// TODO: Uncomment after all methods are migrated
-// var _ core.ActionSubmissionServiceInterface = (*ActionSubmissionService)(nil)
+var _ core.ActionSubmissionServiceInterface = (*ActionSubmissionService)(nil)
 
 // Request/Response types for action submission management
 

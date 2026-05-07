@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"actionphase/pkg/core"
 	"actionphase/pkg/observability"
 )
 
@@ -15,8 +16,7 @@ type PhaseService struct {
 }
 
 // Compile-time verification that PhaseService implements PhaseServiceInterface
-// TODO: Uncomment after all methods are migrated
-// var _ core.PhaseServiceInterface = (*PhaseService)(nil)
+var _ core.PhaseServiceInterface = (*PhaseService)(nil)
 
 // Request/Response types for phase management
 

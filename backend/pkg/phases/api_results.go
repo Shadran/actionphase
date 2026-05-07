@@ -129,9 +129,8 @@ func (h *Handler) GetUserActionResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Migrate GetUserResults to actions package
-	legacyActionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
-	results, err := legacyActionService.GetUserResults(ctx, int32(gameID), int32(authUser.ID))
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	results, err := actionService.GetUserResults(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get user action results", "error", err)
 		render.Render(w, r, core.ErrInternalError(err))
@@ -219,9 +218,8 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Migrate GetGameResults to actions package
-	legacyActionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
-	results, err := legacyActionService.GetGameResults(ctx, int32(gameID))
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	results, err := actionService.GetGameResults(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get game action results", "error", err)
 		render.Render(w, r, core.ErrInternalError(err))
