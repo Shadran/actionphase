@@ -220,7 +220,7 @@ func TestUserService_UserByUsername(t *testing.T) {
 	})
 }
 
-func TestUserService_User(t *testing.T) {
+func TestUserService_GetUserByID(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
 
