@@ -23,9 +23,6 @@ export {
 
 export { useGameListing } from './useGameListing';
 
-// Legacy auth hook (deprecated - use useAuth from contexts instead)
-export { useAuth as useAuthLegacy } from './useAuth';
-
 // Admin-related hooks
 export { useAdminMode, type UseAdminModeReturn } from './useAdminMode';
 

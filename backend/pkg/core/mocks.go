@@ -51,16 +51,16 @@ func (m *MockSessionService) DeleteSessionByToken(token string) error {
 
 // MockUserService provides a mock implementation of UserServiceInterface for testing
 type MockUserService struct {
-	UserFunc           func(id int) (*User, error)
+	GetUserByIDFunc    func(id int) (*User, error)
 	UserByUsernameFunc func(username string) (*User, error)
 	UsersFunc          func() ([]*User, error)
 	CreateUserFunc     func(user *User) (*User, error)
 	DeleteUserFunc     func(id int) error
 }
 
-func (m *MockUserService) User(id int) (*User, error) {
-	if m.UserFunc != nil {
-		return m.UserFunc(id)
+func (m *MockUserService) GetUserByID(id int) (*User, error) {
+	if m.GetUserByIDFunc != nil {
+		return m.GetUserByIDFunc(id)
 	}
 	return nil, nil
 }

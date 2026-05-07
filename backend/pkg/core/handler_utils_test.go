@@ -138,7 +138,7 @@ func TestGetUsernameFromJWT(t *testing.T) {
 				return ctx
 			},
 			setupMock: func(m *MockUserService) {
-				m.UserFunc = func(id int) (*User, error) {
+				m.GetUserByIDFunc = func(id int) (*User, error) {
 					if id == 123 {
 						return &User{ID: 123, Username: "testuser"}, nil
 					}
@@ -194,7 +194,7 @@ func TestGetUsernameFromJWT(t *testing.T) {
 				return ctx
 			},
 			setupMock: func(m *MockUserService) {
-				m.UserFunc = func(id int) (*User, error) {
+				m.GetUserByIDFunc = func(id int) (*User, error) {
 					return nil, errors.New("user not found")
 				}
 			},

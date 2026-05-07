@@ -231,7 +231,7 @@ func TestUserService_User(t *testing.T) {
 		defer testDB.CleanupTables(t, "users")
 
 		// Try to get a non-existent user
-		user, err := service.User(99999)
+		user, err := service.GetUserByID(99999)
 		assert.Nil(t, user)
 		assert.Error(t, err) // Should return "no rows in result set" error
 	})

@@ -63,7 +63,7 @@ func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(uid)
+	user, err := userService.GetUserByID(uid)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", uid)
 		render.JSON(w, r, map[string]interface{}{"user": nil})
@@ -126,7 +126,7 @@ func (h *Handler) V1GetPreferences(w http.ResponseWriter, r *http.Request) {
 
 	// Look up current user
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(userID)
+	user, err := userService.GetUserByID(userID)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", userID)
 		render.Render(w, r, core.ErrUnauthorized("user not found"))
@@ -177,7 +177,7 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 
 	// Look up current user
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(userID)
+	user, err := userService.GetUserByID(userID)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", userID)
 		render.Render(w, r, core.ErrUnauthorized("user not found"))

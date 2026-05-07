@@ -18,7 +18,7 @@ import (
 func (h *Handler) verifyUserIsGM(ctx context.Context, game *models.Game, userID int32) render.Renderer {
 	// Get user to check admin status
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(int(userID))
+	user, err := userService.GetUserByID(int(userID))
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get user")
 		return core.ErrUnauthorized("User not found")

@@ -238,7 +238,7 @@ func (h *Handler) AddPlayerDirectly(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify target user exists
-	_, err = userService.User(int(req.UserID))
+	_, err = userService.GetUserByID(int(req.UserID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Target user not found", "error", err, "user_id", req.UserID)
 		render.Render(w, r, core.ErrNotFound("user not found"))

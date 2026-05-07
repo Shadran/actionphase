@@ -1190,7 +1190,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 
 	// Get user service to check if user is admin
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(int(userID))
+	user, err := userService.GetUserByID(int(userID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get user", "error", err, "user_id", userID)
 		render.Render(w, r, core.ErrInternalError(err))

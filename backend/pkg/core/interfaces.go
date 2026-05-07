@@ -69,10 +69,10 @@ type SessionServiceInterface interface {
 //	}
 //
 //	// Retrieve user for authorization
-//	user, err := userService.User(userID)
+//	user, err := userService.GetUserByID(userID)
 type UserServiceInterface interface {
-	// User retrieves a user by ID
-	User(id int) (*User, error)
+	// GetUserByID retrieves a user by ID
+	GetUserByID(id int) (*User, error)
 
 	// UserByUsername retrieves a user by username
 	UserByUsername(username string) (*User, error)

@@ -145,7 +145,7 @@ func (h *Handler) verifyUserIsGM(ctx context.Context, gameID int32, userID int32
 
 	// Get user to check admin status
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.User(int(userID))
+	user, err := userService.GetUserByID(int(userID))
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}

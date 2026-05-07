@@ -67,7 +67,7 @@ func GetUsernameFromJWT(ctx context.Context, userService UserServiceInterface) (
 	fmt.Sscanf(userIDStr.(string), "%d", &userID)
 
 	// Look up user to get username
-	user, err := userService.User(userID)
+	user, err := userService.GetUserByID(userID)
 	if err != nil {
 		return "", ErrUnauthorized("user not found")
 	}

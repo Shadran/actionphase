@@ -69,11 +69,6 @@ func (s *UserService) GetUserByID(userID int) (*core.User, error) {
 	}, nil
 }
 
-// User is deprecated, use GetUserByID instead
-func (s *UserService) User(id int) (*core.User, error) {
-	return s.GetUserByID(id)
-}
-
 func (s *UserService) UserByUsername(username string) (*core.User, error) {
 	ctx := context.Background()
 	q := db.New(s.DB)
