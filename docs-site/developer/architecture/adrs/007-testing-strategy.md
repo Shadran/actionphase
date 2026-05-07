@@ -733,13 +733,13 @@ just test-race            # Race condition detection
 
 # Frontend tests
 just test-frontend        # Unit and integration tests
-just test-frontend-watch  # Watch mode
-just test-e2e            # End-to-end tests
-just test-visual         # Visual regression tests
+just test-fe watch        # Watch mode
+just e2e                  # End-to-end tests (desktop + mobile)
+just e2e-desktop          # Desktop only
+just e2e-mobile           # Mobile only
 
 # Combined
-just ci-test             # Full CI test suite
-just test-parallel       # All tests in parallel
+just ci-test             # Full CI test suite (lint + test + race)
 ```
 
 ## Continuous Integration

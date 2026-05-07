@@ -225,10 +225,20 @@ TEST_DATABASE_URL="postgres://..." SKIP_DB_TESTS=false go test -p=1 ./pkg/games/
 just test-frontend
 
 # Frontend — watch mode
-just test-frontend-watch
+just test-fe watch
 
-# E2E — headless
+# E2E — all tests (desktop + mobile)
 just e2e
+
+# E2E — desktop only
+just e2e-desktop
+
+# E2E — mobile only
+just e2e-mobile
+
+# E2E — specific file or headed mode
+just e2e-test headed
+just e2e-test headless messaging/common-room.spec.ts
 ```
 
 ---
@@ -253,7 +263,12 @@ E2E tests (Playwright) are slow (~20-30s each), hard to debug, and provide poor 
 - Simple API correctness (use curl or a handler test)
 - Authorization rules (handler tests are faster and more precise)
 
-See `.claude/planning/E2E_TESTING_PLAN.md` for the current E2E plan and fixture guide.
+See `frontend/e2e/STATUS.md` for current E2E test coverage and `frontend/e2e/README.md` for the complete testing guide.
+
+**Current E2E coverage** (41 spec files in `frontend/e2e/`):
+- Auth, Games (lifecycle/applications/settings/co-GM), Gameplay (actions/phases/characters/handouts/polls/deadlines), Messaging (common room/private messages/mentions), Notifications, Settings, Admin, Security, Smoke, Edge cases
+
+**Note on mobile testing**: `just e2e` runs both Chromium (desktop) and Pixel 5 (mobile) projects. When adding new tests, verify they pass on both projects — mobile can fail due to layout differences.
 
 ---
 
@@ -268,6 +283,6 @@ See `.claude/planning/E2E_TESTING_PLAN.md` for the current E2E plan and fixture 
 | E2E tests | `frontend/e2e/**/*.spec.ts` |
 
 Reference implementations (good tests to copy patterns from):
-- Handler tests: `pkg/admin/api_test.go`, `pkg/phases/api_lifecycle_test.go`
-- Service tests: `pkg/db/services/actions/submissions_test.go`
-- E2E: `frontend/e2e/` (any recent spec file)
+- Handler tests: `pkg/admin/api_test.go`, `pkg/phases/api_lifecycle_test.go`, `pkg/games/api_audience_test.go`
+- Service tests: `pkg/db/services/actions/submissions_test.go`, `pkg/db/services/games_test.go`
+- E2E: `frontend/e2e/gameplay/action-submission-flow.spec.ts`, `frontend/e2e/messaging/common-room.spec.ts`

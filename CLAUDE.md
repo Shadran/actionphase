@@ -19,7 +19,6 @@ The `.claude/` directory contains organized AI context and instructions:
 - **`.claude/context/`** - Essential context to read before specific tasks
 - **`.claude/reference/`** - Detailed implementation guides
 - **`.claude/commands/`** - Detailed protocols for common tasks (debug-e2e-test, implement-features, challenge-assumptions)
-- **`.claude/planning/`** - Persistent planning documents and multi-session task tracking
 
 **🔴 MANDATORY COMMANDS TO CHECK**:
 - E2E test failing? → See `.claude/commands/debug-e2e-test.md`
@@ -30,8 +29,8 @@ The `.claude/` directory contains organized AI context and instructions:
 
 **Before Writing ANY Tests**:
 1. Read **`.claude/context/TESTING.md`** for testing philosophy and patterns
-2. Review **`/docs/testing/COVERAGE_STATUS.md`** for current coverage status
-3. Reference **`/docs/adrs/007-testing-strategy.md`** for strategy details
+2. Review **`/docs-site/developer/testing/COVERAGE_STATUS.md`** for current coverage status
+3. Reference **`/docs-site/developer/architecture/adrs/007-testing-strategy.md`** for strategy details
 4. Check **`.claude/context/TEST_DATA.md`** when using test fixtures
 
 **⚠️ BEFORE WRITING E2E TESTS - CRITICAL**:
@@ -54,23 +53,23 @@ When an E2E test fails, you MUST:
 
 **Before Implementing Features**:
 1. Read **`.claude/context/ARCHITECTURE.md`** for architectural patterns
-2. Review relevant ADRs in **`/docs/adrs/`** for architectural decisions
-3. Check **`/docs/architecture/`** for system design context
+2. Review relevant ADRs in **`/docs-site/developer/architecture/adrs/`** for architectural decisions
+3. Check **`/docs-site/developer/architecture/`** for system design context
 
 **Before Frontend State Work**:
 1. Read **`.claude/context/STATE_MANAGEMENT.md`** for state management patterns (quick reference)
 2. Review **`/docs/features/STATE_MANAGEMENT.md`** for comprehensive guide
-3. Check **`/docs/adrs/005-frontend-state-management.md`** for architecture decisions
+3. Check **`/docs-site/developer/architecture/adrs/005-frontend-state-management.md`** for architecture decisions
 
 **Before Working with Test Data**:
 1. Read **`.claude/context/TEST_DATA.md`** for fixture overview
-2. Review **`/docs/testing/TEST_DATA.md`** for detailed fixture documentation
+2. Review **`/docs-site/developer/testing/TEST_DATA.md`** for detailed fixture documentation
 3. Check **`/backend/pkg/db/test_fixtures/`** for actual SQL files
 
 **Before E2E Testing**:
-1. Review **`.claude/planning/E2E_TESTING_PLAN.md`** for complete implementation plan (AI-focused)
-2. Check **`/docs/testing/E2E_QUICK_START.md`** for quick reference and commands (developer reference)
-3. Reference **`.claude/planning/FEATURE_PLAN_TEMPLATE.md`** section 4.4 for E2E requirements in new features
+1. Review **`frontend/e2e/STATUS.md`** for current E2E coverage
+2. Check **`frontend/e2e/README.md`** for complete guide and patterns
+3. Check **`/docs-site/developer/testing/E2E_QUICK_START.md`** for quick reference commands
 
 ### Context File Quick Reference
 
@@ -156,11 +155,10 @@ lsof -ti:3000 | xargs kill
 
 ### Documentation Locations
 **Consistent documentation placement:**
-- User guides → `/docs/guides/`
-- API documentation → `/docs/api/`
-- Architecture decisions → `/docs/adrs/`
+- Architecture decisions (ADRs) → `/docs-site/developer/architecture/adrs/`
+- System architecture → `/docs-site/developer/architecture/`
+- Testing guides → `/docs-site/developer/testing/`
 - AI context updates → `.claude/context/`
-- Planning documents → `.claude/planning/`
 
 ## Quick Start Commands
 
@@ -202,7 +200,7 @@ curl -s -H "Authorization: Bearer $(cat /tmp/api-token.txt)" "http://localhost:3
 ```bash
 just run-frontend             # Start development server
 just test-frontend            # Run frontend tests
-just test-frontend-watch      # Watch mode for development
+just test-fe watch            # Watch mode for development
 ```
 
 **Database Management**:
@@ -245,7 +243,7 @@ just migrate_test             # Apply migrations to test database
 
 **Frontend**:
 - Component tests: `just test-frontend` (run before E2E)
-- Watch mode: `just test-frontend-watch`
+- Watch mode: `just test-fe watch`
 - Test user interactions, not implementation
 
 **E2E Tests**:
@@ -332,7 +330,7 @@ just migrate_test             # Apply migrations to test database
 - **`.claude/context/TEST_DATA.md`** - Test fixtures and data
 
 ### Architecture Decision Records (ADRs)
-Location: `/docs/adrs/`
+Location: `/docs-site/developer/architecture/adrs/`
 
 - **ADR-001**: Technology Stack Selection
 - **ADR-002**: Database Design Approach
@@ -343,11 +341,10 @@ Location: `/docs/adrs/`
 - **ADR-007**: Testing Strategy
 
 ### System Design Documentation
-Location: `/docs/architecture/`
+Location: `/docs-site/developer/architecture/`
 
-- **SYSTEM_ARCHITECTURE.md** - Complete system design
-- **COMPONENT_INTERACTIONS.md** - How components communicate
-- **SEQUENCE_DIAGRAMS.md** - Visual process flows
+- **overview.md** - High-level system design
+- **components.md** - How components communicate
 
 ### Reference Documentation
 Location: `.claude/reference/`
@@ -359,12 +356,11 @@ Location: `.claude/reference/`
 - **ERROR_HANDLING.md** - Error handling patterns
 
 ### Current Status & Testing
-- **`.claude/planning/MVP_STATUS.md`** - Current MVP implementation status and development plan
-- **`.claude/planning/E2E_TESTING_PLAN.md`** - E2E testing implementation plan (AI-focused)
-- **`/docs/testing/COVERAGE_STATUS.md`** - Test coverage status and recommendations
-- **`/docs/testing/TEST_DATA.md`** - Detailed test fixture documentation
-- **`/docs/testing/E2E_QUICK_START.md`** - Quick reference for E2E testing (developer reference)
-- **`/frontend/TESTING_NOTES.md`** - Frontend testing notes and intentionally untested components
+- **`/docs-site/developer/testing/COVERAGE_STATUS.md`** - Test coverage status and recommendations
+- **`/docs-site/developer/testing/TEST_DATA.md`** - Detailed test fixture documentation
+- **`/docs-site/developer/testing/E2E_QUICK_START.md`** - Quick reference for E2E testing (developer reference)
+- **`frontend/e2e/STATUS.md`** - Current E2E test coverage and plan
+- **`frontend/e2e/README.md`** - Complete E2E testing guide
 
 ---
 
@@ -553,29 +549,13 @@ Key variables in `.env`:
 
 ### Adding a New Feature
 
-**RECOMMENDED: Start with a feature plan**
-
-1. **Create Feature Plan**
-   - Copy **`.claude/planning/FEATURE_PLAN_TEMPLATE.md`** to `.claude/planning/FEATURE_[name].md`
-   - Fill in all sections systematically (problem statement, design, API, tests, implementation phases)
-   - Review plan before starting implementation
-   - See `.claude/planning/README.md` for template usage guide
-
-2. **Implementation** (following the plan):
-   - Read **`.claude/context/ARCHITECTURE.md`** for patterns
-   - Read **`.claude/context/TESTING.md`** for test requirements
-   - Create database migration if needed
-   - Implement backend with tests (TDD)
-   - Implement frontend with tests
-   - Test manually in UI
-   - Update documentation
-
-**Benefits of planning first:**
-- ✅ Catches design issues before coding
-- ✅ Ensures all architectural layers considered
-- ✅ Documents business rules and edge cases
-- ✅ Provides session continuity for complex features
-- ✅ Creates rollback strategy upfront
+1. Read **`.claude/context/ARCHITECTURE.md`** for patterns
+2. Read **`.claude/context/TESTING.md`** for test requirements
+3. Create database migration if needed
+4. Implement backend with tests (TDD)
+5. Implement frontend with tests
+6. Test manually in UI
+7. Update documentation
 
 ### Fixing a Bug
 1. Read **`.claude/context/TESTING.md`** for regression test requirements
@@ -627,9 +607,8 @@ Key variables in `.env`:
 - Update fixture usage examples
 
 **After major refactors**:
-- Update relevant ADRs in **`/docs/adrs/`** if decisions changed
-- Add "Recent Changes" sections to context files with date
-- Update **`.claude/planning/MVP_STATUS.md`** with current implementation status
+- Update relevant ADRs in **`/docs-site/developer/architecture/adrs/`** if decisions changed
+- Update context files with date
 
 ### What to Update
 
@@ -646,7 +625,7 @@ Key variables in `.env`:
 - ✅ Logging standards if changed
 - ✅ Error handling patterns
 
-**In ADRs** (`/docs/adrs/`):
+**In ADRs** (`/docs-site/developer/architecture/adrs/`):
 - ✅ Add new ADRs for major architectural decisions
 - ✅ Update existing ADRs if decisions evolved
 - ✅ Add "Recent Architectural Evolution" sections (like ADR-005)
@@ -656,9 +635,8 @@ Key variables in `.env`:
 ```markdown
 When we completed the AuthContext centralization refactor:
 1. ✅ Updated .claude/context/STATE_MANAGEMENT.md with new patterns
-2. ✅ Updated /docs/adrs/005-frontend-state-management.md with evolution section
-3. ✅ Updated `.claude/planning/MVP_STATUS.md` with completion status
-4. ✅ Documented isCheckingAuth pattern to prevent future bugs
+2. ✅ Updated /docs-site/developer/architecture/adrs/005-frontend-state-management.md
+3. ✅ Documented isCheckingAuth pattern to prevent future bugs
 ```
 
 ### Quick Checklist After Major Changes
@@ -676,10 +654,10 @@ When we completed the AuthContext centralization refactor:
 
 ## Getting Help
 
-- **Project Setup**: See `/docs/getting-started/DEVELOPER_ONBOARDING.md` (30-minute guide)
-- **Architecture Questions**: Read `/docs/architecture/SYSTEM_ARCHITECTURE.md`
-- **Testing Questions**: Read `.claude/context/TESTING.md` and `/docs/testing/COVERAGE_STATUS.md`
-- **E2E Testing**: Read `.claude/planning/E2E_TESTING_PLAN.md` (implementation plan) or `/docs/testing/E2E_QUICK_START.md` (quick reference)
+- **Project Setup**: See `/docs-site/developer/` for onboarding guides
+- **Architecture Questions**: Read `/docs-site/developer/architecture/`
+- **Testing Questions**: Read `.claude/context/TESTING.md` and `/docs-site/developer/testing/COVERAGE_STATUS.md`
+- **E2E Testing**: Read `frontend/e2e/README.md` (complete guide) or `/docs-site/developer/testing/E2E_QUICK_START.md` (quick reference)
 - **State Management**: Read `.claude/context/STATE_MANAGEMENT.md` or `/docs/features/STATE_MANAGEMENT.md`
 - **All Documentation**: See `.claude/README.md` for complete index
 

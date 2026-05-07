@@ -2,8 +2,7 @@
 
 **IMPORTANT: Read this file before working with test data and fixtures.**
 
-**Last Updated**: October 30, 2025
-**Last Verified**: October 30, 2025
+**Last Updated**: May 2026
 
 ## Test Fixture System
 
@@ -12,36 +11,70 @@ ActionPhase uses SQL-based test fixtures for comprehensive test coverage across 
 ### Fixture Location
 **Location**: `/backend/pkg/db/test_fixtures/`
 
+The fixture system is split into four categories:
+
 ```
 test_fixtures/
-├── 00_reset.sql           # Cleans all test data
-├── 01_users.sql           # Creates test users
-├── 02_games_recruiting.sql # Creates recruiting games
-├── 03_games_running.sql   # Creates running games with phases
-├── 04_characters.sql      # Creates characters and NPCs
-├── 05_actions.sql         # Creates action submissions
-├── 06_results.sql         # Creates action results
-└── apply_all.sh           # Bash script to apply all fixtures
+├── common/               # Shared base data (users, reset)
+│   ├── 00_reset.sql      # Cleans all test data
+│   └── 01_users.sql      # Creates test users (TestGM, TestPlayer1-5, TestAudience)
+├── demo/                 # Demo/dev data (games, characters, actions, messages)
+│   ├── 02_games_recruiting.sql
+│   ├── 03_games_running.sql
+│   ├── 04_characters.sql
+│   ├── 05_actions.sql
+│   ├── 06_results.sql
+│   ├── 08_private_messages.sql
+│   ├── 09_demo_content.sql
+│   └── 10_deeply_nested_comments.sql
+├── e2e/                  # Isolated fixtures per E2E test file (see below)
+│   ├── 07_common_room.sql        # Games #164-169 (common room tests)
+│   ├── 08_e2e_dedicated_games.sql # State-modifying test games
+│   ├── 09_action_results.sql
+│   ├── 10_lifecycle_game.sql
+│   ├── 11_character_sheets.sql
+│   ├── 12_game_applications.sql
+│   ├── 13_game_lifecycle.sql
+│   ├── 14_character_workflows.sql
+│   ├── 15_deep_thread.sql
+│   ├── 16_deep_linking.sql
+│   ├── 17_private_message_deletion_w{0-5}.sql  # Worker-specific fixtures
+│   ├── 18_co_gm_*.sql            # Co-GM test fixtures (worker-specific)
+│   ├── 19_*.sql                  # Player multi-character + polls
+│   ├── 20_cogm_npc_messaging.sql
+│   ├── 21_audience_private_messages*.sql
+│   ├── 22_manual_read_tracking.sql
+│   ├── 23_private_message_editing_w{0-5}.sql
+│   ├── 24_unread_tracking.sql
+│   └── 25_notification_*.sql
+├── perf/                 # Performance test fixtures
+├── apply_all.sh          # Apply common + demo fixtures
+├── apply_e2e.sh          # Apply common + e2e fixtures
+└── apply_common.sh       # Apply only common fixtures
+```
+
+**Apply commands**:
+```bash
+just test-fixtures          # Apply demo fixtures (for manual testing)
+just load-e2e               # Apply e2e fixtures (done automatically by just e2e)
 ```
 
 ## Quick Commands
 
-### Apply All Fixtures
+### Apply Demo Fixtures (for manual testing / development)
 ```bash
-# From project root
-./backend/pkg/db/test_fixtures/apply_all.sh
-
-# Or using justfile
 just test-fixtures
+```
+
+### Apply E2E Fixtures (done automatically by `just e2e`)
+```bash
+just load-e2e
 ```
 
 ### Reset Test Data
 ```bash
-# Reset to clean state
-just reset-test-data
-
-# Then reapply
-just test-fixtures
+# Reapply from scratch
+just test-data reload
 ```
 
 ## Test Users
@@ -250,23 +283,20 @@ Use **Game #7** (Blackwood Manor):
 
 **CRITICAL**: E2E fixtures are designed for **test isolation and parallel execution**.
 
-### E2E Fixture Organization
+### Key Principle: Worker-Based Parallelism
 
-E2E fixtures in `/backend/pkg/db/test_fixtures/e2e/` follow a **one fixture per test file** pattern:
+E2E tests run with up to 6 workers in parallel. Many fixtures are **worker-specific** (e.g., `17_private_message_deletion_w0.sql` through `w5.sql`), so each parallel worker gets its own isolated copy of test data. The `getFixtureGameId()` helper automatically selects the right worker's data.
 
+### Using Fixtures in Tests
+
+```typescript
+import { getFixtureGameId } from '../fixtures/game-helpers';
+
+// In your test:
+const gameId = await getFixtureGameId(page, 'COMMON_ROOM_POSTS');
 ```
-e2e/
-├── 07_common_room.sql       # 5 isolated Common Room games (Game #164-168)
-├── 08_e2e_dedicated_games.sql # Dedicated games for state changes
-```
 
-**Each E2E fixture game has a specific purpose**:
-- **Game #164**: `E2E Common Room - Posts` → for `common-room.spec.ts`
-- **Game #165**: `E2E Common Room - Mentions` → for `character-mentions.spec.ts`
-- **Game #166**: `E2E Common Room - Notifications` → for `notification-flow.spec.ts`
-- **Game #167**: `E2E Common Room - Misc` → for miscellaneous tests
-- **Game #168**: `E2E Character Avatars` → for `character-avatar.spec.ts`
-- **Game #9999**: `E2E Test Game` → for `private-messages-delete.spec.ts` (private message deletion)
+Use the `FIXTURE_GAMES` constants in `frontend/e2e/fixtures/game-helpers.ts` — that file is the authoritative list of all available fixture games and their purposes.
 
 ### When to Create a New Fixture vs Reuse
 
@@ -274,58 +304,22 @@ e2e/
 - Writing a new E2E test file that will run in parallel
 - Test requires specific participant/character setup
 - Test will modify game state (upload avatars, post comments, etc.)
-- Reusing would break another test's assumptions
 
 **❌ DO NOT reuse a fixture if:**
 - The fixture was designed for a specific test file
 - Your test's participant needs differ from the fixture's setup
-- The fixture has a documented purpose that doesn't match your test
-- You're not sure if it will cause conflicts
-
-**Example of WRONG approach:**
-```typescript
-// ❌ WRONG: character-avatar.spec.ts using COMMON_ROOM_MISC
-// COMMON_ROOM_MISC only has Player 5, but tests use Players 1-4
-const gameId = await getFixtureGameId(page, 'COMMON_ROOM_MISC');
-```
-
-**Example of CORRECT approach:**
-```typescript
-// ✅ CORRECT: Created dedicated CHARACTER_AVATARS fixture
-// Game #168 has Players 1-4 with characters specifically for avatar tests
-const gameId = await getFixtureGameId(page, 'CHARACTER_AVATARS');
-```
 
 ### Creating a New E2E Fixture
 
-**Step 1**: Add fixture to SQL file (`07_common_room.sql` or create new file):
+**Step 1**: Add fixture SQL file (e.g., `e2e/26_my_feature.sql`):
 ```sql
--- Game #169: My New Feature Test
-INSERT INTO games (id, title, description, ...) VALUES (
-  169,
-  'E2E My Feature',
-  'Dedicated game for my-feature.spec.ts E2E tests.',
-  ...
-);
-
--- Add participants needed for YOUR test
-INSERT INTO game_participants (game_id, user_id, role, status, joined_at)
-VALUES
-  (169, p1_id, 'player', 'active', NOW() - INTERVAL '4 days'),
-  (169, p2_id, 'player', 'active', NOW() - INTERVAL '4 days');
-
--- Add characters needed for YOUR test
-INSERT INTO characters (game_id, user_id, name, ...) VALUES
-  (169, p1_id, 'Test Character 1', ...),
-  (169, p2_id, 'Test Character 2', ...);
+-- Game #800: My New Feature Test
+-- Purpose: For my-feature.spec.ts
 ```
 
-**Step 2**: Add to `game-helpers.ts` mapping:
+**Step 2**: Add to `FIXTURE_GAMES` in `frontend/e2e/fixtures/game-helpers.ts`:
 ```typescript
-export const FIXTURE_GAMES = {
-  // ... existing fixtures ...
-  MY_FEATURE: 'E2E My Feature',  // Game #169 - for my-feature.spec.ts
-} as const;
+MY_FEATURE: 'E2E My Feature',  // Game #800 - for my-feature.spec.ts
 ```
 
 **Step 3**: Use in your test:
@@ -333,31 +327,7 @@ export const FIXTURE_GAMES = {
 const gameId = await getFixtureGameId(page, 'MY_FEATURE');
 ```
 
-**Step 4**: Document the fixture's purpose in SQL comments and this file.
-
-### Private Message Deletion Test Fixture (Game 9999)
-
-**Purpose**: Test private message deletion functionality
-**Test File**: `e2e/messaging/private-messages-delete.spec.ts`
-**Fixture File**: `backend/pkg/db/test_fixtures/e2e/17_private_message_deletion.sql`
-
-**Test Data**:
-- **Game**: 9999 (`E2E Test Game` from `08_e2e_dedicated_games.sql`)
-- **Conversation**: 9999 (direct conversation between TestPlayer1 and TestPlayer2)
-- **Characters**:
-  - Character 9991: "Character 1" (TestPlayer1)
-  - Character 9992: "Character 2" (TestPlayer2)
-- **Messages**:
-  - Message 9991: From TestPlayer1 - "Message from Player 1" (not deleted, available for deletion testing)
-  - Message 9992: From TestPlayer2 - "Message from Player 2" (not deleted, tests authorization)
-  - Message 9993: From TestPlayer1 - "[Message deleted]" (already deleted, tests UI hides delete button)
-
-**Test Scenarios**:
-- ✅ Delete own message (Player 1 can delete message 9991)
-- ✅ Cannot delete others' messages (Player 1 cannot delete message 9992)
-- ✅ Deleted messages visible to all participants
-- ✅ Cancel deletion (modal cancel button works)
-- ✅ No delete button on already-deleted messages (message 9993)
+**Note**: If tests need parallel isolation (6 workers), create worker-specific SQL files: `26_my_feature_w0.sql` through `w5.sql`.
 
 ### Test Isolation Principles
 
@@ -462,10 +432,10 @@ Game #7: "The Mystery of Blackwood Manor"
 
 ## References
 
-- **Detailed Documentation**: `/docs/TEST_DATA.md` (comprehensive guide)
-- **Test Fixtures**: `/backend/pkg/db/test_fixtures/` (actual SQL files)
-- **Test Coverage Analysis**: `/docs/TEST_COVERAGE_ANALYSIS.md` (improvement plan)
-- **Testing Strategy ADR**: `/docs/adrs/007-testing-strategy.md`
+- **Fixture SQL files**: `/backend/pkg/db/test_fixtures/`
+- **Fixture game constants**: `frontend/e2e/fixtures/game-helpers.ts` (authoritative list)
+- **Testing Strategy ADR**: `/docs-site/developer/architecture/adrs/007-testing-strategy.md`
+- **E2E testing guide**: `frontend/e2e/README.md`
 
 ## Checklist Before Writing Tests
 

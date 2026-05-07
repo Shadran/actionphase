@@ -2,7 +2,7 @@
 
 **IMPORTANT: Read this file before working on frontend state management.**
 
-**Last Verified**: October 27, 2025
+**Last Verified**: May 2026
 
 **Comprehensive Documentation:** `/docs/features/STATE_MANAGEMENT.md` (single source of truth)
 
@@ -19,24 +19,6 @@ ActionPhase uses a **Hybrid State Management Strategy**:
 3. **Game Context**: GameContext - Game-specific state and permissions
 4. **UI State**: React useState/useReducer - Component-local state
 5. **Global UI State**: React Context (sparingly) - Only for truly global concerns
-
----
-
-## October 2025 Refactor
-
-### Problems Solved
-- **15+ components** independently fetching user data
-- **60-70% duplicate API calls**
-- Client-side JWT decoding (security risk)
-- Race conditions and inconsistent loading states
-- Scattered permission calculations
-
-### Results
-- **60-70% reduction** in API calls
-- **Zero client-side JWT decoding** (security improvement)
-- **Single source of truth** for authentication
-- **Consistent loading states** across all components
-- **Centralized permission logic**
 
 ---
 
@@ -169,6 +151,10 @@ import { useAuth } from '../contexts/AuthContext';
 // Game Context
 import { GameProvider, useGameContext, useOptionalGameContext } from '../contexts/GameContext';
 
+// Other Contexts
+import { useConversationContext } from '../contexts/ConversationContext';
+import { useAdminMode } from '../contexts/AdminModeContext';
+
 // Hooks
 import { useGamePermissions } from '../hooks/useGamePermissions';
 import { useUserCharacters } from '../hooks/useUserCharacters';
@@ -258,7 +244,7 @@ render(<GameDetails gameId={1} />, { wrapper: createWrapper() });
 ## References
 
 - **Comprehensive Guide**: `/docs/features/STATE_MANAGEMENT.md` - Single source of truth
-- **ADR**: `/docs/adrs/005-frontend-state-management.md` - Architectural decisions
+- **ADR**: `/docs-site/developer/architecture/adrs/005-frontend-state-management.md` - Architectural decisions
 
 ## Quick Checklist
 

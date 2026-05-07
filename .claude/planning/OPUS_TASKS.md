@@ -1,8 +1,0 @@
-- More code refactoring/reorg
-  - Focus on specific things in individual sessions
-  - Too much code in API functions?
-  - Antipatterns?
-- Test coverage and useful tests
-  - Are we mostly happy path testing?
-- Look for unused code/files
-  - Try to really, really find and remove all the unused files

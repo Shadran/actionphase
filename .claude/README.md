@@ -78,15 +78,6 @@ Read ADRs for understanding architectural decisions:
 
 **Note**: Testing docs are served via VitePress at http://localhost:3000/docs/developer/testing/
 
-### Project Status & Planning
-**Location**: `.claude/planning/`
-
-- **MVP_STATUS.md** - Current MVP implementation status and development plan
-- **FEATURE_PLAN_TEMPLATE.md** - Template for planning new features
-- **E2E_TESTING_PLAN.md** - E2E testing implementation plan
-- **active/** - Active feature planning docs
-- **completed/** - Historical planning docs (archived)
-
 ### Remaining docs/ Directory
 **Location**: `/docs/`
 
@@ -139,7 +130,7 @@ Active documentation files (not in docs-site yet):
 - Use `data-testid` selectors
 - Wait for specific conditions, not arbitrary timeouts
 
-**See**: `.claude/context/TESTING.md` E2E section and `.claude/planning/completed/AI_E2E_TESTING_STRATEGY.md`
+**See**: `.claude/context/TESTING.md` E2E section, `frontend/e2e/STATUS.md` for current coverage, and `frontend/e2e/README.md` for the complete guide
 
 ## Quick Start for AI
 
@@ -156,15 +147,4 @@ When starting a coding task:
 - Update this README when adding new context files
 - Move detailed implementation guides to `.claude/reference/`
 - Keep ADRs in `/docs-site/developer/architecture/adrs/` (single source of truth)
-- Archive completed planning docs to `.claude/planning/completed/`
 - Update CLAUDE.md to reference new context files
-
-## Archive Structure
-
-Completed planning and historical documentation is archived in:
-- `.claude/planning/completed/archive-2025-01/` - Recent archival (Jan 2025)
-  - `root/` - Archived root directory docs
-  - `frontend/` - Archived frontend implementation logs
-  - `docs/` - Archived docs/ organizational files
-  - `backend/` - Archived backend testing sessions
-- `.claude/planning/completed/` - Historical feature planning (181 files)

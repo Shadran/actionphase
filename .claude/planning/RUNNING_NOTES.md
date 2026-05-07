@@ -1,2 +1,0 @@
-- USER AND API DOCS
-- Swapping away from the registration tab clears form inputs

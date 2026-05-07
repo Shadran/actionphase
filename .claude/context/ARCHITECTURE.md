@@ -2,31 +2,7 @@
 
 **IMPORTANT: Read this file before implementing new features or making architectural changes.**
 
-**Last Verified**: October 27, 2025
-
-## Recent Changes (2025-10-19)
-
-### Backend Service Decomposition
-As part of the Week 1-3 refactoring initiative, large monolithic service files have been decomposed into focused, single-responsibility modules:
-
-- **Phase Service**: 1056-line `phases.go` → `phases/` package (6 files: crud, transitions, validation, history, converters, service)
-- **Action Service**: Extracted from phases → `actions/` package (5 files: submissions, results, validation, queries, service)
-- **Message Service**: 699-line `messages.go` → `messages/` package (6 files: posts, comments, reactions, validation, service, tests)
-
-**Impact**: All service files now < 500 lines, improved testability, clearer separation of concerns.
-
-**Import paths updated**:
-```go
-// OLD
-import "actionphase/pkg/db/services"
-phaseService := &services.PhaseService{DB: pool}
-
-// NEW
-import phasesvc "actionphase/pkg/db/services/phases"
-phaseService := &phasesvc.PhaseService{DB: pool}
-```
-
-**See**: `.claude/planning/REFACTOR_00_MASTER_PLAN.md` for complete refactoring details.
+**Last Verified**: May 2026
 
 ## Core Architectural Principles
 
@@ -55,7 +31,7 @@ ActionPhase follows **Clean Architecture** with clear separation of concerns:
 - **State Management**: React Query + Context API (see STATE_MANAGEMENT.md)
 - **HTTP Client**: Axios with JWT interceptors
 
-**See**: `/docs/adrs/001-technology-stack-selection.md` for rationale
+**See**: `/docs-site/developer/architecture/adrs/001-technology-stack-selection.md` for rationale
 
 ## Request Processing Flow
 
@@ -139,7 +115,9 @@ RETURNING id, title, description, gm_user_id, state, created_at;
 
 ### 4. HTTP Handler Pattern
 
-**Location**: `backend/pkg/*/api.go`
+**Location**: `backend/pkg/*/api.go` (one handler package per domain)
+
+Current handler packages: `admin`, `auth`, `avatars`, `characters`, `conversations`, `dashboard`, `deadlines`, `games`, `handouts`, `messages`, `notifications`, `phases`, `polls`, `users`
 
 ```go
 func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +154,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 - Automatic refresh via axios interceptors
 - User ID **NOT in JWT** - fetched from `/api/v1/auth/me`
 
-**See**: `/docs/adrs/003-authentication-strategy.md`
+**See**: `/docs-site/developer/architecture/adrs/003-authentication-strategy.md`
 
 **Security Note**: JWT payload only contains `sub` (username), `exp`, `iat`, `jti`. User ID fetched server-side after token validation to prevent client-side manipulation.
 
@@ -219,16 +197,37 @@ if err != nil {
 ```
 components/
 ├── ComponentName.tsx          # Component implementation
-├── ComponentName.test.tsx     # Component tests
-└── ...
+├── ComponentName.test.tsx     # Component tests (co-located)
+├── __tests__/                 # Shared test utilities for components
+└── ui/                        # UI component library (Button, Card, Input, etc.)
 
 hooks/
 ├── useCustomHook.ts          # Custom hooks
-└── ...
+├── useCustomHook.test.ts     # Hook tests (co-located)
+└── __tests__/                # Shared hook test utilities
 
 pages/
 ├── PageName.tsx              # Page components
-└── ...
+└── __tests__/                # Page tests
+
+contexts/
+├── AuthContext.tsx           # Authentication state
+├── GameContext.tsx           # Game-specific state and permissions
+├── ThemeContext.tsx          # Dark/light mode
+├── ToastContext.tsx          # Toast notifications
+├── ConversationContext.tsx   # Conversation state
+└── AdminModeContext.tsx      # Admin mode state
+
+lib/api/
+├── client.ts                 # Axios instance + interceptors
+├── auth.ts                   # Auth endpoints
+├── games.ts                  # Games endpoints
+├── characters.ts             # Characters endpoints
+├── messages.ts               # Messages endpoints
+├── conversations.ts          # Conversations endpoints
+├── phases.ts                 # Phases endpoints
+├── polls.ts                  # Polls endpoints
+└── ...                       # Other endpoint modules
 
 types/
 ├── domain.ts                 # Type definitions
@@ -237,43 +236,12 @@ types/
 
 ### 3. API Client Pattern
 
-**Location**: `frontend/src/lib/api.ts`
+**Location**: `frontend/src/lib/api/` (split into domain modules)
 
-- Axios instance with JWT interceptors
-- Automatic token refresh on 401
-- Type-safe API methods
-- Consistent error handling
-
-```typescript
-const apiClient = axios.create({
-  baseURL: '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// Automatic JWT attachment
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Automatic token refresh
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const newToken = await refreshToken();
-      if (newToken) {
-        error.config.headers.Authorization = `Bearer ${newToken}`;
-        return apiClient(error.config);
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-```
+- `client.ts` — Axios instance with JWT interceptors, automatic token refresh on 401
+- Domain modules per feature: `auth.ts`, `games.ts`, `characters.ts`, `messages.ts`, etc.
+- `index.ts` — re-exports all API functions
+- Type-safe API methods with consistent error handling
 
 ## Database Design Pattern
 
@@ -297,7 +265,7 @@ CREATE TABLE games (
 );
 ```
 
-**See**: `/docs/adrs/002-database-design-approach.md`
+**See**: `/docs-site/developer/architecture/adrs/002-database-design-approach.md`
 
 ## Observability Pattern
 
@@ -316,7 +284,7 @@ log.Info().
     Msg("Game created successfully")
 ```
 
-**See**: `/docs/adrs/006-observability-approach.md`
+**See**: `/docs-site/developer/architecture/adrs/006-observability-approach.md`
 
 ## API Design Principles
 
@@ -327,7 +295,7 @@ log.Info().
 - **Input validation** at handler layer
 - **Rate limiting** on sensitive endpoints
 
-**See**: `/docs/adrs/004-api-design-principles.md`
+**See**: `/docs-site/developer/architecture/adrs/004-api-design-principles.md`
 
 ## Key Implementation Files
 
@@ -339,16 +307,17 @@ log.Info().
 
 **Backend Services**:
 - `backend/pkg/db/services/` - Service implementations
-  - `phases/` - Phase service (decomposed: crud, transitions, validation, history)
-  - `actions/` - Action submission service (decomposed: submissions, results, validation, queries)
-  - `messages/` - Message service (decomposed: posts, comments, reactions, validation)
-  - `*.go` - Other services (games, characters, users, sessions, notifications)
+  - `phases/` - Phase service (crud, transitions, validation, history, converters, scheduler)
+  - `actions/` - Action submission service (submissions, results, validation, queries, draft_updates)
+  - `messages/` - Message service (posts, comments, reactions, validation, read_tracking, audience, character_messages)
+  - `*.go` - Other services (games, characters, users, sessions, notifications, conversations, handouts, dashboard, deadlines, polls, user_preferences)
 - `backend/pkg/db/queries/*.sql` - SQL queries (generates models/)
 - `backend/pkg/db/migrations/*.sql` - Database migrations
 
 **Frontend Core**:
-- `frontend/src/lib/api.ts` - API client
+- `frontend/src/lib/api/` - API client (split into domain modules; `index.ts` re-exports all)
 - `frontend/src/contexts/AuthContext.tsx` - Authentication state
+- `frontend/src/contexts/GameContext.tsx` - Game state + permissions
 - `frontend/src/App.tsx` - Application setup
 
 ## Development Workflow
@@ -402,18 +371,19 @@ log.Info().
 ## References
 
 ### Architecture Decision Records
-- `/docs/adrs/001-technology-stack-selection.md`
-- `/docs/adrs/002-database-design-approach.md`
-- `/docs/adrs/003-authentication-strategy.md`
-- `/docs/adrs/004-api-design-principles.md`
-- `/docs/adrs/005-frontend-state-management.md`
-- `/docs/adrs/006-observability-approach.md`
-- `/docs/adrs/007-testing-strategy.md`
+**Location**: `/docs-site/developer/architecture/adrs/`
+- ADR-001: Technology Stack Selection
+- ADR-002: Database Design Approach
+- ADR-003: Authentication Strategy
+- ADR-004: API Design Principles
+- ADR-005: Frontend State Management
+- ADR-006: Observability Approach
+- ADR-007: Testing Strategy
 
 ### System Design
-- `/docs/architecture/SYSTEM_ARCHITECTURE.md`
-- `/docs/architecture/COMPONENT_INTERACTIONS.md`
-- `/docs/architecture/SEQUENCE_DIAGRAMS.md`
+**Location**: `/docs-site/developer/architecture/`
+- `overview.md` - High-level system design
+- `components.md` - How components communicate
 
 ### Detailed Guides
 - `.claude/reference/BACKEND_ARCHITECTURE.md`

@@ -19,7 +19,7 @@ We implemented a **JWT + Refresh Token Strategy** with server-side session manag
 
 **Primary Authentication**: JWT Access Tokens
 - Short-lived JWT tokens (15 minutes) for API access
-- Contains user claims (user_id, username, roles)
+- Contains only `sub` (username), `exp`, `iat`, `jti` — user ID intentionally excluded
 - Stateless verification for API performance
 - Automatic refresh via axios interceptors
 
