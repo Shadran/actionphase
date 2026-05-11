@@ -1100,3 +1100,39 @@ func (gs *GameService) DemoteFromCoGM(ctx context.Context, gameID, userID, reque
 
 	return nil
 }
+
+// TransitionPlayerToAudience changes a player's role to audience without deactivating their characters.
+// Used when a player character dies (permadeath) — the player retains character access and can still
+// comment in common rooms, but is no longer an active player.
+func (gs *GameService) TransitionPlayerToAudience(ctx context.Context, gameID, userID, requestingUserID int32) error {
+	queries := models.New(gs.DB)
+
+	game, err := queries.GetGame(ctx, gameID)
+	if err != nil {
+		return fmt.Errorf("failed to get game: %w", err)
+	}
+	if game.GmUserID != requestingUserID {
+		return fmt.Errorf("only the primary GM can transition players to audience")
+	}
+
+	participant, err := queries.GetParticipantByGameAndUser(ctx, models.GetParticipantByGameAndUserParams{
+		GameID: gameID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("user is not a participant in this game: %w", err)
+	}
+	if participant.Role != "player" {
+		return fmt.Errorf("can only transition players to audience (current role: %s)", participant.Role)
+	}
+
+	_, err = queries.TransitionParticipantToAudience(ctx, models.TransitionParticipantToAudienceParams{
+		GameID: gameID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to transition participant to audience: %w", err)
+	}
+
+	return nil
+}

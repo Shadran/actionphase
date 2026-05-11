@@ -660,6 +660,7 @@ func setupGameTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 				r.Delete("/{id}/participants/{userId}", gameHandler.RemovePlayer)
 				r.Post("/{id}/participants/{userId}/promote-to-co-gm", gameHandler.PromoteToCoGM)
 				r.Post("/{id}/participants/{userId}/demote-from-co-gm", gameHandler.DemoteFromCoGM)
+				r.Post("/{id}/participants/{userId}/to-audience", gameHandler.TransitionPlayerToAudience)
 
 				// Game application management
 				r.Post("/{id}/apply", gameHandler.ApplyToGame)

@@ -158,8 +158,9 @@ func (h *Handler) Start() {
 			r.Post("/{id}/participants/direct-add", gameHandler.AddPlayerDirectly) // GM adds player directly
 
 			// Co-GM management
-			r.Post("/{id}/participants/{userId}/promote-to-co-gm", gameHandler.PromoteToCoGM)   // GM promotes audience to co-GM
-			r.Post("/{id}/participants/{userId}/demote-from-co-gm", gameHandler.DemoteFromCoGM) // GM demotes co-GM to audience
+			r.Post("/{id}/participants/{userId}/promote-to-co-gm", gameHandler.PromoteToCoGM)     // GM promotes audience to co-GM
+			r.Post("/{id}/participants/{userId}/demote-from-co-gm", gameHandler.DemoteFromCoGM)   // GM demotes co-GM to audience
+			r.Post("/{id}/participants/{userId}/to-audience", gameHandler.TransitionPlayerToAudience) // GM moves player to audience (permadeath)
 
 			// Game application management
 			// Apply to game requires email verification

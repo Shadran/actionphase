@@ -52,9 +52,9 @@ SELECT
     END as character_type
 FROM games g
 JOIN users gm_user ON g.gm_user_id = gm_user.id
-LEFT JOIN game_participants gp ON gp.game_id = g.id AND gp.user_id = $1 AND gp.removed_at IS NULL AND gp.role != 'audience'
+LEFT JOIN game_participants gp ON gp.game_id = g.id AND gp.user_id = $1 AND gp.removed_at IS NULL AND (gp.role != 'audience' OR gp.is_former_player = TRUE)
 LEFT JOIN characters c ON c.game_id = g.id AND c.user_id = $1
-WHERE g.gm_user_id = $1 OR (gp.user_id = $1 AND gp.removed_at IS NULL AND gp.role != 'audience')
+WHERE g.gm_user_id = $1 OR (gp.user_id = $1 AND gp.removed_at IS NULL AND (gp.role != 'audience' OR gp.is_former_player = TRUE))
 ORDER BY
     CASE g.state
         WHEN 'in_progress' THEN 1
@@ -72,8 +72,8 @@ LIMIT $2 OFFSET $3;
 -- name: CountUserProfileGames :one
 SELECT COUNT(DISTINCT g.id)
 FROM games g
-LEFT JOIN game_participants gp ON gp.game_id = g.id AND gp.user_id = $1 AND gp.removed_at IS NULL AND gp.role != 'audience'
-WHERE g.gm_user_id = $1 OR (gp.user_id = $1 AND gp.removed_at IS NULL AND gp.role != 'audience');
+LEFT JOIN game_participants gp ON gp.game_id = g.id AND gp.user_id = $1 AND gp.removed_at IS NULL AND (gp.role != 'audience' OR gp.is_former_player = TRUE)
+WHERE g.gm_user_id = $1 OR (gp.user_id = $1 AND gp.removed_at IS NULL AND (gp.role != 'audience' OR gp.is_former_player = TRUE));
 
 -- UpdateUserProfile updates a user's display name and bio
 -- name: UpdateUserProfile :exec

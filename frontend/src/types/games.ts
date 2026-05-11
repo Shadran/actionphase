@@ -36,6 +36,7 @@ export interface GameParticipant {
   role: ParticipantRole;
   status: ParticipantStatus;
   joined_at: string;
+  is_former_player?: boolean;
 }
 
 export type GameState =

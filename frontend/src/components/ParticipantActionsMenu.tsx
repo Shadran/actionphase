@@ -11,9 +11,9 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Button, Alert } from './ui';
+import { Button, Alert, Input } from './ui';
 import { Modal } from './Modal';
-import { usePromoteToCoGM, useDemoteFromCoGM, useRemovePlayer } from '../hooks/usePlayerManagement';
+import { usePromoteToCoGM, useDemoteFromCoGM, useRemovePlayer, useTransitionPlayerToAudience } from '../hooks/usePlayerManagement';
 import { apiClient } from '../lib/api';
 import type { GameParticipant, GameApplication } from '../types/games';
 import { logger } from '@/services/LoggingService';
@@ -36,6 +36,8 @@ export function ParticipantActionsMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [showPromoteConfirm, setShowPromoteConfirm] = useState(false);
   const [showDemoteConfirm, setShowDemoteConfirm] = useState(false);
+  const [showTransitionToAudienceConfirm, setShowTransitionToAudienceConfirm] = useState(false);
+  const [transitionConfirmText, setTransitionConfirmText] = useState('');
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
@@ -45,6 +47,7 @@ export function ParticipantActionsMenu({
 
   const promoteToCoGM = usePromoteToCoGM(gameId);
   const demoteFromCoGM = useDemoteFromCoGM(gameId);
+  const transitionToAudience = useTransitionPlayerToAudience(gameId);
   const removePlayer = useRemovePlayer(gameId);
 
   // Close dropdown when clicking outside
@@ -85,6 +88,19 @@ export function ParticipantActionsMenu({
       onSuccess?.();
     } catch (error) {
       logger.error('Failed to demote from co-GM', { error, gameId, userId: participant.user_id, username: participant.username });
+    }
+  };
+
+  const handleTransitionToAudience = async () => {
+    if (!participant) return;
+    try {
+      await transitionToAudience.mutateAsync(participant.user_id);
+      setShowTransitionToAudienceConfirm(false);
+      setTransitionConfirmText('');
+      setIsOpen(false);
+      onSuccess?.();
+    } catch (error) {
+      logger.error('Failed to transition player to audience', { error, gameId, userId: participant.user_id, username: participant.username });
     }
   };
 
@@ -139,10 +155,11 @@ export function ParticipantActionsMenu({
   const canReject = !!application;
   const canPromote = !!participant && isPrimaryGM && participant.role === 'audience';
   const canDemote = !!participant && isPrimaryGM && participant.role === 'co_gm';
+  const canTransitionToAudience = !!participant && isPrimaryGM && participant.role === 'player';
   const canRemove = !!participant; // Both primary GM and co-GM can remove
 
   // If no actions available, don't render anything
-  if (!canPromote && !canDemote && !canRemove && !canApprove && !canReject) {
+  if (!canPromote && !canDemote && !canTransitionToAudience && !canRemove && !canApprove && !canReject) {
     return null;
   }
 
@@ -210,6 +227,19 @@ export function ParticipantActionsMenu({
                   role="menuitem"
                 >
                   Demote from Co-GM
+                </button>
+              )}
+
+              {canTransitionToAudience && (
+                <button
+                  onClick={() => {
+                    setShowTransitionToAudienceConfirm(true);
+                    setIsOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm text-content-primary hover:bg-bg-secondary"
+                  role="menuitem"
+                >
+                  Move to Audience
                 </button>
               )}
 
@@ -314,6 +344,63 @@ export function ParticipantActionsMenu({
             <Alert variant="danger" dismissible onDismiss={() => demoteFromCoGM.reset()}>
               <p className="text-sm">
                 Failed to demote from co-GM. {(demoteFromCoGM.error as Error)?.message || 'Please try again.'}
+              </p>
+            </Alert>
+          )}
+        </div>
+      </Modal>
+
+      {/* Move to Audience Confirmation Modal */}
+      <Modal
+        isOpen={showTransitionToAudienceConfirm}
+        onClose={() => { setShowTransitionToAudienceConfirm(false); setTransitionConfirmText(''); }}
+        title="Move Player to Audience?"
+      >
+        <div className="space-y-4">
+          <Alert variant="warning" title="This action cannot be reversed">
+            <p className="text-sm">
+              <strong>{participant?.username}</strong> will be moved to audience status.
+            </p>
+            <ul className="text-sm space-y-1 list-disc list-inside mt-2">
+              <li>Their character(s) will remain active (not deactivated)</li>
+              <li>They can still view their private messages and character history</li>
+            </ul>
+            <p className="text-sm mt-2">
+              Note: this does not disable posting in common rooms (to allow for meta threads / epilogue
+              threads) or sending private messages, so make sure the player is aware of expectations
+              around being an audience member.
+            </p>
+          </Alert>
+
+          <Input
+            label='Type "confirm" to proceed'
+            value={transitionConfirmText}
+            onChange={(e) => setTransitionConfirmText(e.target.value)}
+            placeholder="confirm"
+          />
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => { setShowTransitionToAudienceConfirm(false); setTransitionConfirmText(''); }}
+              disabled={transitionToAudience.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleTransitionToAudience}
+              loading={transitionToAudience.isPending}
+              disabled={transitionConfirmText.toLowerCase() !== 'confirm'}
+            >
+              Move to Audience
+            </Button>
+          </div>
+
+          {transitionToAudience.isError && (
+            <Alert variant="danger" dismissible onDismiss={() => transitionToAudience.reset()}>
+              <p className="text-sm">
+                Failed to move player to audience. {(transitionToAudience.error as Error)?.message || 'Please try again.'}
               </p>
             </Alert>
           )}

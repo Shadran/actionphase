@@ -88,6 +88,19 @@ export function useDemoteFromCoGM(gameId: number) {
   });
 }
 
+export function useTransitionPlayerToAudience(gameId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: number) =>
+      apiClient.games.transitionPlayerToAudience(gameId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gameParticipants', gameId] });
+      queryClient.invalidateQueries({ queryKey: ['game', gameId] });
+    },
+  });
+}
+
 /**
  * Hook to fetch inactive characters for a game (GM only)
  * Returns characters whose owners have been removed

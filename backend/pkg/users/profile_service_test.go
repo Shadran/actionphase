@@ -319,6 +319,77 @@ func TestCountUserProfileGames_ExcludesAudienceGames(t *testing.T) {
 	core.AssertEqual(t, 1, resp.Metadata.TotalCount, "Total count should exclude audience games")
 }
 
+// TestGetUserGames_IncludesFormerPlayers verifies that a player transitioned to audience
+// (is_former_player = true) still appears in their profile game history.
+func TestGetUserGames_IncludesFormerPlayers(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &UserProfileService{DB: testDB.Pool}
+	ctx := context.Background()
+
+	gm := factory.NewUser().Create()
+	user := factory.NewUser().Create()
+
+	// Game where user was a player who died (now audience with is_former_player = true)
+	permadeathGame := factory.NewGame().WithTitle("Permadeath Game").WithGM(gm.ID).WithState("in_progress").Create()
+	factory.NewGameParticipant().ForGame(permadeathGame.ID).WithUser(user.ID).WithRole("player").Create()
+
+	// Simulate TransitionPlayerToAudience: set role = 'audience', is_former_player = true
+	_, err := testDB.Pool.Exec(ctx,
+		`UPDATE game_participants SET role = 'audience', is_former_player = TRUE
+		 WHERE game_id = $1 AND user_id = $2`,
+		permadeathGame.ID, user.ID,
+	)
+	if err != nil {
+		t.Fatalf("Failed to simulate permadeath transition: %v", err)
+	}
+
+	// Game where user is a genuine audience member (should still be excluded)
+	audienceGame := factory.NewGame().WithTitle("Watched Game").WithGM(gm.ID).WithState("in_progress").Create()
+	factory.NewGameParticipant().ForGame(audienceGame.ID).WithUser(user.ID).WithRole("audience").Create()
+
+	games, err := service.GetUserGames(ctx, user.ID, 10, 0)
+	core.AssertNoError(t, err, "GetUserGames should not error")
+
+	core.AssertEqual(t, 1, len(games), "Should return only the permadeath game, not the plain audience game")
+	core.AssertEqual(t, "Permadeath Game", games[0].Title, "Returned game should be the permadeath game")
+}
+
+// TestCountUserProfileGames_IncludesFormerPlayers verifies the count includes former players.
+func TestCountUserProfileGames_IncludesFormerPlayers(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &UserProfileService{DB: testDB.Pool}
+	ctx := context.Background()
+
+	gm := factory.NewUser().Create()
+	user := factory.NewUser().Create()
+
+	permadeathGame := factory.NewGame().WithTitle("Died Here").WithGM(gm.ID).Create()
+	factory.NewGameParticipant().ForGame(permadeathGame.ID).WithUser(user.ID).WithRole("player").Create()
+	_, err := testDB.Pool.Exec(ctx,
+		`UPDATE game_participants SET role = 'audience', is_former_player = TRUE
+		 WHERE game_id = $1 AND user_id = $2`,
+		permadeathGame.ID, user.ID,
+	)
+	if err != nil {
+		t.Fatalf("Failed to simulate permadeath transition: %v", err)
+	}
+
+	audienceGame := factory.NewGame().WithTitle("Just Watching").WithGM(gm.ID).Create()
+	factory.NewGameParticipant().ForGame(audienceGame.ID).WithUser(user.ID).WithRole("audience").Create()
+
+	resp, err := service.GetUserProfile(ctx, user.ID, 1, 12)
+	core.AssertNoError(t, err, "GetUserProfile should not error")
+	core.AssertEqual(t, 1, resp.Metadata.TotalCount, "Total count should include former player game but not plain audience game")
+}
+
 // Helper function to create string pointer
 func stringPtr(s string) *string {
 	return &s

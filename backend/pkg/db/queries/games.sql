@@ -238,6 +238,12 @@ SET role = $3
 WHERE game_id = $1 AND user_id = $2 AND status = 'active'
 RETURNING *;
 
+-- name: TransitionParticipantToAudience :one
+UPDATE game_participants
+SET role = 'audience', is_former_player = TRUE
+WHERE game_id = $1 AND user_id = $2 AND status = 'active'
+RETURNING *;
+
 -- name: GetParticipantByGameAndUser :one
 SELECT gp.*, u.username, u.email
 FROM game_participants gp

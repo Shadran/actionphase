@@ -205,7 +205,7 @@ export function PeopleView({
               )}
 
               {/* Active Participants */}
-              {['player', 'co_gm', 'audience'].map((role) => {
+              {['player', 'co_gm'].map((role) => {
                 const roleGameParticipants = participants.filter(p => p.role === role && p.status === 'active');
                 if (roleGameParticipants.length === 0) return null;
                 return (
@@ -222,18 +222,14 @@ export function PeopleView({
                           <div key={participant.id} className="border border-theme-default rounded-lg p-4 surface-raised" data-testid="participant-card">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 flex-1">
-                                {/* Avatar */}
                                 <CharacterAvatar
                                   avatarUrl={participant.avatar_url}
                                   characterName={participant.username}
                                   size="lg"
                                 />
-
-                                {/* Content */}
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
                                     <Link to={`/users/${participant.username}`} className="font-medium text-content-primary hover:underline">{participant.username}</Link>
-                                    {participant.role === 'audience' && <AudienceMemberBadge />}
                                     {isCurrentUser && <span className="text-xs text-content-tertiary">(You)</span>}
                                   </div>
                                   <div className="text-sm text-content-tertiary">
@@ -267,6 +263,125 @@ export function PeopleView({
                   </div>
                 );
               })}
+
+              {/* Former Players (transitioned to audience via permadeath) */}
+              {(() => {
+                const formerPlayers = participants.filter(p => p.role === 'audience' && p.is_former_player && p.status === 'active');
+                if (formerPlayers.length === 0) return null;
+                return (
+                  <div>
+                    <h3 className="font-semibold text-content-primary mb-2">
+                      Former Players ({formerPlayers.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {formerPlayers.map((participant) => {
+                        const isCurrentUser = participant.user_id === currentUserId;
+                        const canLeaveGame = !isGM && isCurrentUser && onLeaveGame && gameState !== 'completed' && gameState !== 'cancelled';
+                        return (
+                          <div key={participant.id} className="border border-theme-default rounded-lg p-4 surface-raised" data-testid="participant-card">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 flex-1">
+                                <CharacterAvatar
+                                  avatarUrl={participant.avatar_url}
+                                  characterName={participant.username}
+                                  size="lg"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <Link to={`/users/${participant.username}`} className="font-medium text-content-primary hover:underline">{participant.username}</Link>
+                                    {isCurrentUser && <span className="text-xs text-content-tertiary">(You)</span>}
+                                  </div>
+                                  <div className="text-sm text-content-tertiary">
+                                    Joined {new Date(participant.joined_at).toLocaleDateString()}
+                                  </div>
+                                  {canLeaveGame && (
+                                    <Button
+                                      variant="danger"
+                                      size="sm"
+                                      onClick={onLeaveGame}
+                                      disabled={actionLoading}
+                                      className="mt-2 text-content-primary hover:text-semantic-danger"
+                                    >
+                                      Leave Game
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {isGM && !isCurrentUser && gameState !== 'completed' && gameState !== 'cancelled' && (
+                                <ParticipantActionsMenu
+                                  gameId={gameId}
+                                  participant={participant}
+                                  isPrimaryGM={currentUserId === gmUserId}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Audience */}
+              {(() => {
+                const audienceMembers = participants.filter(p => p.role === 'audience' && !p.is_former_player && p.status === 'active');
+                if (audienceMembers.length === 0) return null;
+                return (
+                  <div>
+                    <h3 className="font-semibold text-content-primary mb-2">
+                      Audience ({audienceMembers.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {audienceMembers.map((participant) => {
+                        const isCurrentUser = participant.user_id === currentUserId;
+                        const canLeaveGame = !isGM && isCurrentUser && onLeaveGame && gameState !== 'completed' && gameState !== 'cancelled';
+                        return (
+                          <div key={participant.id} className="border border-theme-default rounded-lg p-4 surface-raised" data-testid="participant-card">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 flex-1">
+                                <CharacterAvatar
+                                  avatarUrl={participant.avatar_url}
+                                  characterName={participant.username}
+                                  size="lg"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <Link to={`/users/${participant.username}`} className="font-medium text-content-primary hover:underline">{participant.username}</Link>
+                                    <AudienceMemberBadge />
+                                    {isCurrentUser && <span className="text-xs text-content-tertiary">(You)</span>}
+                                  </div>
+                                  <div className="text-sm text-content-tertiary">
+                                    Joined {new Date(participant.joined_at).toLocaleDateString()}
+                                  </div>
+                                  {canLeaveGame && (
+                                    <Button
+                                      variant="danger"
+                                      size="sm"
+                                      onClick={onLeaveGame}
+                                      disabled={actionLoading}
+                                      className="mt-2 text-content-primary hover:text-semantic-danger"
+                                    >
+                                      Leave Game
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {isGM && !isCurrentUser && gameState !== 'completed' && gameState !== 'cancelled' && (
+                                <ParticipantActionsMenu
+                                  gameId={gameId}
+                                  participant={participant}
+                                  isPrimaryGM={currentUserId === gmUserId}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

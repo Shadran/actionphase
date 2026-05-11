@@ -100,6 +100,7 @@ CREATE TABLE game_participants (
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     removed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
     removed_by_user_id INTEGER DEFAULT NULL REFERENCES users(id) ON DELETE SET NULL,
+    is_former_player BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE(game_id, user_id)
 );
 

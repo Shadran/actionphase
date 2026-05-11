@@ -271,6 +271,7 @@ type GameParticipant struct {
 	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
 	RemovedAt       pgtype.Timestamptz `json:"removed_at"`
 	RemovedByUserID pgtype.Int4        `json:"removed_by_user_id"`
+	IsFormerPlayer  bool               `json:"is_former_player"`
 }
 
 type GamePhase struct {

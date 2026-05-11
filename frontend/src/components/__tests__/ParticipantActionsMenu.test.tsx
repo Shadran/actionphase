@@ -8,6 +8,7 @@ import type { GameParticipant, GameApplication } from '../../types/games';
 vi.mock('../../hooks/usePlayerManagement', () => ({
   usePromoteToCoGM: vi.fn(),
   useDemoteFromCoGM: vi.fn(),
+  useTransitionPlayerToAudience: vi.fn(),
   useRemovePlayer: vi.fn(),
 }));
 
@@ -22,7 +23,7 @@ vi.mock('../../lib/api', () => ({
   },
 }));
 
-import { usePromoteToCoGM, useDemoteFromCoGM, useRemovePlayer } from '../../hooks/usePlayerManagement';
+import { usePromoteToCoGM, useDemoteFromCoGM, useTransitionPlayerToAudience, useRemovePlayer } from '../../hooks/usePlayerManagement';
 import { apiClient } from '../../lib/api';
 
 const makeMutation = (overrides = {}) => ({
@@ -59,6 +60,7 @@ describe('ParticipantActionsMenu', () => {
     vi.clearAllMocks();
     vi.mocked(usePromoteToCoGM).mockReturnValue(makeMutation());
     vi.mocked(useDemoteFromCoGM).mockReturnValue(makeMutation());
+    vi.mocked(useTransitionPlayerToAudience).mockReturnValue(makeMutation());
     vi.mocked(useRemovePlayer).mockReturnValue(makeMutation());
   });
 
@@ -247,6 +249,89 @@ describe('ParticipantActionsMenu', () => {
       await user.click(screen.getByRole('button', { name: /^remove player$/i }));
       await waitFor(() => {
         expect(removeMutation.mutateAsync).toHaveBeenCalledWith(42);
+        expect(onSuccess).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Move to Audience', () => {
+    const playerParticipant: GameParticipant = { ...baseParticipant, role: 'player' };
+
+    it('shows Move to Audience for primary GM with player participant', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ParticipantActionsMenu
+          gameId={10}
+          participant={playerParticipant}
+          isPrimaryGM={true}
+        />
+      );
+      await user.click(screen.getByRole('button', { name: /participant actions/i }));
+      expect(screen.getByRole('menuitem', { name: /move to audience/i })).toBeInTheDocument();
+    });
+
+    it('does not show Move to Audience for non-primary GM', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ParticipantActionsMenu
+          gameId={10}
+          participant={playerParticipant}
+          isPrimaryGM={false}
+        />
+      );
+      await user.click(screen.getByRole('button', { name: /participant actions/i }));
+      expect(screen.queryByRole('menuitem', { name: /move to audience/i })).not.toBeInTheDocument();
+    });
+
+    it('does not show Move to Audience for audience participant', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ParticipantActionsMenu
+          gameId={10}
+          participant={baseParticipant}
+          isPrimaryGM={true}
+        />
+      );
+      await user.click(screen.getByRole('button', { name: /participant actions/i }));
+      expect(screen.queryByRole('menuitem', { name: /move to audience/i })).not.toBeInTheDocument();
+    });
+
+    it('submit button is disabled until "confirm" is typed', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ParticipantActionsMenu
+          gameId={10}
+          participant={playerParticipant}
+          isPrimaryGM={true}
+        />
+      );
+      await user.click(screen.getByRole('button', { name: /participant actions/i }));
+      await user.click(screen.getByRole('menuitem', { name: /move to audience/i }));
+      const submitButton = screen.getByRole('button', { name: /^move to audience$/i });
+      expect(submitButton).toBeDisabled();
+      await user.type(screen.getByPlaceholderText('confirm'), 'confirm');
+      expect(submitButton).not.toBeDisabled();
+    });
+
+    it('calls transitionToAudience.mutateAsync and fires onSuccess after typing confirm', async () => {
+      const user = userEvent.setup();
+      const transitionMutation = makeMutation();
+      vi.mocked(useTransitionPlayerToAudience).mockReturnValue(transitionMutation);
+      const onSuccess = vi.fn();
+      renderWithProviders(
+        <ParticipantActionsMenu
+          gameId={10}
+          participant={playerParticipant}
+          isPrimaryGM={true}
+          onSuccess={onSuccess}
+        />
+      );
+      await user.click(screen.getByRole('button', { name: /participant actions/i }));
+      await user.click(screen.getByRole('menuitem', { name: /move to audience/i }));
+      await user.type(screen.getByPlaceholderText('confirm'), 'confirm');
+      await user.click(screen.getByRole('button', { name: /^move to audience$/i }));
+      await waitFor(() => {
+        expect(transitionMutation.mutateAsync).toHaveBeenCalledWith(42);
         expect(onSuccess).toHaveBeenCalled();
       });
     });

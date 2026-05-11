@@ -102,9 +102,10 @@ func (h *Handler) GetGameParticipants(w http.ResponseWriter, r *http.Request) {
 			"user_id":  participant.UserID,
 			"username": participant.Username,
 			// Note: Email is intentionally omitted for privacy
-			"role":      participant.Role,
-			"status":    participant.Status,
-			"joined_at": participant.JoinedAt.Time,
+			"role":             participant.Role,
+			"status":           participant.Status,
+			"joined_at":        participant.JoinedAt.Time,
+			"is_former_player": participant.IsFormerPlayer,
 		}
 
 		// Include avatar_url if present
@@ -351,5 +352,49 @@ func (h *Handler) DemoteFromCoGM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.App.ObsLogger.Info(ctx, "Co-GM demoted to audience", "game_id", gameID, "demoted_user_id", targetUserID, "demoted_by", requestingUserID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// TransitionPlayerToAudience moves a player to audience role without deactivating their characters (primary GM only)
+func (h *Handler) TransitionPlayerToAudience(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_transition_player_to_audience")()
+
+	gameIDStr := chi.URLParam(r, "id")
+	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		return
+	}
+
+	userIDStr := chi.URLParam(r, "userId")
+	targetUserID, err := strconv.ParseInt(userIDStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid user ID")))
+		return
+	}
+
+	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	if errResp != nil {
+		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
+		render.Render(w, r, errResp)
+		return
+	}
+
+	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+
+	err = gameService.TransitionPlayerToAudience(ctx, int32(gameID), int32(targetUserID), requestingUserID)
+	if err != nil {
+		h.App.ObsLogger.Error(ctx, "Failed to transition player to audience", "error", err, "game_id", gameID, "user_id", targetUserID)
+		if err.Error() == "only the primary GM can transition players to audience" {
+			render.Render(w, r, core.ErrForbidden(err.Error()))
+			return
+		}
+		render.Render(w, r, core.ErrBadRequest(err))
+		return
+	}
+
+	h.App.ObsLogger.Info(ctx, "Player transitioned to audience", "game_id", gameID, "user_id", targetUserID, "transitioned_by", requestingUserID)
 	w.WriteHeader(http.StatusNoContent)
 }

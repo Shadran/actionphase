@@ -2,6 +2,7 @@ package games
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -252,6 +253,140 @@ func TestGameAPI_LeaveGame_WithPendingApplication(t *testing.T) {
 	).Scan(&countAfter)
 	require.NoError(t, err)
 	assert.Equal(t, 0, countAfter, "pending application should be deleted after leaving")
+}
+
+// TestGameAPI_TransitionPlayerToAudience tests POST /api/v1/games/{id}/participants/{userId}/to-audience
+func TestGameAPI_TransitionPlayerToAudience(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	audienceMember := testDB.CreateTestUser(t, "audience", "audience@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(audienceMember.ID), "audience")
+	require.NoError(t, err)
+
+	t.Run("GM transitions player to audience", func(t *testing.T) {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/participants/%d/to-audience", game.ID, player.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+
+		// Verify the participant's role changed to audience
+		participants, err := gameService.GetGameParticipants(context.Background(), game.ID)
+		require.NoError(t, err)
+		var playerRole string
+		for _, p := range participants {
+			if p.UserID == int32(player.ID) {
+				playerRole = p.Role
+			}
+		}
+		assert.Equal(t, "audience", playerRole)
+	})
+
+	t.Run("is_former_player is set to true after transition", func(t *testing.T) {
+		// Verify DB flag and that it is included in the participants API response
+		participants, err := gameService.GetGameParticipants(context.Background(), game.ID)
+		require.NoError(t, err)
+		var found bool
+		for _, p := range participants {
+			if p.UserID == int32(player.ID) {
+				found = true
+				assert.True(t, p.IsFormerPlayer, "is_former_player should be true after transition")
+			}
+		}
+		assert.True(t, found, "transitioned player should still appear in participants list")
+
+		// Verify the API response JSON includes is_former_player
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/participants", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		var playerEntry map[string]interface{}
+		for _, p := range resp {
+			if int(p["user_id"].(float64)) == player.ID {
+				playerEntry = p
+			}
+		}
+		require.NotNil(t, playerEntry, "player should appear in API response")
+		assert.Equal(t, true, playerEntry["is_former_player"])
+	})
+
+	t.Run("characters are NOT deactivated after transition", func(t *testing.T) {
+		// Use a fresh player so we have a known starting state
+		anotherPlayer := testDB.CreateTestUser(t, "player2", "player2@example.com")
+		_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(anotherPlayer.ID), "player")
+		require.NoError(t, err)
+
+		var charID int32
+		err = testDB.Pool.QueryRow(context.Background(),
+			`INSERT INTO characters (game_id, user_id, name, character_type, status, is_active)
+			 VALUES ($1, $2, 'Test Char', 'player_character', 'approved', true)
+			 RETURNING id`,
+			game.ID, anotherPlayer.ID,
+		).Scan(&charID)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/participants/%d/to-audience", game.ID, anotherPlayer.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+
+		var isActive bool
+		err = testDB.Pool.QueryRow(context.Background(),
+			"SELECT is_active FROM characters WHERE id = $1", charID,
+		).Scan(&isActive)
+		require.NoError(t, err)
+		assert.True(t, isActive, "character should remain active after transitioning player to audience")
+	})
+
+	t.Run("non-GM player cannot transition another player to audience", func(t *testing.T) {
+		yetAnotherPlayer := testDB.CreateTestUser(t, "player3", "player3@example.com")
+		_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(yetAnotherPlayer.ID), "player")
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/participants/%d/to-audience", game.ID, yetAnotherPlayer.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("cannot transition audience member (non-player) to audience", func(t *testing.T) {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/participants/%d/to-audience", game.ID, audienceMember.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 }
 
 // TestGameAPI_LeaveGame_NotAssociated documents the current behavior when a user

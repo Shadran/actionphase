@@ -14,7 +14,7 @@ import (
 const addGameParticipant = `-- name: AddGameParticipant :one
 INSERT INTO game_participants (game_id, user_id, role)
 VALUES ($1, $2, $3)
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type AddGameParticipantParams struct {
@@ -35,6 +35,7 @@ func (q *Queries) AddGameParticipant(ctx context.Context, arg AddGameParticipant
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }
@@ -48,7 +49,7 @@ SET removed_at = NULL,
     status = 'active',
     joined_at = NOW()
 WHERE game_participants.removed_at IS NOT NULL
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type AddParticipantDirectlyParams struct {
@@ -68,6 +69,7 @@ func (q *Queries) AddParticipantDirectly(ctx context.Context, arg AddParticipant
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }
@@ -166,7 +168,7 @@ SET removed_at = NULL,
     role = 'audience',
     joined_at = NOW()
 WHERE game_participants.removed_at IS NOT NULL OR game_participants.status = 'removed'
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type CreateAudienceApplicationParams struct {
@@ -187,6 +189,7 @@ func (q *Queries) CreateAudienceApplication(ctx context.Context, arg CreateAudie
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }
@@ -278,7 +281,7 @@ func (q *Queries) DisableAnonymousMode(ctx context.Context, id int32) error {
 }
 
 const getActiveParticipants = `-- name: GetActiveParticipants :many
-SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, u.username, u.email
+SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, gp.is_former_player, u.username, u.email
 FROM game_participants gp
 JOIN users u ON gp.user_id = u.id
 WHERE gp.game_id = $1 AND gp.removed_at IS NULL AND gp.status = 'active'
@@ -294,6 +297,7 @@ type GetActiveParticipantsRow struct {
 	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
 	RemovedAt       pgtype.Timestamptz `json:"removed_at"`
 	RemovedByUserID pgtype.Int4        `json:"removed_by_user_id"`
+	IsFormerPlayer  bool               `json:"is_former_player"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
 }
@@ -316,6 +320,7 @@ func (q *Queries) GetActiveParticipants(ctx context.Context, gameID int32) ([]Ge
 			&i.JoinedAt,
 			&i.RemovedAt,
 			&i.RemovedByUserID,
+			&i.IsFormerPlayer,
 			&i.Username,
 			&i.Email,
 		); err != nil {
@@ -409,7 +414,7 @@ func (q *Queries) GetGameParticipantCount(ctx context.Context, gameID int32) (in
 }
 
 const getGameParticipants = `-- name: GetGameParticipants :many
-SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, u.username, u.avatar_url
+SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, gp.is_former_player, u.username, u.avatar_url
 FROM game_participants gp
 JOIN users u ON gp.user_id = u.id
 WHERE gp.game_id = $1 AND gp.status = 'active'
@@ -425,6 +430,7 @@ type GetGameParticipantsRow struct {
 	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
 	RemovedAt       pgtype.Timestamptz `json:"removed_at"`
 	RemovedByUserID pgtype.Int4        `json:"removed_by_user_id"`
+	IsFormerPlayer  bool               `json:"is_former_player"`
 	Username        string             `json:"username"`
 	AvatarUrl       pgtype.Text        `json:"avatar_url"`
 }
@@ -447,6 +453,7 @@ func (q *Queries) GetGameParticipants(ctx context.Context, gameID int32) ([]GetG
 			&i.JoinedAt,
 			&i.RemovedAt,
 			&i.RemovedByUserID,
+			&i.IsFormerPlayer,
 			&i.Username,
 			&i.AvatarUrl,
 		); err != nil {
@@ -683,7 +690,7 @@ func (q *Queries) GetGamesNeedingStateUpdate(ctx context.Context) ([]Game, error
 }
 
 const getParticipantByGameAndUser = `-- name: GetParticipantByGameAndUser :one
-SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, u.username, u.email
+SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, gp.is_former_player, u.username, u.email
 FROM game_participants gp
 JOIN users u ON gp.user_id = u.id
 WHERE gp.game_id = $1 AND gp.user_id = $2 AND gp.status = 'active'
@@ -703,6 +710,7 @@ type GetParticipantByGameAndUserRow struct {
 	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
 	RemovedAt       pgtype.Timestamptz `json:"removed_at"`
 	RemovedByUserID pgtype.Int4        `json:"removed_by_user_id"`
+	IsFormerPlayer  bool               `json:"is_former_player"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
 }
@@ -719,6 +727,7 @@ func (q *Queries) GetParticipantByGameAndUser(ctx context.Context, arg GetPartic
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 		&i.Username,
 		&i.Email,
 	)
@@ -841,7 +850,7 @@ func (q *Queries) IsUserInGame(ctx context.Context, arg IsUserInGameParams) (boo
 }
 
 const listAudienceMembers = `-- name: ListAudienceMembers :many
-SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, u.username, u.email
+SELECT gp.id, gp.game_id, gp.user_id, gp.role, gp.status, gp.joined_at, gp.removed_at, gp.removed_by_user_id, gp.is_former_player, u.username, u.email
 FROM game_participants gp
 JOIN users u ON gp.user_id = u.id
 WHERE gp.game_id = $1 AND gp.role = 'audience' AND gp.status = 'active'
@@ -857,6 +866,7 @@ type ListAudienceMembersRow struct {
 	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
 	RemovedAt       pgtype.Timestamptz `json:"removed_at"`
 	RemovedByUserID pgtype.Int4        `json:"removed_by_user_id"`
+	IsFormerPlayer  bool               `json:"is_former_player"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
 }
@@ -879,6 +889,7 @@ func (q *Queries) ListAudienceMembers(ctx context.Context, gameID int32) ([]List
 			&i.JoinedAt,
 			&i.RemovedAt,
 			&i.RemovedByUserID,
+			&i.IsFormerPlayer,
 			&i.Username,
 			&i.Email,
 		); err != nil {
@@ -934,7 +945,7 @@ SET removed_at = NULL,
     removed_by_user_id = NULL,
     status = 'active'
 WHERE game_id = $1 AND user_id = $2 AND removed_at IS NOT NULL
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type RestoreParticipantParams struct {
@@ -954,6 +965,36 @@ func (q *Queries) RestoreParticipant(ctx context.Context, arg RestoreParticipant
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
+	)
+	return i, err
+}
+
+const transitionParticipantToAudience = `-- name: TransitionParticipantToAudience :one
+UPDATE game_participants
+SET role = 'audience', is_former_player = TRUE
+WHERE game_id = $1 AND user_id = $2 AND status = 'active'
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
+`
+
+type TransitionParticipantToAudienceParams struct {
+	GameID int32 `json:"game_id"`
+	UserID int32 `json:"user_id"`
+}
+
+func (q *Queries) TransitionParticipantToAudience(ctx context.Context, arg TransitionParticipantToAudienceParams) (GameParticipant, error) {
+	row := q.db.QueryRow(ctx, transitionParticipantToAudience, arg.GameID, arg.UserID)
+	var i GameParticipant
+	err := row.Scan(
+		&i.ID,
+		&i.GameID,
+		&i.UserID,
+		&i.Role,
+		&i.Status,
+		&i.JoinedAt,
+		&i.RemovedAt,
+		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }
@@ -1035,7 +1076,7 @@ gm_participant AS (
     INSERT INTO game_participants (game_id, user_id, role)
     VALUES ($1, (SELECT gu.gm_user_id FROM game_update gu), 'co_gm')
     ON CONFLICT (game_id, user_id) DO NOTHING
-    RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+    RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 )
 SELECT gu.id, gu.title, gu.description, gu.gm_user_id, gu.state, gu.genre, gu.start_date, gu.end_date, gu.recruitment_deadline, gu.max_players, gu.is_public, gu.is_anonymous, gu.auto_accept_audience, gu.allow_group_conversations, gu.portrait_avatars, gu.created_at, gu.updated_at FROM game_update gu
 `
@@ -1173,7 +1214,7 @@ const updateParticipantRole = `-- name: UpdateParticipantRole :one
 UPDATE game_participants
 SET role = $3
 WHERE game_id = $1 AND user_id = $2 AND status = 'active'
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type UpdateParticipantRoleParams struct {
@@ -1195,6 +1236,7 @@ func (q *Queries) UpdateParticipantRole(ctx context.Context, arg UpdateParticipa
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }
@@ -1203,7 +1245,7 @@ const updateParticipantStatus = `-- name: UpdateParticipantStatus :one
 UPDATE game_participants
 SET status = $3
 WHERE game_id = $1 AND user_id = $2
-RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id
+RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
 type UpdateParticipantStatusParams struct {
@@ -1224,6 +1266,7 @@ func (q *Queries) UpdateParticipantStatus(ctx context.Context, arg UpdatePartici
 		&i.JoinedAt,
 		&i.RemovedAt,
 		&i.RemovedByUserID,
+		&i.IsFormerPlayer,
 	)
 	return i, err
 }

@@ -144,6 +144,10 @@ export class GamesApi extends BaseApiClient {
     return this.client.post(`/api/v1/games/${gameId}/participants/${userId}/demote-from-co-gm`);
   }
 
+  async transitionPlayerToAudience(gameId: number, userId: number) {
+    return this.client.post(`/api/v1/games/${gameId}/participants/${userId}/to-audience`);
+  }
+
   // Audience Participation endpoints
   async listAudienceMembers(gameId: number) {
     return this.client.get<{ audience_members: GameParticipant[] }>(`/api/v1/games/${gameId}/audience`);
