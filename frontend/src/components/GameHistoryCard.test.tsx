@@ -58,7 +58,7 @@ describe('GameHistoryCard', () => {
   });
 
   it('displays Co-GM role badge correctly', () => {
-    const coGmGame = { ...mockGame, user_role: 'co-gm' };
+    const coGmGame = { ...mockGame, user_role: 'co_gm' };
     renderWithRouter(<GameHistoryCard game={coGmGame} />);
 
     expect(screen.getByText('Co-GM')).toBeInTheDocument();

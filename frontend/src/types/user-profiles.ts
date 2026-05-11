@@ -39,7 +39,7 @@ export interface UserGame {
   title: string;
   state: string;
   is_anonymous: boolean;
-  user_role: string; // "player", "gm", "co-gm", "audience"
+  user_role: string; // "player", "gm", "co_gm"
   gm_username: string;
   created_at: string; // ISO 8601 timestamp
   updated_at: string; // ISO 8601 timestamp

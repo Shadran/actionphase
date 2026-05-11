@@ -46,7 +46,10 @@ SELECT
     g.is_anonymous,
     g.gm_user_id,
     gm_user.username as gm_username,
-    COALESCE(gp.role, 'gm') as user_role,
+    CASE
+        WHEN gp.is_former_player = TRUE THEN 'player'
+        ELSE COALESCE(gp.role::text, 'gm')
+    END::text as user_role,
     g.created_at,
     g.updated_at,
     -- Character details (NULL for anonymous games)

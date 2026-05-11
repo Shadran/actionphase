@@ -87,6 +87,9 @@ export const FIXTURE_GAMES = {
   E2E_GM_MESSAGING: 'E2E Test: GM Messaging',              // in_progress with GM having multiple NPCs for messaging tests
   E2E_AUDIENCE_PM: 'E2E Test: Audience Private Messages',  // Game #360 - audience view of all private messages
 
+  // Player-to-audience (permadeath) transition tests (370, worker-specific)
+  PLAYER_TO_AUDIENCE: 'E2E Test: Player to Audience',
+
   // Legacy alias (deprecated - use COMMON_ROOM_POSTS instead)
   COMMON_ROOM_TEST: 'E2E Common Room - Posts',    // Alias for Game #164
 } as const;
@@ -591,5 +594,29 @@ export async function demoteFromCoGM(page: Page, gameId: number, userId: number)
     // 400 "not currently a co-GM" is idempotent — user is already audience, treat as success for cleanup
     if (result.status === 400 && result.body.includes('can only demote co-GMs')) return;
     throw new Error(`demoteFromCoGM failed with status ${result.status}: ${result.body}`);
+  }
+}
+
+/**
+ * Transition a player to audience via the API (primary GM must be logged in).
+ * This is the permadeath transition — it sets role='audience' and is_former_player=true.
+ * NOTE: This operation is irreversible via the API. Reset with fixture re-application.
+ *
+ * @param page - Playwright page (must be logged in as the primary GM)
+ * @param gameId - Game ID
+ * @param userId - Numeric user ID of the player to transition
+ */
+export async function transitionPlayerToAudience(page: Page, gameId: number, userId: number): Promise<void> {
+  const result = await page.evaluate(async (args: { gameId: number; userId: number }) => {
+    const response = await fetch(`/api/v1/games/${args.gameId}/participants/${args.userId}/to-audience`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const body = response.status !== 204 ? await response.text() : '';
+    return { status: response.status, body };
+  }, { gameId, userId });
+
+  if (result.status !== 200 && result.status !== 204) {
+    throw new Error(`transitionPlayerToAudience failed with status ${result.status}: ${result.body}`);
   }
 }

@@ -43,10 +43,10 @@ function getRoleBadgeVariant(role: string): 'primary' | 'success' | 'secondary' 
   switch (role) {
     case 'gm':
       return 'primary';
-    case 'co-gm':
+    case 'co_gm':
       return 'success';
     default:
-      return 'secondary'; // Player and other roles use secondary (has filled background)
+      return 'secondary';
   }
 }
 
@@ -55,7 +55,7 @@ function getRoleBadgeVariant(role: string): 'primary' | 'success' | 'secondary' 
  */
 function formatUserRole(role: string): string {
   if (role === 'gm') return 'GM';
-  if (role === 'co-gm') return 'Co-GM';
+  if (role === 'co_gm') return 'Co-GM';
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
