@@ -194,6 +194,24 @@ export class GamesApi extends BaseApiClient {
     return this.client.get<{ messages: AudienceConversationMessage[] }>(`/api/v1/games/${gameId}/private-messages/conversations/${conversationId}`);
   }
 
+  async uploadGameBanner(gameId: number, file: File) {
+    const formData = new FormData();
+    formData.append('banner', file);
+    return this.client.post<{ banner_url: string }>(
+      `/api/v1/games/${gameId}/banner`,
+      formData,
+      {
+        headers: {
+          'Content-Type': undefined, // Let axios set multipart boundary
+        },
+      }
+    );
+  }
+
+  async deleteGameBanner(gameId: number) {
+    return this.client.delete(`/api/v1/games/${gameId}/banner`);
+  }
+
   async listAllActionSubmissions(gameId: number, options?: { limit?: number; offset?: number; phaseId?: number }) {
     const params = new URLSearchParams();
     if (options?.limit) params.append('limit', options.limit.toString());

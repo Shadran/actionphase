@@ -151,6 +151,8 @@ func (h *Handler) Start() {
 			r.Put("/{id}", gameHandler.UpdateGame)
 			r.Delete("/{id}", gameHandler.DeleteGame)
 			r.Put("/{id}/state", gameHandler.UpdateGameState)
+			r.Post("/{id}/banner", gameHandler.UploadGameBanner)
+			r.Delete("/{id}/banner", gameHandler.DeleteGameBanner)
 
 			// Participant management
 			r.Delete("/{id}/leave", gameHandler.LeaveGame)

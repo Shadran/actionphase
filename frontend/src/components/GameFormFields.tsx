@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Input, Textarea, DateTimeInput, Checkbox, Radio } from './ui';
 import { HelpTooltip } from './ui/HelpTooltip';
 
@@ -18,12 +19,25 @@ export interface GameFormData {
 interface GameFormFieldsProps {
   formData: GameFormData;
   onChange: (field: keyof GameFormData, value: string | number | boolean) => void;
+  bannerUpload?: ReactNode;
 }
 
-export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 pt-1">
+      <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary whitespace-nowrap">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-border-primary" />
+    </div>
+  );
+}
+
+export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFieldsProps) => {
   return (
     <>
-      {/* Title */}
+      <SectionHeading>Basic Info</SectionHeading>
+
       <Input
         label="Game Title"
         id="title"
@@ -36,7 +50,6 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         data-testid="game-title"
       />
 
-      {/* Description */}
       <Textarea
         label="Description"
         id="description"
@@ -48,34 +61,38 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         data-testid="game-description"
       />
 
-      {/* Genre */}
-      <Input
-        label="Genre"
-        id="genre"
-        type="text"
-        optional
-        value={formData.genre}
-        onChange={(e) => onChange('genre', e.target.value)}
-        placeholder="e.g., Fantasy, Sci-Fi, Horror, Modern"
-        maxLength={100}
-      />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <Input
+            label="Genre"
+            id="genre"
+            type="text"
+            optional
+            value={formData.genre}
+            onChange={(e) => onChange('genre', e.target.value)}
+            placeholder="e.g., Fantasy, Sci-Fi, Horror, Modern"
+            maxLength={100}
+          />
+        </div>
+        <div>
+          <Input
+            label="Maximum Players"
+            id="max_players"
+            type="number"
+            optional
+            value={formData.max_players}
+            onChange={(e) => onChange('max_players', parseInt(e.target.value) || '')}
+            helperText="Default: 6"
+            min={1}
+            max={20}
+            placeholder="6"
+            data-testid="max-players"
+          />
+        </div>
+      </div>
 
-      {/* Max Players */}
-      <Input
-        label="Maximum Players"
-        id="max_players"
-        type="number"
-        optional
-        value={formData.max_players}
-        onChange={(e) => onChange('max_players', parseInt(e.target.value) || '')}
-        helperText="Leave empty for default (6 players)"
-        min={1}
-        max={20}
-        placeholder="6"
-        data-testid="max-players"
-      />
+      <SectionHeading>Schedule</SectionHeading>
 
-      {/* Dates */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <DateTimeInput
           label="Recruitment Deadline"
@@ -102,7 +119,8 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         />
       </div>
 
-      {/* Anonymous Mode */}
+      <SectionHeading>Settings</SectionHeading>
+
       <Checkbox
         id="is_anonymous"
         label="Anonymous Mode"
@@ -111,7 +129,6 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         onChange={(e) => onChange('is_anonymous', e.target.checked)}
       />
 
-      {/* Auto-Accept Audience */}
       <Checkbox
         id="auto_accept_audience"
         label="Auto-Accept Audience Members"
@@ -120,7 +137,6 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         onChange={(e) => onChange('auto_accept_audience', e.target.checked)}
       />
 
-      {/* Allow Group Conversations */}
       <Checkbox
         id="allow_group_conversations"
         label="Allow Group Conversations"
@@ -129,7 +145,8 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
         onChange={(e) => onChange('allow_group_conversations', e.target.checked)}
       />
 
-      {/* Avatar Style */}
+      <SectionHeading>Appearance</SectionHeading>
+
       <div>
         <div className="flex items-center gap-1 mb-2">
           <span className="text-sm font-medium text-content-primary">Avatar Style</span>
@@ -152,6 +169,8 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
           />
         </div>
       </div>
+
+      {bannerUpload}
     </>
   );
 };

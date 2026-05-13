@@ -77,6 +77,11 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		recruitmentDeadline = pgtype.Timestamptz{Time: *req.RecruitmentDeadline, Valid: true}
 	}
 
+	var bannerURL pgtype.Text
+	if req.BannerURL != nil {
+		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
+	}
+
 	game, err := queries.CreateGame(ctx, models.CreateGameParams{
 		Title:                   req.Title,
 		Description:             pgtype.Text{String: req.Description, Valid: req.Description != ""},
@@ -91,6 +96,7 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		AutoAcceptAudience:      req.AutoAcceptAudience,
 		AllowGroupConversations: req.AllowGroupConversations,
 		PortraitAvatars:         req.PortraitAvatars,
+		BannerUrl:               bannerURL,
 	})
 
 	if err != nil {
@@ -347,6 +353,11 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		recruitmentDeadline = pgtype.Timestamptz{Time: *req.RecruitmentDeadline, Valid: true}
 	}
 
+	var bannerURL pgtype.Text
+	if req.BannerURL != nil {
+		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
+	}
+
 	updatedGame, err := queries.UpdateGame(ctx, models.UpdateGameParams{
 		ID:                      req.ID,
 		Title:                   req.Title,
@@ -361,9 +372,25 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		AutoAcceptAudience:      req.AutoAcceptAudience,
 		AllowGroupConversations: req.AllowGroupConversations,
 		PortraitAvatars:         req.PortraitAvatars,
+		BannerUrl:               bannerURL,
 	})
 
 	return &updatedGame, err
+}
+
+// UpdateGameBannerURL sets or clears the banner_url for a game.
+// Pass nil to clear the banner.
+func (gs *GameService) UpdateGameBannerURL(ctx context.Context, gameID int32, bannerURL *string) error {
+	queries := models.New(gs.DB)
+	var pgBannerURL pgtype.Text
+	if bannerURL != nil {
+		pgBannerURL = pgtype.Text{String: *bannerURL, Valid: true}
+	}
+	_, err := queries.UpdateGameBannerURL(ctx, models.UpdateGameBannerURLParams{
+		ID:        gameID,
+		BannerUrl: pgBannerURL,
+	})
+	return err
 }
 
 // DeleteGame - Delete a cancelled game (GM-only)
@@ -680,6 +707,7 @@ func enrichedGameFromRow(row models.GetFilteredGamesRow) *core.EnrichedGameListI
 		AutoAcceptAudience:      row.AutoAcceptAudience,
 		AllowGroupConversations: row.AllowGroupConversations,
 		PortraitAvatars:         row.PortraitAvatars,
+		BannerURL:               nullTextToStringPtr(row.BannerUrl),
 		CreatedAt:               timestamptzToTime(row.CreatedAt),
 		UpdatedAt:               timestamptzToTime(row.UpdatedAt),
 		CurrentPlayers:          int32(row.CurrentPlayers),

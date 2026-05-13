@@ -62,6 +62,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		AutoAcceptAudience:      data.AutoAcceptAudience,
 		AllowGroupConversations: data.AllowGroupConversations,
 		PortraitAvatars:         data.PortraitAvatars,
+		BannerURL:               data.BannerURL,
 	})
 
 	if err != nil {
@@ -109,6 +110,9 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if game.MaxPlayers.Valid {
 		response.MaxPlayers = game.MaxPlayers.Int32
+	}
+	if game.BannerUrl.Valid {
+		response.BannerURL = &game.BannerUrl.String
 	}
 
 	render.Status(r, http.StatusCreated)
@@ -164,6 +168,9 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if game.MaxPlayers.Valid {
 		response.MaxPlayers = game.MaxPlayers.Int32
+	}
+	if game.BannerUrl.Valid {
+		response.BannerURL = &game.BannerUrl.String
 	}
 
 	render.Render(w, r, response)
@@ -355,6 +362,7 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 		AutoAcceptAudience:      data.AutoAcceptAudience,
 		AllowGroupConversations: data.AllowGroupConversations,
 		PortraitAvatars:         data.PortraitAvatars,
+		BannerURL:               data.BannerURL,
 	})
 
 	if err != nil {
@@ -392,6 +400,9 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if updatedGame.MaxPlayers.Valid {
 		response.MaxPlayers = updatedGame.MaxPlayers.Int32
+	}
+	if updatedGame.BannerUrl.Valid {
+		response.BannerURL = &updatedGame.BannerUrl.String
 	}
 
 	render.Render(w, r, response)
@@ -509,6 +520,9 @@ func (h *Handler) GetGameWithDetails(w http.ResponseWriter, r *http.Request) {
 	}
 	if game.MaxPlayers.Valid {
 		response.MaxPlayers = game.MaxPlayers.Int32
+	}
+	if game.BannerUrl.Valid {
+		response.BannerURL = &game.BannerUrl.String
 	}
 
 	render.Render(w, r, response)
@@ -671,6 +685,7 @@ func (h *Handler) GetFilteredGames(w http.ResponseWriter, r *http.Request) {
 			AutoAcceptAudience:      game.AutoAcceptAudience,
 			AllowGroupConversations: game.AllowGroupConversations,
 			PortraitAvatars:         game.PortraitAvatars,
+			BannerURL:               game.BannerURL,
 			CreatedAt:               game.CreatedAt,
 			UpdatedAt:               game.UpdatedAt,
 			CurrentPlayers:          game.CurrentPlayers,

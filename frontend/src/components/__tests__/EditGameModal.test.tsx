@@ -567,6 +567,7 @@ describe('EditGameModal', () => {
           auto_accept_audience: true,
           allow_group_conversations: expect.any(Boolean),
           portrait_avatars: expect.any(Boolean),
+          banner_url: null,
         });
       });
     });
