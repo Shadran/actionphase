@@ -5,7 +5,6 @@ import {
   getWorkerUsername,
   getParticipantUserId,
   getFixtureGameId,
-  transitionPlayerToAudience,
 } from '../fixtures/game-helpers';
 import { GameDetailsPage } from '../pages/GameDetailsPage';
 import { navigateToGameTab } from '../utils/navigation';
@@ -40,18 +39,6 @@ const player2Username = getWorkerUsername('TestPlayer2');
 // ============================================================================
 
 test.describe.serial('Player to Audience — UI Lifecycle', () => {
-  let player2UserId: number;
-
-  test.beforeAll(async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    try {
-      await loginAs(page, 'GM');
-      player2UserId = await getParticipantUserId(page, gameId, player2Username);
-    } finally {
-      await ctx.close();
-    }
-  });
 
   test('"Move to Audience" menu item is visible for primary GM on a player', async ({ page }) => {
     await loginAs(page, 'GM');
