@@ -36,6 +36,7 @@ type EnrichedGameListItem struct {
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
+	BannerURL               *string    `json:"banner_url,omitempty"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 	CurrentPlayers          int32      `json:"current_players"`

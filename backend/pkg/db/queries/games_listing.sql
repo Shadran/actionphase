@@ -17,6 +17,7 @@ SELECT
   g.auto_accept_audience,
   g.allow_group_conversations,
   g.portrait_avatars,
+  g.banner_url,
   g.created_at,
   g.updated_at,
 

@@ -13,6 +13,7 @@ export interface GameFormData {
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
+  banner_url?: string;
 }
 
 interface GameFormFieldsProps {
@@ -152,6 +153,17 @@ export const GameFormFields = ({ formData, onChange }: GameFormFieldsProps) => {
           />
         </div>
       </div>
+
+      {/* Banner Image */}
+      <Input
+        label="Banner Image URL"
+        id="banner_url"
+        type="url"
+        placeholder="https://example.com/my-game-banner.jpg"
+        helpText="A wide horizontal image (16:3 or similar) shown at the top of your game page. Landscape or abstract art works best."
+        value={formData.banner_url ?? ''}
+        onChange={(e) => onChange('banner_url', e.target.value)}
+      />
     </>
   );
 };

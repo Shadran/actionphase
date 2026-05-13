@@ -1,0 +1,210 @@
+package games
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"actionphase/pkg/core"
+	db "actionphase/pkg/db/services"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
+)
+
+const maxBannerSize = 5 * 1024 * 1024 // 5MB
+
+var allowedBannerMimeTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/webp": true,
+}
+
+// UploadGameBanner handles POST /api/v1/games/{id}/banner
+func (h *Handler) UploadGameBanner(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	gameID, err := parseBannerGameID(r)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(err))
+		return
+	}
+
+	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	if errResp != nil {
+		render.Render(w, r, errResp)
+		return
+	}
+
+	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	game, err := gameService.GetGame(ctx, gameID)
+	if err != nil {
+		render.Render(w, r, core.ErrNotFound("Game not found"))
+		return
+	}
+	if game.GmUserID != userID {
+		render.Render(w, r, core.ErrForbidden("Only the GM can update the game banner"))
+		return
+	}
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("failed to parse multipart form: %w", err)))
+		return
+	}
+
+	file, header, err := r.FormFile("banner")
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("missing 'banner' file in request")))
+		return
+	}
+	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = bannerMimeTypeFromFilename(header.Filename)
+	}
+
+	if !allowedBannerMimeTypes[contentType] {
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid file type %s. Only JPG, PNG, and WebP images are allowed", contentType)))
+		return
+	}
+
+	fileData, err := readAndValidateBannerSize(file)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(err))
+		return
+	}
+
+	// Delete old banner if exists
+	if game.BannerUrl.Valid && game.BannerUrl.String != "" {
+		oldPath := extractBannerPathFromURL(game.BannerUrl.String)
+		_ = h.App.Storage.Delete(ctx, oldPath)
+	}
+
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = bannerExtFromMime(contentType)
+	}
+	storagePath := fmt.Sprintf("banners/games/%d/%d%s", gameID, time.Now().Unix(), ext)
+
+	bannerURL, err := h.App.Storage.Upload(ctx, storagePath, fileData, contentType)
+	if err != nil {
+		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to upload banner: %w", err)))
+		return
+	}
+
+	if err := gameService.UpdateGameBannerURL(ctx, gameID, &bannerURL); err != nil {
+		_ = h.App.Storage.Delete(ctx, storagePath)
+		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to save banner URL: %w", err)))
+		return
+	}
+
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, map[string]string{"banner_url": bannerURL})
+}
+
+// DeleteGameBanner handles DELETE /api/v1/games/{id}/banner
+func (h *Handler) DeleteGameBanner(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	gameID, err := parseBannerGameID(r)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(err))
+		return
+	}
+
+	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	if errResp != nil {
+		render.Render(w, r, errResp)
+		return
+	}
+
+	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	game, err := gameService.GetGame(ctx, gameID)
+	if err != nil {
+		render.Render(w, r, core.ErrNotFound("Game not found"))
+		return
+	}
+	if game.GmUserID != userID {
+		render.Render(w, r, core.ErrForbidden("Only the GM can remove the game banner"))
+		return
+	}
+
+	if game.BannerUrl.Valid && game.BannerUrl.String != "" {
+		oldPath := extractBannerPathFromURL(game.BannerUrl.String)
+		_ = h.App.Storage.Delete(ctx, oldPath)
+	}
+
+	if err := gameService.UpdateGameBannerURL(ctx, gameID, nil); err != nil {
+		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to remove banner: %w", err)))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseBannerGameID(r *http.Request) (int32, error) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid game ID")
+	}
+	return int32(id), nil
+}
+
+func readAndValidateBannerSize(file io.Reader) (io.Reader, error) {
+	limited := io.LimitReader(file, maxBannerSize+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	if int64(len(data)) > maxBannerSize {
+		return nil, fmt.Errorf("image too large. Maximum size is 5MB")
+	}
+	return strings.NewReader(string(data)), nil
+}
+
+func extractBannerPathFromURL(url string) string {
+	if index := strings.LastIndex(url, "banners/"); index != -1 {
+		return url[index:]
+	}
+	if index := strings.LastIndex(url, "avatars/"); index != -1 {
+		return url[index:]
+	}
+	if lastSlash := strings.LastIndex(url, "/"); lastSlash != -1 {
+		return url[lastSlash+1:]
+	}
+	return url
+}
+
+func bannerMimeTypeFromFilename(filename string) string {
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+func bannerExtFromMime(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	default:
+		return ""
+	}
+}

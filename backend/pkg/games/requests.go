@@ -19,6 +19,7 @@ type CreateGameRequest struct {
 	AutoAcceptAudience      bool                `json:"auto_accept_audience"`
 	AllowGroupConversations bool                `json:"allow_group_conversations"`
 	PortraitAvatars         bool                `json:"portrait_avatars"`
+	BannerURL               *string             `json:"banner_url,omitempty"`
 }
 
 func (r *CreateGameRequest) Bind(req *http.Request) error {
@@ -48,6 +49,7 @@ type UpdateGameRequest struct {
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
+	BannerURL               *string    `json:"banner_url,omitempty"`
 }
 
 func (r *UpdateGameRequest) Bind(req *http.Request) error {

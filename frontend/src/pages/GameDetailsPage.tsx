@@ -9,6 +9,7 @@ import { useGameStateManagement } from '../hooks/useGameStateManagement';
 import { useGameTabs } from '../hooks/useGameTabs';
 import { usePollsByPhase } from '../hooks';
 import { GameHeader } from '../components/GameHeader';
+import { GameBanner } from '../components/GameBanner';
 import { GameApplicationStatus } from '../components/GameApplicationStatus';
 import { GameActions } from '../components/GameActions';
 import { GameInfoGrid } from '../components/GameInfoGrid';
@@ -278,7 +279,13 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
 
   return (
     <div className="min-h-screen surface-page">
-      <div className="max-w-6xl mx-auto py-8 md:px-4">
+      {/* Banner: full-bleed on mobile, constrained on desktop */}
+      {game.banner_url && (
+        <div className="max-w-6xl mx-auto md:px-4 md:pt-4">
+          <GameBanner bannerUrl={game.banner_url} />
+        </div>
+      )}
+      <div className="max-w-6xl mx-auto py-4 md:py-8 md:px-4">
         {/* Public Archive Notice */}
         {isPublicViewer && (
           <div className="bg-interactive-primary/10 border border-interactive-primary md:rounded-lg py-3 px-3 md:p-4 mb-6">

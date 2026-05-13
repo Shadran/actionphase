@@ -13,6 +13,7 @@ export interface Game {
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
+  banner_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +64,7 @@ export interface CreateGameRequest {
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
+  banner_url?: string | null;
 }
 
 export interface UpdateGameRequest extends CreateGameRequest {

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { GameWithDetails, UpdateGameRequest } from '../types/games';
 import { apiClient } from '../lib/api';
 import { Button, Alert } from './ui';
 import { Modal } from './Modal';
 import { GameFormFields, type GameFormData } from './GameFormFields';
 import { convertToISO8601, formatDateTimeLocal } from '../lib/utils/dates';
+import { useUploadGameBanner, useDeleteGameBanner } from '../hooks/useGameBanner';
 
 interface EditGameModalProps {
   game: GameWithDetails;
@@ -14,6 +15,10 @@ interface EditGameModalProps {
 }
 
 export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGameModalProps) {
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const uploadBanner = useUploadGameBanner();
+  const deleteBanner = useDeleteGameBanner();
+
   const [formData, setFormData] = useState<GameFormData>({
     title: '',
     description: '',
@@ -26,6 +31,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
     auto_accept_audience: false,
     allow_group_conversations: true,
     portrait_avatars: false,
+    banner_url: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +51,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         auto_accept_audience: game.auto_accept_audience || false,
         allow_group_conversations: game.allow_group_conversations ?? true,
         portrait_avatars: game.portrait_avatars ?? false,
+        banner_url: game.banner_url ?? '',
       });
       setError(null);
     }
@@ -84,6 +91,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         auto_accept_audience: formData.auto_accept_audience,
         allow_group_conversations: formData.allow_group_conversations ?? true,
         portrait_avatars: formData.portrait_avatars ?? false,
+        banner_url: formData.banner_url?.trim() || null,
       };
 
       await apiClient.games.updateGame(game.id, updateData);
@@ -109,6 +117,63 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
           formData={formData}
           onChange={handleChange}
         />
+
+        {/* Banner image upload */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-text-primary">Game Banner</label>
+          {game.banner_url && (
+            <div className="relative w-full h-[80px] rounded overflow-hidden">
+              <img
+                src={game.banner_url}
+                alt="Current game banner"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => bannerInputRef.current?.click()}
+              loading={uploadBanner.isPending}
+              disabled={deleteBanner.isPending}
+            >
+              {game.banner_url ? 'Replace Banner' : 'Upload Banner'}
+            </Button>
+            {game.banner_url && (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() => deleteBanner.mutate(game.id, { onSuccess: onGameUpdated })}
+                loading={deleteBanner.isPending}
+                disabled={uploadBanner.isPending}
+              >
+                Remove Banner
+              </Button>
+            )}
+          </div>
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                uploadBanner.mutate({ gameId: game.id, file }, { onSuccess: onGameUpdated });
+              }
+              e.target.value = '';
+            }}
+          />
+          {uploadBanner.isError && (
+            <p className="text-sm text-red-600">Failed to upload banner. Please try again.</p>
+          )}
+          {deleteBanner.isError && (
+            <p className="text-sm text-red-600">Failed to remove banner. Please try again.</p>
+          )}
+        </div>
 
         <div className="flex gap-3 pt-4">
           <Button

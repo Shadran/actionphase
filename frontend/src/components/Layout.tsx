@@ -289,7 +289,7 @@ export const Layout = ({ children }: LayoutProps) => {
       )}
 
       {/* Main Content */}
-      <main className="py-6">
+      <main className="py-2">
         {children}
       </main>
 

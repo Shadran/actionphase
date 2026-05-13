@@ -21,6 +21,7 @@ type GameResponse struct {
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
+	BannerURL               *string    `json:"banner_url,omitempty"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 }
@@ -46,6 +47,7 @@ type GameWithDetailsResponse struct {
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
+	BannerURL               *string    `json:"banner_url,omitempty"`
 	CurrentPlayers          int64      `json:"current_players"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
@@ -92,6 +94,7 @@ type EnrichedGameListItemResponse struct {
 	AutoAcceptAudience      bool       `json:"auto_accept_audience"`
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
+	BannerURL               *string    `json:"banner_url,omitempty"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 	CurrentPlayers          int32      `json:"current_players"`

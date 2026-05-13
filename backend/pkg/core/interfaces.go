@@ -296,6 +296,7 @@ type CreateGameRequest struct {
 	AutoAcceptAudience      bool
 	AllowGroupConversations bool
 	PortraitAvatars         bool
+	BannerURL               *string
 }
 
 // UpdateGameRequest represents the parameters needed to update an existing game
@@ -313,6 +314,7 @@ type UpdateGameRequest struct {
 	AutoAcceptAudience      bool
 	AllowGroupConversations bool
 	PortraitAvatars         bool
+	BannerURL               *string
 }
 
 // PhaseServiceInterface defines the contract for game phase management operations.
