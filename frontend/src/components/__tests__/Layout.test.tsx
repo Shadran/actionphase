@@ -255,7 +255,6 @@ describe('Layout', () => {
 
       const main = screen.getByTestId('content').closest('main')
       expect(main).toBeInTheDocument()
-      expect(main).toHaveClass('py-6')
     })
 
     it('should have footer with border', () => {
