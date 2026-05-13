@@ -38,6 +38,8 @@ services:
       PORT: 3000
       HOST: 0.0.0.0
       RUN_MIGRATIONS: "true"
+    volumes:
+      - uploads:/root/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -63,6 +65,8 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    volumes:
+      - uploads:/usr/share/nginx/html/uploads
     depends_on:
       backend:
         condition: service_healthy
@@ -81,4 +85,6 @@ networks:
 
 volumes:
   pgdata:
+    driver: local
+  uploads:
     driver: local

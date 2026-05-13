@@ -42,7 +42,7 @@ services:
         max-file: "5"
     # Mount for file uploads if needed
     volumes:
-      - ./uploads:/app/uploads
+      - ./uploads:/root/uploads
 
   # Frontend - Production Config
   frontend:
