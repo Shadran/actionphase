@@ -34,6 +34,8 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && game) {
@@ -51,6 +53,8 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         portrait_avatars: game.portrait_avatars ?? false,
       });
       setError(null);
+      setPendingBannerFile(null);
+      setBannerPreviewUrl(null);
     }
   }, [isOpen, game]);
 
@@ -104,39 +108,85 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
   const bannerUpload = (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-text-primary">Game Banner <span className="text-content-secondary font-normal">(optional)</span></label>
-      {game.banner_url && (
-        <div className="relative w-full h-[80px] rounded overflow-hidden">
+
+      {/* Preview: pending selection takes priority over existing banner */}
+      {(bannerPreviewUrl || game.banner_url) && (
+        <div className="w-full rounded overflow-hidden" style={{ aspectRatio: '6/1' }}>
           <img
-            src={game.banner_url}
-            alt="Current game banner"
+            src={bannerPreviewUrl ?? game.banner_url!}
+            alt="Game banner"
             className="w-full h-full object-cover"
           />
         </div>
       )}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => bannerInputRef.current?.click()}
-          loading={uploadBanner.isPending}
-          disabled={deleteBanner.isPending}
-        >
-          {game.banner_url ? 'Replace Banner' : 'Upload Banner'}
-        </Button>
-        {game.banner_url && (
+
+      {/* Pending selection: confirm or discard before uploading */}
+      {bannerPreviewUrl ? (
+        <div className="flex gap-2">
           <Button
             type="button"
-            variant="danger"
+            variant="primary"
             size="sm"
-            onClick={() => deleteBanner.mutate(game.id, { onSuccess: onGameUpdated })}
-            loading={deleteBanner.isPending}
-            disabled={uploadBanner.isPending}
+            onClick={() => {
+              if (pendingBannerFile) {
+                uploadBanner.mutate({ gameId: game.id, file: pendingBannerFile }, {
+                  onSuccess: () => {
+                    URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerPreviewUrl(null);
+                    setPendingBannerFile(null);
+                    onGameUpdated();
+                  },
+                  onError: () => {
+                    URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerPreviewUrl(null);
+                    setPendingBannerFile(null);
+                  },
+                });
+              }
+            }}
+            loading={uploadBanner.isPending}
           >
-            Remove Banner
+            Use this image
           </Button>
-        )}
-      </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={uploadBanner.isPending}
+            onClick={() => {
+              URL.revokeObjectURL(bannerPreviewUrl);
+              setBannerPreviewUrl(null);
+              setPendingBannerFile(null);
+            }}
+          >
+            Choose different
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => bannerInputRef.current?.click()}
+            disabled={deleteBanner.isPending}
+          >
+            {game.banner_url ? 'Replace Banner' : 'Upload Banner'}
+          </Button>
+          {game.banner_url && (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => deleteBanner.mutate(game.id, { onSuccess: onGameUpdated })}
+              loading={deleteBanner.isPending}
+            >
+              Remove Banner
+            </Button>
+          )}
+        </div>
+      )}
+
       <input
         ref={bannerInputRef}
         type="file"
@@ -145,7 +195,9 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
-            uploadBanner.mutate({ gameId: game.id, file }, { onSuccess: onGameUpdated });
+            if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+            setBannerPreviewUrl(URL.createObjectURL(file));
+            setPendingBannerFile(file);
           }
           e.target.value = '';
         }}
