@@ -285,7 +285,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
           <GameBanner bannerUrl={game.banner_url} />
         </div>
       )}
-      <div className="max-w-6xl mx-auto py-4 md:py-8 md:px-4">
+      <div className={`max-w-6xl mx-auto md:px-4 ${game.banner_url ? 'py-0 md:py-0' : 'py-4 md:py-8'}`}>
         {/* Public Archive Notice */}
         {isPublicViewer && (
           <div className="bg-interactive-primary/10 border border-interactive-primary md:rounded-lg py-3 px-3 md:p-4 mb-6">
@@ -323,7 +323,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
         )}
 
         {/* Header - Compact Layout */}
-        <div className="surface-base md:rounded-lg shadow-md py-4 px-3 md:p-6 mb-6">
+        <div className={`surface-base shadow-md py-4 px-3 md:p-6 mb-6 ${game.banner_url ? 'md:rounded-b-lg' : 'md:rounded-lg'}`}>
           {/* Compact Header with integrated action menu */}
           <GameHeader
             game={game}
