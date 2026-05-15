@@ -567,8 +567,10 @@ describe('EditGameModal', () => {
           auto_accept_audience: true,
           allow_group_conversations: expect.any(Boolean),
           portrait_avatars: expect.any(Boolean),
-          banner_url: null,
         });
+        // banner_url must NOT be in the payload — the upload/delete mutations manage it
+        // independently, and including it here would overwrite a freshly uploaded banner
+        expect(requestBody).not.toHaveProperty('banner_url');
       });
     });
 
@@ -641,6 +643,41 @@ describe('EditGameModal', () => {
       await waitFor(() => {
         expect(requestBody.genre).toBeUndefined();
         expect(requestBody.max_players).toBeUndefined();
+      });
+    });
+
+    it('does not include banner_url in update payload even when game has an existing banner', async () => {
+      const user = userEvent.setup();
+      let requestBody: unknown = null;
+
+      server.use(
+        http.put('/api/v1/games/:id', async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json({ ...mockGame, ...requestBody });
+        })
+      );
+
+      const gameWithBanner: GameWithDetails = {
+        ...mockGame,
+        banner_url: 'https://example.com/banner.png',
+      };
+
+      renderWithProviders(
+        <EditGameModal
+          game={gameWithBanner}
+          isOpen={true}
+          onClose={mockOnClose}
+          onGameUpdated={mockOnGameUpdated}
+        />
+      );
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i });
+      await user.click(saveButton);
+
+      await waitFor(() => {
+        // Saving the form must not touch banner_url — a banner uploaded just before
+        // clicking Save would be overwritten if this field were included
+        expect(requestBody).not.toHaveProperty('banner_url');
       });
     });
 

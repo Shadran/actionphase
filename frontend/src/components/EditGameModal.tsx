@@ -93,7 +93,6 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         auto_accept_audience: formData.auto_accept_audience,
         allow_group_conversations: formData.allow_group_conversations ?? true,
         portrait_avatars: formData.portrait_avatars ?? false,
-        banner_url: game.banner_url ?? null,
       };
 
       await apiClient.games.updateGame(game.id, updateData);

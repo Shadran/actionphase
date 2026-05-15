@@ -1015,7 +1015,8 @@ const updateGame = `-- name: UpdateGame :one
 UPDATE games
 SET title = $2, description = $3, genre = $4, start_date = $5,
     end_date = $6, recruitment_deadline = $7, max_players = $8,
-    is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13, banner_url = $14, updated_at = NOW()
+    is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13,
+    banner_url = COALESCE($14, banner_url), updated_at = NOW()
 WHERE id = $1
 RETURNING id, title, description, gm_user_id, state, genre, start_date, end_date, recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url, created_at, updated_at
 `

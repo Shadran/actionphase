@@ -30,7 +30,8 @@ RETURNING *;
 UPDATE games
 SET title = $2, description = $3, genre = $4, start_date = $5,
     end_date = $6, recruitment_deadline = $7, max_players = $8,
-    is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13, banner_url = $14, updated_at = NOW()
+    is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13,
+    banner_url = COALESCE($14, banner_url), updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 
