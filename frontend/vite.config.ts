@@ -59,7 +59,8 @@ export default defineConfig({
     },
     // Increase chunk size warning limit since we're now splitting intentionally
     chunkSizeWarningLimit: 1000,
-    modulePreload: false
+    modulePreload: false,
+    minify: 'esbuild',
   },
   esbuild: {
     supported: {
