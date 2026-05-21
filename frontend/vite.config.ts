@@ -8,7 +8,8 @@ export default defineConfig({
   plugins: [
       react(),
       legacy({
-        targets: ['ios >= 13', 'chrome >= 64']
+        targets: ['ios >= 13', 'chrome >= 64'],
+        renderModernChunks: false
       })
   ],
   resolve: {
