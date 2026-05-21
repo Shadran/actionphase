@@ -1,10 +1,16 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 import { fileURLToPath, URL } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+      react(),
+      legacy({
+        targets: ['ios >= 13', 'chrome >= 64']
+      })
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -53,6 +59,11 @@ export default defineConfig({
     },
     // Increase chunk size warning limit since we're now splitting intentionally
     chunkSizeWarningLimit: 1000,
+  },
+  esbuild: {
+    supported: {
+      destructuring: true
+    }
   },
   test: {
     environment: 'jsdom',
