@@ -15,8 +15,14 @@ function fixLegacySystemJSLoading() {
       ).replace(
           '</body>',
           `<script>
-          document.getElementById('vite-legacy-polyfill').onload = function() {
-            System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'));
+          window.onerror = function(msg, src, line, col, err) {
+            document.body.innerHTML = '<div style="padding:20px;font-family:monospace;font-size:12px;word-break:break-all">'
+              + '<b>Error:</b> ' + msg + '<br><br>'
+              + '<b>Source:</b> ' + src + '<br>'
+              + '<b>Line:</b> ' + line + '<br><br>'
+              + (err && err.stack ? '<b>Stack:</b><br>' + err.stack.replace(/\\n/g, '<br>') : '')
+              + '</div>';
+            return false;
           };
         </script>
         </body>`
