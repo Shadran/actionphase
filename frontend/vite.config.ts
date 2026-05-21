@@ -3,14 +3,37 @@ import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { fileURLToPath, URL } from 'node:url'
 
+function fixLegacySystemJSLoading() {
+  return {
+    name: 'fix-legacy-systemjs-loading',
+    transformIndexHtml(html: string) {
+      // Replace the bare System.import inline script with one that
+      // waits for the polyfills (and therefore SystemJS) to load first
+      return html.replace(
+          /(<script[^>]*id="vite-legacy-entry"[^>]*>)System\.import\([^)]+\)(<\/script>)/,
+          '$1$2'
+      ).replace(
+          '</body>',
+          `<script>
+          document.getElementById('vite-legacy-polyfill').onload = function() {
+            System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'));
+          };
+        </script>
+        </body>`
+      );
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
       react(),
       legacy({
         targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
-        modernTargets: ['chrome >= 80', 'firefox >= 75', 'safari >= 16'],
-      })
+        renderModernChunks: false,
+      }),
+      fixLegacySystemJSLoading(),
   ],
   resolve: {
     alias: {
