@@ -72,7 +72,6 @@
     "globals": "^16.3.0",
     "jsdom": "^26.1.0",
     "msw": "^2.11.5",
-    "terser": "^5.47.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.35.1",
     "vite": "^7.0.4",
