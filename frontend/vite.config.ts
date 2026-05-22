@@ -38,6 +38,46 @@ function ios15RegExpPolyfill() {
   };
 }
 
+function fixLegacyLoading() {
+  return {
+    name: 'fix-legacy-loading',
+    transformIndexHtml(html: string) {
+      // Fix SystemJS race condition where the entry script runs before
+      // the polyfills (which contain SystemJS) have finished loading
+      html = html.replace(
+          /(<script[^>]*id="vite-legacy-entry"[^>]*>)System\.import\([^)]+\)(<\/script>)/,
+          '$1$2'
+      );
+
+      // Add error overlay for debugging on old devices + deferred SystemJS load
+      html = html.replace(
+          '</body>',
+          `<script>
+          window.onerror = function(msg, src, line, col, err) {
+            document.body.innerHTML = '<div style="padding:20px;font-family:monospace;font-size:12px;word-break:break-all">'
+              + '<b>Error:</b> ' + msg + '<br><br>'
+              + '<b>Source:</b> ' + src + '<br>'
+              + '<b>Line:</b> ' + line + '<br><br>'
+              + (err && err.stack ? '<b>Stack:</b><br>' + err.stack.replace(/\\n/g, '<br>') : '')
+              + '</div>';
+            return false;
+          };
+          var polyfillScript = document.getElementById('vite-legacy-polyfill');
+          if (polyfillScript) {
+            polyfillScript.onload = function() {
+              System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'));
+            };
+          }
+        </script>
+        </body>`
+      );
+
+      return html;
+    },
+  };
+}
+
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -46,7 +86,8 @@ export default defineConfig({
         targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
         renderModernChunks: false,
       }),
-    ios15RegExpPolyfill()
+      ios15RegExpPolyfill(),
+      fixLegacyLoading(),
   ],
   resolve: {
     alias: {
