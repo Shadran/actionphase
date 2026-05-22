@@ -44,6 +44,7 @@ export default defineConfig({
       react(),
       legacy({
         targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
+        renderModernChunks: false,
       }),
     ios15RegExpPolyfill()
   ],
