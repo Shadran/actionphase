@@ -30,15 +30,30 @@ function ios15RegExpPolyfill() {
   return {
     name: 'ios15-regexp-polyfill',
     transformIndexHtml(html: string) {
-      return html.replace(
+      // Inject RegExp polyfill at top of head
+      html = html.replace(
           '<head>',
           `<head>\n    <script>${polyfill}</script>`
       );
-    },
+      // Override Vite's modern browser detection for iOS 15
+      // iOS 15 passes the ES module checks but doesn't support named capture groups
+      html = html.replace(
+          '</head>',
+          `<script>
+      (function() {
+        var ua = navigator.userAgent;
+        var iOSMatch = ua.match(/OS (\\d+)_/);
+        if (iOSMatch && parseInt(iOSMatch[1]) < 16) {
+          window.__vite_is_modern_browser = false;
+        }
+      })();
+    </script>
+    </head>`
+      );
+      return html;
+    }
   };
 }
-
-
 
 // https://vite.dev/config/
 export default defineConfig({
