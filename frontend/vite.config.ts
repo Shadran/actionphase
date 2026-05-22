@@ -6,10 +6,10 @@ import { fileURLToPath, URL } from 'node:url'
 // Injects a runtime RegExp polyfill for iOS 15, which doesn't support named
 // capture groups (e.g. (?<name>...)). The polyfill patches the RegExp constructor
 // to strip named group syntax before handing off to the native implementation.
-// This runs before any other JS, so remark-gfm and other libraries are covered.
+// This runs before any other JS on the page, so remark-gfm and other libraries
+// that use new RegExp() at runtime are covered.
 function ios15RegExpPolyfill() {
-  const polyfill = `
-    (function() {
+  const polyfill = `(function() {
       try {
         new RegExp('(?<test>a)');
       } catch(e) {
@@ -24,45 +24,27 @@ function ios15RegExpPolyfill() {
         PatchedRegExp.escape = OriginalRegExp.escape;
         window.RegExp = PatchedRegExp;
       }
-    })();
-  `.trim();
+    })();`;
 
   return {
     name: 'ios15-regexp-polyfill',
     transformIndexHtml(html: string) {
-      // Inject RegExp polyfill at top of head
-      html = html.replace(
+      return html.replace(
           '<head>',
           `<head>\n    <script>${polyfill}</script>`
       );
-      // Override Vite's modern browser detection for iOS 15
-      // iOS 15 passes the ES module checks but doesn't support named capture groups
-      html = html.replace(
-          '</head>',
-          `<script>
-      (function() {
-        var ua = navigator.userAgent;
-        var iOSMatch = ua.match(/OS (\\d+)_/);
-        if (iOSMatch && parseInt(iOSMatch[1]) < 16) {
-          window.__vite_is_modern_browser = false;
-        }
-      })();
-    </script>
-    </head>`
-      );
-      return html;
-    }
+    },
   };
 }
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-      react(),
-      legacy({
-        targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
-      }),
-      ios15RegExpPolyfill(),
+    react(),
+    legacy({
+      targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
+    }),
+    ios15RegExpPolyfill(),
   ],
   resolve: {
     alias: {
@@ -101,7 +83,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Vendor chunks - separate large dependencies
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-ui': ['@headlessui/react', '@heroicons/react', 'lucide-react'],
@@ -110,23 +91,19 @@ export default defineConfig({
         },
       },
     },
-    // Increase chunk size warning limit since we're now splitting intentionally
     chunkSizeWarningLimit: 1000,
     modulePreload: false,
     minify: 'esbuild',
   },
   esbuild: {
     supported: {
-      destructuring: true
-    }
+      destructuring: true,
+    },
   },
   test: {
     environment: 'jsdom',
     server: {
       deps: {
-        // react-datepicker ships an ES module that imports named exports from
-        // react/jsx-runtime, which jsdom can't resolve without transformation.
-        // Inlining it forces Vitest to transform it through the Vite pipeline.
         inline: ['react-datepicker'],
       },
     },
