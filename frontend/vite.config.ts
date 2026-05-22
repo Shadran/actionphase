@@ -3,32 +3,39 @@ import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { fileURLToPath, URL } from 'node:url'
 
-function fixLegacySystemJSLoading() {
+// Injects a runtime RegExp polyfill for iOS 15, which doesn't support named
+// capture groups (e.g. (?<name>...)). The polyfill patches the RegExp constructor
+// to strip named group syntax before handing off to the native implementation.
+// This runs before any other JS, so remark-gfm and other libraries are covered.
+function ios15RegExpPolyfill() {
+  const polyfill = `
+    (function() {
+      try {
+        new RegExp('(?<test>a)');
+      } catch(e) {
+        var OriginalRegExp = RegExp;
+        function PatchedRegExp(pattern, flags) {
+          if (typeof pattern === 'string') {
+            pattern = pattern.replace(/\\(\\?<([^>]+)>/g, '(?:');
+          }
+          return new OriginalRegExp(pattern, flags);
+        }
+        PatchedRegExp.prototype = OriginalRegExp.prototype;
+        PatchedRegExp.escape = OriginalRegExp.escape;
+        window.RegExp = PatchedRegExp;
+      }
+    })();
+  `.trim();
+
   return {
-    name: 'fix-legacy-systemjs-loading',
+    name: 'ios15-regexp-polyfill',
     transformIndexHtml(html: string) {
-      // Replace the bare System.import inline script with one that
-      // waits for the polyfills (and therefore SystemJS) to load first
       return html.replace(
-          /(<script[^>]*id="vite-legacy-entry"[^>]*>)System\.import\([^)]+\)(<\/script>)/,
-          '$1$2'
-      ).replace(
-          '</body>',
-          `<script>
-          window.onerror = function(msg, src, line, col, err) {
-            document.body.innerHTML = '<div style="padding:20px;font-family:monospace;font-size:12px;word-break:break-all">'
-              + '<b>Error:</b> ' + msg + '<br><br>'
-              + '<b>Source:</b> ' + src + '<br>'
-              + '<b>Line:</b> ' + line + '<br><br>'
-              + (err && err.stack ? '<b>Stack:</b><br>' + err.stack.replace(/\\n/g, '<br>') : '')
-              + '</div>';
-            return false;
-          };
-        </script>
-        </body>`
+          '<head>',
+          `<head>\n    <script>${polyfill}</script>`
       );
-    }
-  }
+    },
+  };
 }
 
 // https://vite.dev/config/
@@ -37,9 +44,8 @@ export default defineConfig({
       react(),
       legacy({
         targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
-        renderModernChunks: false,
       }),
-      fixLegacySystemJSLoading(),
+    ios15RegExpPolyfill()
   ],
   resolve: {
     alias: {
