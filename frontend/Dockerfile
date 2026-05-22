@@ -29,10 +29,14 @@ RUN npm run build
 RUN node -e " \
   const fs = require('fs'); \
   let html = fs.readFileSync('dist/index.html', 'utf8'); \
-  html = html.replace(/<script type=\"module\"[^>]*>[\s\S]*?<\/script>/g, ''); \
+  html = html.replace(/<script type=\"module\"[^>]*>[^<]*<\/script>/g, ''); \
   html = html.replace(/<script type=\"module\"[^>]*\/>/g, ''); \
+  html = html.replace(/(<script) nomodule (crossorigin id=\"vite-legacy-polyfill\")/g, '\$1 \$2'); \
+  html = html.replace(/(<script) nomodule (crossorigin id=\"vite-legacy-entry\")/g, '\$1 \$2'); \
+  html = html.replace(/<script nomodule>[^<]*<\/script>/g, ''); \
   fs.writeFileSync('dist/index.legacy.html', html); \
   console.log('Generated index.legacy.html'); \
+  console.log(fs.readFileSync('dist/index.legacy.html', 'utf8')); \
 "
 
 # Runtime stage - serve with nginx
