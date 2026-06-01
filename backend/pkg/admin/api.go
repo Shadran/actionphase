@@ -223,28 +223,6 @@ func (h *Handler) ListBannedUsers(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, bannedUsers)
 }
 
-// GetUserByUsername returns a user by username
-// GET /admin/users/lookup/{username}
-func (h *Handler) GetUserByUsername(w http.ResponseWriter, r *http.Request) {
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		render.Render(w, r, core.ErrInvalidRequest(errors.New("username is required")))
-		return
-	}
-
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-
-	user, err := userService.UserByUsername(username)
-	if err != nil {
-		h.App.Logger.Error("Failed to lookup user", "error", err, "username", username)
-		render.Render(w, r, core.ErrNotFound("user not found"))
-		return
-	}
-
-	h.App.Logger.Info("User lookup successful", "username", username)
-	render.JSON(w, r, user)
-}
-
 // DeleteMessage soft-deletes a message (post or comment) (admin only)
 // DELETE /admin/messages/{messageId}
 func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {

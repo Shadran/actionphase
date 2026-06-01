@@ -23,7 +23,9 @@ CREATE TABLE users (
     password_changed_at TIMESTAMP WITH TIME ZONE,
     username_changed_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE,
-    deletion_scheduled_for TIMESTAMP WITH TIME ZONE
+    deletion_scheduled_for TIMESTAMP WITH TIME ZONE,
+    pending_approval BOOLEAN NOT NULL DEFAULT FALSE,
+    pending_approval_since TIMESTAMPTZ
 );
 
 -- Password Reset Tokens
@@ -66,7 +68,31 @@ CREATE TABLE sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     data TEXT NOT NULL,
-    expires TIMESTAMP WITH TIME ZONE
+    expires TIMESTAMP WITH TIME ZONE,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    fingerprint VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- IP Bans
+CREATE TABLE ip_bans (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL UNIQUE,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reason TEXT,
+    expires_at TIMESTAMPTZ
+);
+
+-- Device Fingerprint Bans
+CREATE TABLE fingerprint_bans (
+    id SERIAL PRIMARY KEY,
+    fingerprint VARCHAR(255) NOT NULL UNIQUE,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reason TEXT
 );
 
 -- Games table

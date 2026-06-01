@@ -8,12 +8,14 @@ export interface User {
   avatar_url?: string | null;
   is_admin?: boolean;
   is_banned?: boolean;
+  pending_approval?: boolean;
   createdAt?: string;
 }
 
 export interface LoginRequest {
   username: string;
   password: string;
+  fingerprint?: string;
 }
 
 export interface RegisterRequest {
@@ -22,6 +24,7 @@ export interface RegisterRequest {
   password: string;
   hcaptcha_token?: string;
   honeypot_value?: string;
+  fingerprint?: string;
 }
 
 export interface AuthResponse {

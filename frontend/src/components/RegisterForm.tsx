@@ -4,6 +4,7 @@ import { Button, Input, Card, Alert } from './ui';
 import { HCaptchaWrapper } from './HCaptcha';
 import { mapAuthError, validatePasswordRequirements } from '../lib/utils/errorMapper';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { getDeviceFingerprint } from '../lib/fingerprint';
 import type { RegisterRequest } from '../types/auth';
 
 interface RegisterFormProps {
@@ -46,7 +47,8 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
     setCaptchaError('');
 
     try {
-      await register(formData);
+      const fingerprint = await getDeviceFingerprint();
+      await register({ ...formData, fingerprint: fingerprint ?? undefined });
       onSuccess?.();
     } catch (_err) {
       // Store the error for display

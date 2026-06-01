@@ -15,7 +15,7 @@ type UserRepository interface {
 	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 	UpdateUser(ctx context.Context, params db.UpdateUserParams) error
 	DeleteUser(ctx context.Context, id int32) error
-	ListUsers(ctx context.Context) ([]db.User, error)
+	ListAllUsers(ctx context.Context, arg db.ListAllUsersParams) ([]db.User, error)
 }
 
 // SessionRepository defines the contract for session data operations

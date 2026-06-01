@@ -61,11 +61,12 @@ func (s *UserService) GetUserByID(userID int) (*core.User, error) {
 		EmailVerified:  dbUser.EmailVerified,
 		Bio:            bio,
 		AvatarURL:      avatarURL,
-		IsAdmin:        dbUser.IsAdmin.Bool,
-		IsBanned:       dbUser.IsBanned,
-		BannedAt:       bannedAt,
-		BannedByUserID: bannedByUserID,
-		CreatedAt:      &dbUser.CreatedAt.Time,
+		IsAdmin:         dbUser.IsAdmin.Bool,
+		IsBanned:        dbUser.IsBanned,
+		BannedAt:        bannedAt,
+		BannedByUserID:  bannedByUserID,
+		CreatedAt:       &dbUser.CreatedAt.Time,
+		PendingApproval: dbUser.PendingApproval,
 	}, nil
 }
 
@@ -108,11 +109,12 @@ func (s *UserService) UserByUsername(username string) (*core.User, error) {
 		EmailVerified:  dbUser.EmailVerified,
 		Bio:            bio,
 		AvatarURL:      avatarURL,
-		IsAdmin:        dbUser.IsAdmin.Bool,
-		IsBanned:       dbUser.IsBanned,
-		BannedAt:       bannedAt,
-		BannedByUserID: bannedByUserID,
-		CreatedAt:      &dbUser.CreatedAt.Time,
+		IsAdmin:         dbUser.IsAdmin.Bool,
+		IsBanned:        dbUser.IsBanned,
+		BannedAt:        bannedAt,
+		BannedByUserID:  bannedByUserID,
+		CreatedAt:       &dbUser.CreatedAt.Time,
+		PendingApproval: dbUser.PendingApproval,
 	}, nil
 }
 
@@ -155,11 +157,12 @@ func (s *UserService) UserByEmail(email string) (*core.User, error) {
 		EmailVerified:  dbUser.EmailVerified,
 		Bio:            bio,
 		AvatarURL:      avatarURL,
-		IsAdmin:        dbUser.IsAdmin.Bool,
-		IsBanned:       dbUser.IsBanned,
-		BannedAt:       bannedAt,
-		BannedByUserID: bannedByUserID,
-		CreatedAt:      &dbUser.CreatedAt.Time,
+		IsAdmin:         dbUser.IsAdmin.Bool,
+		IsBanned:        dbUser.IsBanned,
+		BannedAt:        bannedAt,
+		BannedByUserID:  bannedByUserID,
+		CreatedAt:       &dbUser.CreatedAt.Time,
+		PendingApproval: dbUser.PendingApproval,
 	}, nil
 }
 
@@ -420,4 +423,86 @@ func (s *UserService) CheckUserBanned(ctx context.Context, userID int32) (bool, 
 func (s *UserService) SearchUsers(ctx context.Context, query string) ([]db.SearchUsersRow, error) {
 	q := db.New(s.DB)
 	return q.SearchUsers(ctx, pgtype.Text{String: query, Valid: true})
+}
+
+// ListAllUsers returns a paginated, searchable list of all users.
+func (s *UserService) ListAllUsers(ctx context.Context, page, pageSize int, search string) ([]*core.User, int64, error) {
+	q := db.New(s.DB)
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 25
+	}
+	offset := int32((page - 1) * pageSize)
+
+	dbUsers, err := q.ListAllUsers(ctx, db.ListAllUsersParams{
+		Column1: search,
+		Limit:   int32(pageSize),
+		Offset:  offset,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := q.CountAllUsers(ctx, search)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	users := make([]*core.User, 0, len(dbUsers))
+	for _, dbUser := range dbUsers {
+		u := &core.User{
+			ID:              int(dbUser.ID),
+			Username:        dbUser.Username,
+			Email:           dbUser.Email,
+			EmailVerified:   dbUser.EmailVerified,
+			IsAdmin:         dbUser.IsAdmin.Bool,
+			IsBanned:        dbUser.IsBanned,
+			CreatedAt:       &dbUser.CreatedAt.Time,
+			PendingApproval: dbUser.PendingApproval,
+		}
+		users = append(users, u)
+	}
+
+	return users, total, nil
+}
+
+// ListPendingApprovalUsers returns all users awaiting admin approval.
+func (s *UserService) ListPendingApprovalUsers(ctx context.Context) ([]*core.User, error) {
+	q := db.New(s.DB)
+	dbUsers, err := q.ListPendingApprovalUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]*core.User, 0, len(dbUsers))
+	for _, dbUser := range dbUsers {
+		u := &core.User{
+			ID:              int(dbUser.ID),
+			Username:        dbUser.Username,
+			Email:           dbUser.Email,
+			CreatedAt:       &dbUser.CreatedAt.Time,
+			PendingApproval: dbUser.PendingApproval,
+		}
+		if dbUser.PendingApprovalSince.Valid {
+			t := dbUser.PendingApprovalSince.Time
+			u.PendingApprovalSince = &t
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// ApproveUser clears the pending approval flag on a user, allowing them to login.
+func (s *UserService) ApproveUser(ctx context.Context, userID int32) error {
+	q := db.New(s.DB)
+	s.Logger.Info(ctx, "Approving pending user", "user_id", userID)
+	return q.ApprovePendingUser(ctx, userID)
+}
+
+// SetPendingApproval places a user in the pending approval state.
+func (s *UserService) SetPendingApproval(ctx context.Context, userID int32) error {
+	q := db.New(s.DB)
+	return q.SetPendingApproval(ctx, userID)
 }

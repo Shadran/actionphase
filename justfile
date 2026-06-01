@@ -202,6 +202,10 @@ load-e2e:
   echo "📦 Applying common fixtures..."
   bash ./backend/pkg/db/test_fixtures/apply_common.sh
 
+  # Apply E2E worker users (workers 1-5; worker 0 is in common/01_users.sql)
+  echo "👥 Creating E2E parallel worker users..."
+  DB_NAME=actionphase ./backend/pkg/db/test_fixtures/apply_e2e_users.sh
+
   # Apply worker-specific fixtures for all 6 workers
   echo "🔧 Applying worker-specific fixtures..."
   for i in 0 1 2 3 4 5; do

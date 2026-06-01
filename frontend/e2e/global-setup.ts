@@ -27,6 +27,14 @@ async function globalSetup() {
       cwd: projectRoot,
     });
 
+    // Create E2E parallel worker users (workers 1-5; worker 0 already created by apply_common.sh)
+    // eslint-disable-next-line no-console
+    console.log('👥 Creating E2E parallel worker users...');
+    execSync('env DB_NAME=actionphase ./backend/pkg/db/test_fixtures/apply_e2e_users.sh', {
+      stdio: 'inherit',
+      cwd: projectRoot,
+    });
+
     // Apply worker-specific fixtures for all 6 workers (matches Playwright workers config)
     // eslint-disable-next-line no-console
     console.log('🔧 Applying worker-specific E2E fixtures for 6 parallel workers...');

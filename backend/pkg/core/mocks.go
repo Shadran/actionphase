@@ -119,6 +119,22 @@ func (m *MockUserService) CheckUserBanned(ctx context.Context, userID int32) (bo
 	return false, nil // No-op for tests
 }
 
+func (m *MockUserService) ListAllUsers(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error) {
+	return nil, 0, nil
+}
+
+func (m *MockUserService) ListPendingApprovalUsers(ctx context.Context) ([]*User, error) {
+	return nil, nil
+}
+
+func (m *MockUserService) ApproveUser(ctx context.Context, userID int32) error {
+	return nil
+}
+
+func (m *MockUserService) SetPendingApproval(ctx context.Context, userID int32) error {
+	return nil
+}
+
 // MockGameService provides a mock implementation of GameServiceInterface for testing
 type MockGameService struct {
 	CreateGameFunc            func(ctx context.Context, req CreateGameRequest) (*models.Game, error)

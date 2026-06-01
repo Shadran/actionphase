@@ -6,9 +6,36 @@ WHERE id = $1 LIMIT 1;
 SELECT * FROM users
 WHERE LOWER(username) = LOWER($1) LIMIT 1;
 
--- name: ListUsers :many
+-- name: ListAllUsers :many
 SELECT * FROM users
-ORDER BY username;
+WHERE (
+    $1::text = '' OR username ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountAllUsers :one
+SELECT COUNT(*) FROM users
+WHERE (
+    $1::text = '' OR username ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+);
+
+-- name: ListPendingApprovalUsers :many
+SELECT * FROM users
+WHERE pending_approval = TRUE
+ORDER BY created_at ASC;
+
+-- name: SetPendingApproval :exec
+UPDATE users
+SET pending_approval = TRUE,
+    pending_approval_since = NOW()
+WHERE id = $1;
+
+-- name: ApprovePendingUser :exec
+UPDATE users
+SET pending_approval = FALSE,
+    pending_approval_since = NULL
+WHERE id = $1;
 
 -- name: CreateUser :one
 INSERT INTO users (

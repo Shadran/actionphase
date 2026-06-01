@@ -26,6 +26,7 @@
     "test:e2e:visual:update": "playwright test e2e/visual/ --update-snapshots"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@hcaptcha/react-hcaptcha": "^1.14.0",
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",

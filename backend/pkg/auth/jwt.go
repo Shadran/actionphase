@@ -3,6 +3,7 @@ package auth
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	"context"
 	"fmt"
 	"strconv"
 
@@ -45,28 +46,30 @@ type JWTHandler struct {
 	App *core.App
 }
 
-func (j *JWTHandler) CreateToken(user *core.User) (string, error) {
+// SessionMetadata carries request-derived metadata to store on the session.
+type SessionMetadata struct {
+	IPAddress   string
+	UserAgent   string
+	Fingerprint *string
+}
+
+func (j *JWTHandler) CreateToken(user *core.User, meta SessionMetadata) (string, error) {
 	// First, create a temporary token to generate the session
 	tempToken := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			// Standard JWT "sub" (subject) claim contains user ID
-			// Using immutable user_id instead of username enables username changes
-			// without invalidating existing tokens
 			"sub": strconv.Itoa(user.ID),
 			"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
 		})
 
-	// Use the secret from app configuration
 	secretKey := []byte(j.App.Config.JWT.Secret)
 	tempTokenString, err := tempToken.SignedString(secretKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign temporary token: %w", err)
 	}
 
-	// Create session with temporary token
-	SessionService := db.SessionService{DB: j.App.Pool, Logger: j.App.ObsLogger}
+	sessionSvc := db.SessionService{DB: j.App.Pool, Logger: j.App.ObsLogger}
 	j.App.Logger.Info("Creating session for user", "user_id", user.ID, "username", user.Username)
-	session, err := SessionService.CreateSession(&core.Session{User: user, Token: tempTokenString})
+	session, err := sessionSvc.CreateSession(&core.Session{User: user, Token: tempTokenString})
 	if err != nil {
 		return "", fmt.Errorf("failed to create session for user %d: %w", user.ID, err)
 	}
@@ -75,7 +78,7 @@ func (j *JWTHandler) CreateToken(user *core.User) (string, error) {
 	finalToken := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
 			"sub":        strconv.Itoa(user.ID),
-			"session_id": session.ID, // Include session_id in JWT claims
+			"session_id": session.ID,
 			"exp":        time.Now().Add(time.Hour * 24 * 7).Unix(),
 		})
 
@@ -84,10 +87,13 @@ func (j *JWTHandler) CreateToken(user *core.User) (string, error) {
 		return "", fmt.Errorf("failed to sign final token: %w", err)
 	}
 
-	// Update session with final token
-	err = SessionService.UpdateSessionToken(int32(session.ID), finalTokenString)
-	if err != nil {
+	if err := sessionSvc.UpdateSessionToken(int32(session.ID), finalTokenString); err != nil {
 		return "", fmt.Errorf("failed to update session token: %w", err)
+	}
+
+	// Store request metadata on the session now that we have the final token
+	if err := sessionSvc.UpdateSessionMetadata(context.Background(), int32(session.ID), meta.IPAddress, meta.UserAgent, meta.Fingerprint); err != nil {
+		j.App.Logger.Warn("Failed to store session metadata", "error", err, "session_id", session.ID)
 	}
 
 	return finalTokenString, nil

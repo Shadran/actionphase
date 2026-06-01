@@ -30,7 +30,7 @@ func TestJWTHandler_CreateToken(t *testing.T) {
 	core.AssertNoError(t, err, "User creation should succeed")
 
 	t.Run("creates_valid_token", func(t *testing.T) {
-		token, err := handler.CreateToken(user)
+		token, err := handler.CreateToken(user, SessionMetadata{})
 		core.AssertNoError(t, err, "Token creation should succeed")
 		core.AssertTrue(t, len(token) > 0, "Token should not be empty")
 
@@ -41,7 +41,7 @@ func TestJWTHandler_CreateToken(t *testing.T) {
 	})
 
 	t.Run("creates_session", func(t *testing.T) {
-		token, err := handler.CreateToken(user)
+		token, err := handler.CreateToken(user, SessionMetadata{})
 		core.AssertNoError(t, err, "Token creation should succeed")
 
 		// Verify session was created
@@ -53,7 +53,7 @@ func TestJWTHandler_CreateToken(t *testing.T) {
 	})
 
 	t.Run("token_contains_session_id", func(t *testing.T) {
-		token, err := handler.CreateToken(user)
+		token, err := handler.CreateToken(user, SessionMetadata{})
 		core.AssertNoError(t, err, "Token creation should succeed")
 
 		claims, err := handler.DecodeToken(token)
@@ -90,7 +90,7 @@ func TestJWTHandler_VerifyToken(t *testing.T) {
 	})
 	core.AssertNoError(t, err, "User creation should succeed")
 
-	validToken, err := handler.CreateToken(user)
+	validToken, err := handler.CreateToken(user, SessionMetadata{})
 	core.AssertNoError(t, err, "Token creation should succeed")
 
 	t.Run("verifies_valid_token", func(t *testing.T) {
@@ -159,7 +159,7 @@ func TestJWTHandler_DecodeToken(t *testing.T) {
 	})
 	core.AssertNoError(t, err, "User creation should succeed")
 
-	validToken, err := handler.CreateToken(user)
+	validToken, err := handler.CreateToken(user, SessionMetadata{})
 	core.AssertNoError(t, err, "Token creation should succeed")
 
 	t.Run("decodes_valid_token", func(t *testing.T) {
@@ -298,7 +298,7 @@ func TestJWTHandler_TokenEdgeCases(t *testing.T) {
 		})
 		core.AssertNoError(t, err, "User creation should succeed")
 
-		validToken, err := handler.CreateToken(user)
+		validToken, err := handler.CreateToken(user, SessionMetadata{})
 		core.AssertNoError(t, err, "Token creation should succeed")
 
 		// Tamper with the payload (change one character in the middle)

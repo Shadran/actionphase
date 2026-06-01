@@ -47,7 +47,10 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 
 	h.App.Logger.Info("Creating token for user", "user_id", user.ID, "username", user.Username)
 	jwtHandler := JWTHandler{App: h.App}
-	tokenString, err := jwtHandler.CreateToken(user)
+	tokenString, err := jwtHandler.CreateToken(user, SessionMetadata{
+		IPAddress: core.GetClientIP(r),
+		UserAgent: r.UserAgent(),
+	})
 	if err != nil {
 		render.Render(w, r, core.ErrInternalError(err))
 		return

@@ -14,11 +14,15 @@ type Request struct {
 	*core.User
 	HCaptchaToken string `json:"hcaptcha_token"`
 	HoneypotValue string `json:"honeypot_value"`
+	Fingerprint   string `json:"fingerprint"`
 }
 
 func (r *Request) Bind(req *http.Request) error {
 	if r.User == nil {
 		return fmt.Errorf("missing required User fields")
+	}
+	if len(r.Fingerprint) > 512 {
+		return fmt.Errorf("fingerprint exceeds maximum length")
 	}
 	return nil
 }

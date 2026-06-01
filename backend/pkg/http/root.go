@@ -42,6 +42,13 @@ func (h *Handler) getTokenAuth() *jwtauth.JWTAuth {
 	return jwtauth.New(h.App.Config.JWT.Algorithm, []byte(h.App.Config.JWT.Secret), nil)
 }
 
+// sessionValidateMW returns middleware that rejects requests whose JWT token no longer
+// has a matching row in the sessions table (e.g. after an IP/fingerprint ban or logout).
+func (h *Handler) sessionValidateMW() func(http.Handler) http.Handler {
+	sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	return core.ValidateSessionMiddleware(sessionSvc)
+}
+
 func (h *Handler) Start() {
 	r := chi.NewRouter()
 
@@ -101,6 +108,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 			r.Get("/refresh", authHandler.V1Refresh)
 			r.Get("/preferences", authHandler.V1GetPreferences)                                                            // Get user preferences
@@ -137,6 +145,7 @@ func (h *Handler) Start() {
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Game listing and viewing
@@ -285,6 +294,7 @@ func (h *Handler) Start() {
 			tokenAuth := h.getTokenAuth()
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Character management
@@ -322,6 +332,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Phase management
@@ -344,6 +355,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Deadline management
@@ -365,6 +377,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Poll management
@@ -388,6 +401,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Notification management
@@ -412,6 +426,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Get user's dashboard
@@ -431,6 +446,7 @@ func (h *Handler) Start() {
 			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
 			// Profile viewing (public - any authenticated user can view any profile)
@@ -455,8 +471,11 @@ func (h *Handler) Start() {
 		// All admin routes require authentication and admin privileges
 		r.Group(func(r chi.Router) {
 			tokenAuth := h.getTokenAuth()
+			userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
+			r.Use(h.sessionValidateMW())
+			r.Use(core.RequireAuthenticationMiddleware(userService))
 			r.Use(httpmiddleware.RequireAdmin(h.App))
 
 			// Admin management
@@ -471,8 +490,21 @@ func (h *Handler) Start() {
 			r.Delete("/users/{id}/ban", adminHandler.UnbanUser)
 			r.Get("/users/banned", adminHandler.ListBannedUsers)
 
-			// User lookup
-			r.Get("/users/lookup/{username}", adminHandler.GetUserByUsername)
+			// User list, pending approval, sessions (fixed paths before parameterized)
+			r.Get("/users", adminHandler.ListUsers)
+			r.Get("/users/pending", adminHandler.ListPendingApprovalUsers)
+			r.Post("/users/{id}/approve", adminHandler.ApproveUser)
+			r.Get("/users/{id}/sessions", adminHandler.GetUserSessions)
+
+			// IP bans
+			r.Get("/ip-bans", adminHandler.ListIPBans)
+			r.Post("/ip-bans", adminHandler.CreateIPBan)
+			r.Delete("/ip-bans/{id}", adminHandler.DeleteIPBan)
+
+			// Device fingerprint bans
+			r.Get("/fingerprint-bans", adminHandler.ListFingerprintBans)
+			r.Post("/fingerprint-bans", adminHandler.CreateFingerprintBan)
+			r.Delete("/fingerprint-bans/{id}", adminHandler.DeleteFingerprintBan)
 
 			// Content moderation
 			r.Delete("/messages/{messageId}", adminHandler.DeleteMessage)

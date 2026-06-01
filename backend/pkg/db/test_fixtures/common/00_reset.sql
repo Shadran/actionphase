@@ -5,7 +5,11 @@ BEGIN;
 
 -- Identify all test users by username pattern (catches users whose email was changed by tests)
 CREATE TEMP TABLE test_user_ids AS
-  SELECT id FROM users WHERE username LIKE 'Test%' OR email LIKE 'test_%@example.com';
+  SELECT id FROM users WHERE username LIKE 'Test%'
+     OR email LIKE 'test_%@example.com'
+     OR username LIKE 'e2euser_%'
+     OR username LIKE 'loadtest_%'
+     OR username LIKE 'nocaptcha_%';
 
 -- Delete in reverse dependency order
 
@@ -29,6 +33,10 @@ DELETE FROM game_phases WHERE game_id IN (SELECT id FROM games WHERE gm_user_id 
 DELETE FROM game_participants WHERE game_id IN (SELECT id FROM games WHERE gm_user_id IN (SELECT id FROM test_user_ids));
 DELETE FROM game_applications WHERE game_id IN (SELECT id FROM games WHERE gm_user_id IN (SELECT id FROM test_user_ids));
 DELETE FROM games WHERE gm_user_id IN (SELECT id FROM test_user_ids);
+
+-- Clean up ban tables
+DELETE FROM ip_bans WHERE TRUE;
+DELETE FROM fingerprint_bans WHERE TRUE;
 
 -- Clean up user-related tables
 DELETE FROM sessions WHERE user_id IN (SELECT id FROM test_user_ids);

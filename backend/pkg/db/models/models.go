@@ -215,6 +215,14 @@ type EmailVerificationToken struct {
 	UsedAt    pgtype.Timestamptz `json:"used_at"`
 }
 
+type FingerprintBan struct {
+	ID          int32              `json:"id"`
+	Fingerprint string             `json:"fingerprint"`
+	CreatedBy   int32              `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Reason      pgtype.Text        `json:"reason"`
+}
+
 type Game struct {
 	ID                      int32              `json:"id"`
 	Title                   string             `json:"title"`
@@ -313,6 +321,15 @@ type HandoutComment struct {
 	EditCount       int32              `json:"edit_count"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 	DeletedByUserID pgtype.Int4        `json:"deleted_by_user_id"`
+}
+
+type IpBan struct {
+	ID        int32              `json:"id"`
+	IpAddress string             `json:"ip_address"`
+	CreatedBy int32              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Reason    pgtype.Text        `json:"reason"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 type Message struct {
@@ -442,10 +459,15 @@ type RegistrationAttempt struct {
 }
 
 type Session struct {
-	ID      int32              `json:"id"`
-	UserID  int32              `json:"user_id"`
-	Data    string             `json:"data"`
-	Expires pgtype.Timestamptz `json:"expires"`
+	ID          int32              `json:"id"`
+	UserID      int32              `json:"user_id"`
+	Data        string             `json:"data"`
+	Expires     pgtype.Timestamptz `json:"expires"`
+	IpAddress   pgtype.Text        `json:"ip_address"`
+	UserAgent   pgtype.Text        `json:"user_agent"`
+	Fingerprint pgtype.Text        `json:"fingerprint"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt  pgtype.Timestamptz `json:"last_seen_at"`
 }
 
 type Thread struct {
@@ -493,6 +515,8 @@ type User struct {
 	UsernameChangedAt    pgtype.Timestamptz `json:"username_changed_at"`
 	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
 	DeletionScheduledFor pgtype.Timestamptz `json:"deletion_scheduled_for"`
+	PendingApproval      bool               `json:"pending_approval"`
+	PendingApprovalSince pgtype.Timestamptz `json:"pending_approval_since"`
 }
 
 type UserCommentRead struct {

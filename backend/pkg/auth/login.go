@@ -9,6 +9,36 @@ import (
 	"github.com/go-chi/render"
 )
 
+// ipBanCheck returns true and writes a 403 response if the client IP is banned.
+func (h *Handler) ipBanCheck(w http.ResponseWriter, r *http.Request) bool {
+	ctx := r.Context()
+	clientIP := core.GetClientIP(r)
+	svc := db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	banned, _ := svc.IsIPBanned(ctx, clientIP)
+	if banned {
+		h.App.ObsLogger.Warn(ctx, "Blocked request from banned IP", "ip", clientIP)
+		render.Render(w, r, core.ErrForbidden("Access from this location is not allowed."))
+		return true
+	}
+	return false
+}
+
+// fingerprintBanCheck returns true and writes a 403 response if the fingerprint is banned.
+func (h *Handler) fingerprintBanCheck(w http.ResponseWriter, r *http.Request, fingerprint string) bool {
+	if fingerprint == "" {
+		return false
+	}
+	ctx := r.Context()
+	svc := db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	banned, _ := svc.IsFingerprintBanned(ctx, fingerprint)
+	if banned {
+		h.App.ObsLogger.Warn(ctx, "Blocked request from banned device fingerprint")
+		render.Render(w, r, core.ErrForbidden("Access from this device is not allowed."))
+		return true
+	}
+	return false
+}
+
 func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_login")()
@@ -19,6 +49,17 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}
+
+	// Check IP ban before touching any user data
+	if h.ipBanCheck(w, r) {
+		return
+	}
+
+	// Check device fingerprint ban
+	if h.fingerprintBanCheck(w, r, data.Fingerprint) {
+		return
+	}
+
 	UserService := db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 	// Support login with either username or email
@@ -63,22 +104,45 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user is pending approval
+	if user.PendingApproval {
+		h.App.ObsLogger.Info(ctx, "Login attempt by pending-approval user",
+			"username", user.Username,
+			"user_id", user.ID)
+		render.Render(w, r, core.ErrForbidden("Your account is pending admin approval. You will be notified once approved."))
+		return
+	}
+
 	if !user.CheckPasswordHash(data.User.Password) {
-		h.App.ObsLogger.Error(ctx, "Invalid password", "username", user.Username)
+		h.App.ObsLogger.Info(ctx, "Login failed: invalid password", "username", user.Username)
 		render.Render(w, r, core.ErrInvalidRequest(LoginError{"invalid username or password"}))
 		return
 	}
 	h.App.ObsLogger.Info(ctx, "User logged in successfully", "username", user.Username, "user_id", user.ID)
 	jwtHandler := JWTHandler{App: h.App}
-	token, err := jwtHandler.CreateToken(user)
+	clientIP := core.GetClientIP(r)
+	userAgent := r.UserAgent()
+	token, err := jwtHandler.CreateToken(user, SessionMetadata{
+		IPAddress: clientIP,
+		UserAgent: userAgent,
+		Fingerprint: fingerprintPtr(data.Fingerprint),
+	})
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to create JWT token", "error", err, "user_id", user.ID)
 		render.Render(w, r, core.ErrInternalError(err))
 		return
 	}
+
 	SetJWTCookie(w, token)
 	render.Status(r, http.StatusOK)
 	render.Render(w, r, NewLoginResponse(token))
+}
+
+func fingerprintPtr(fp string) *string {
+	if fp == "" {
+		return nil
+	}
+	return &fp
 }
 
 type LoginError struct {

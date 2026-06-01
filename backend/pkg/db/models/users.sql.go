@@ -11,6 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approvePendingUser = `-- name: ApprovePendingUser :exec
+UPDATE users
+SET pending_approval = FALSE,
+    pending_approval_since = NULL
+WHERE id = $1
+`
+
+func (q *Queries) ApprovePendingUser(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, approvePendingUser, id)
+	return err
+}
+
 const banUser = `-- name: BanUser :exec
 
 UPDATE users
@@ -29,6 +41,20 @@ type BanUserParams struct {
 func (q *Queries) BanUser(ctx context.Context, arg BanUserParams) error {
 	_, err := q.db.Exec(ctx, banUser, arg.ID, arg.BannedByUserID)
 	return err
+}
+
+const countAllUsers = `-- name: CountAllUsers :one
+SELECT COUNT(*) FROM users
+WHERE (
+    $1::text = '' OR username ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+)
+`
+
+func (q *Queries) CountAllUsers(ctx context.Context, dollar_1 string) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllUsers, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const createEmailVerificationToken = `-- name: CreateEmailVerificationToken :one
@@ -106,7 +132,7 @@ INSERT INTO users (
 ) VALUES (
              $1, $2, $3
          )
-RETURNING id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for
+RETURNING id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since
 `
 
 type CreateUserParams struct {
@@ -140,6 +166,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UsernameChangedAt,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
+		&i.PendingApproval,
+		&i.PendingApprovalSince,
 	)
 	return i, err
 }
@@ -177,7 +205,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 }
 
 const getDeletedUser = `-- name: GetDeletedUser :one
-SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for FROM users
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
 WHERE id = $1
   AND deleted_at IS NOT NULL
 LIMIT 1
@@ -208,6 +236,8 @@ func (q *Queries) GetDeletedUser(ctx context.Context, id int32) (User, error) {
 		&i.UsernameChangedAt,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
+		&i.PendingApproval,
+		&i.PendingApprovalSince,
 	)
 	return i, err
 }
@@ -258,7 +288,7 @@ func (q *Queries) GetPasswordResetToken(ctx context.Context, token string) (Pass
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for FROM users
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -287,12 +317,14 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 		&i.UsernameChangedAt,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
+		&i.PendingApproval,
+		&i.PendingApprovalSince,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for FROM users
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
 WHERE LOWER(email) = LOWER($1) LIMIT 1
 `
 
@@ -321,12 +353,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.UsernameChangedAt,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
+		&i.PendingApproval,
+		&i.PendingApprovalSince,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for FROM users
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
 WHERE LOWER(username) = LOWER($1) LIMIT 1
 `
 
@@ -355,6 +389,8 @@ func (q *Queries) GetUserByUsername(ctx context.Context, lower string) (User, er
 		&i.UsernameChangedAt,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
+		&i.PendingApproval,
+		&i.PendingApprovalSince,
 	)
 	return i, err
 }
@@ -387,6 +423,65 @@ func (q *Queries) ListAdmins(ctx context.Context) ([]ListAdminsRow, error) {
 			&i.Username,
 			&i.Email,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllUsers = `-- name: ListAllUsers :many
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
+WHERE (
+    $1::text = '' OR username ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAllUsersParams struct {
+	Column1 string `json:"column_1"`
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+}
+
+func (q *Queries) ListAllUsers(ctx context.Context, arg ListAllUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, listAllUsers, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Password,
+			&i.IsAdmin,
+			&i.CreatedAt,
+			&i.DisplayName,
+			&i.Bio,
+			&i.AvatarUrl,
+			&i.Timezone,
+			&i.EmailNotifications,
+			&i.HighContrast,
+			&i.IsBanned,
+			&i.BannedAt,
+			&i.BannedByUserID,
+			&i.EmailVerified,
+			&i.EmailChangePending,
+			&i.PasswordChangedAt,
+			&i.UsernameChangedAt,
+			&i.DeletedAt,
+			&i.DeletionScheduledFor,
+			&i.PendingApproval,
+			&i.PendingApprovalSince,
 		); err != nil {
 			return nil, err
 		}
@@ -445,13 +540,14 @@ func (q *Queries) ListBannedUsers(ctx context.Context) ([]ListBannedUsersRow, er
 	return items, nil
 }
 
-const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for FROM users
-ORDER BY username
+const listPendingApprovalUsers = `-- name: ListPendingApprovalUsers :many
+SELECT id, username, email, password, is_admin, created_at, display_name, bio, avatar_url, timezone, email_notifications, high_contrast, is_banned, banned_at, banned_by_user_id, email_verified, email_change_pending, password_changed_at, username_changed_at, deleted_at, deletion_scheduled_for, pending_approval, pending_approval_since FROM users
+WHERE pending_approval = TRUE
+ORDER BY created_at ASC
 `
 
-func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsers)
+func (q *Queries) ListPendingApprovalUsers(ctx context.Context) ([]User, error) {
+	rows, err := q.db.Query(ctx, listPendingApprovalUsers)
 	if err != nil {
 		return nil, err
 	}
@@ -481,6 +577,8 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.UsernameChangedAt,
 			&i.DeletedAt,
 			&i.DeletionScheduledFor,
+			&i.PendingApproval,
+			&i.PendingApprovalSince,
 		); err != nil {
 			return nil, err
 		}
@@ -604,6 +702,18 @@ type SetEmailChangePendingParams struct {
 
 func (q *Queries) SetEmailChangePending(ctx context.Context, arg SetEmailChangePendingParams) error {
 	_, err := q.db.Exec(ctx, setEmailChangePending, arg.ID, arg.EmailChangePending)
+	return err
+}
+
+const setPendingApproval = `-- name: SetPendingApproval :exec
+UPDATE users
+SET pending_approval = TRUE,
+    pending_approval_since = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) SetPendingApproval(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, setPendingApproval, id)
 	return err
 }
 

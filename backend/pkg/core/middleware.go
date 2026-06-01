@@ -31,6 +31,42 @@ type MiddlewareUserService interface {
 	GetUserByID(userID int) (*User, error)
 }
 
+// MiddlewareSessionService interface for session validation in middleware.
+type MiddlewareSessionService interface {
+	SessionByToken(token string) (*Session, error)
+	UpdateSessionLastSeen(ctx context.Context, sessionID int32) error
+}
+
+// ValidateSessionMiddleware checks that the JWT token corresponds to an active session
+// in the database. This ensures that invalidated sessions (from bans, logouts, or
+// explicit revocation) are rejected even when the JWT itself is cryptographically valid.
+// It must be used after jwtauth.Verifier and jwtauth.Authenticator.
+func ValidateSessionMiddleware(sessionService MiddlewareSessionService) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenString := jwtauth.TokenFromCookie(r)
+			if tokenString == "" {
+				tokenString = jwtauth.TokenFromHeader(r)
+			}
+			if tokenString == "" {
+				render.Render(w, r, ErrUnauthorized("no token provided"))
+				return
+			}
+
+			session, err := sessionService.SessionByToken(tokenString)
+			if err != nil || session == nil {
+				render.Render(w, r, ErrUnauthorized("session not found or has been invalidated"))
+				return
+			}
+
+			// Best-effort last-seen update; never block the request on failure.
+			_ = sessionService.UpdateSessionLastSeen(r.Context(), int32(session.ID))
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // AuthenticatedUser holds user information extracted from JWT token.
 // This is stored in request context for use by handlers.
 type AuthenticatedUser struct {

@@ -4,17 +4,18 @@ import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { AdminModeToggle } from '../components/AdminModeToggle';
-import type { AdminUser, BannedUser, User } from '../lib/api/admin';
+import { UserListTab } from './admin/UserListTab';
+import { PendingApprovalTab } from './admin/PendingApprovalTab';
+import { IPBansTab } from './admin/IPBansTab';
+import { FingerprintBansTab } from './admin/FingerprintBansTab';
+import type { AdminUser, BannedUser } from '../lib/api/admin';
 
 export function AdminPage() {
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
   const { showSuccess, showError } = useToast();
   const currentUserId = currentUser?.id;
-  const [activeTab, setActiveTab] = useState<'mode' | 'admins' | 'banned' | 'lookup'>('mode');
-  const [lookupUsername, setLookupUsername] = useState('');
-  const [lookupResult, setLookupResult] = useState<User | null>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'mode' | 'admins' | 'banned' | 'users' | 'pending' | 'ip-bans' | 'fingerprint-bans'>('mode');
 
   // Fetch admins
   const {
@@ -42,20 +43,6 @@ export function AdminPage() {
     },
   });
 
-  // Ban user mutation
-  const banMutation = useMutation({
-    mutationFn: (userId: number) => apiClient.admin.banUser(userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bannedUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['admins'] }); // User might lose admin status
-      setLookupResult(null); // Clear lookup result after action
-      showSuccess('User banned successfully');
-    },
-    onError: (error) => {
-      showError(`Failed to ban user: ${error}`);
-    },
-  });
-
   // Unban user mutation
   const unbanMutation = useMutation({
     mutationFn: (userId: number) => apiClient.admin.unbanUser(userId),
@@ -73,33 +60,12 @@ export function AdminPage() {
     mutationFn: (userId: number) => apiClient.admin.revokeAdminStatus(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setLookupResult(null); // Clear lookup result after action
       showSuccess('Admin status revoked successfully');
     },
     onError: (error) => {
       showError(`Failed to revoke admin status: ${error}`);
     },
   });
-
-  // Grant admin status mutation
-  const grantAdminMutation = useMutation({
-    mutationFn: (userId: number) => apiClient.admin.grantAdminStatus(userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setLookupResult(null); // Clear lookup result after action
-      showSuccess('Admin status granted successfully');
-    },
-    onError: (error) => {
-      showError(`Failed to grant admin status: ${error}`);
-    },
-  });
-
-  const handleBanUser = (userId: number, username: string) => {
-    // eslint-disable-next-line no-alert
-    if (confirm(`Are you sure you want to ban user ${username}?`)) {
-      banMutation.mutate(userId);
-    }
-  };
 
   const handleUnbanUser = (userId: number, username: string) => {
     // eslint-disable-next-line no-alert
@@ -112,31 +78,6 @@ export function AdminPage() {
     // eslint-disable-next-line no-alert
     if (confirm(`Are you sure you want to revoke admin status from ${username}?`)) {
       revokeAdminMutation.mutate(userId);
-    }
-  };
-
-  const handleGrantAdmin = (userId: number, username: string) => {
-    // eslint-disable-next-line no-alert
-    if (confirm(`Are you sure you want to grant admin access to ${username}?`)) {
-      grantAdminMutation.mutate(userId);
-    }
-  };
-
-  const handleLookupUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLookupError(null);
-    setLookupResult(null);
-
-    if (!lookupUsername.trim()) {
-      setLookupError('Please enter a username');
-      return;
-    }
-
-    try {
-      const response = await apiClient.admin.getUserByUsername(lookupUsername.trim());
-      setLookupResult(response.data);
-    } catch (error: unknown) {
-      setLookupError((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'User not found');
     }
   };
 
@@ -178,14 +119,44 @@ export function AdminPage() {
             Admins
           </button>
           <button
-            onClick={() => setActiveTab('lookup')}
+            onClick={() => setActiveTab('users')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'lookup'
+              activeTab === 'users'
                 ? 'border-interactive-primary text-interactive-primary'
                 : 'border-transparent text-content-tertiary hover:text-content-secondary hover:border-content-tertiary'
             }`}
           >
-            User Lookup
+            All Users
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'pending'
+                ? 'border-interactive-primary text-interactive-primary'
+                : 'border-transparent text-content-tertiary hover:text-content-secondary hover:border-content-tertiary'
+            }`}
+          >
+            Pending Approval
+          </button>
+          <button
+            onClick={() => setActiveTab('ip-bans')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'ip-bans'
+                ? 'border-interactive-primary text-interactive-primary'
+                : 'border-transparent text-content-tertiary hover:text-content-secondary hover:border-content-tertiary'
+            }`}
+          >
+            IP Bans
+          </button>
+          <button
+            onClick={() => setActiveTab('fingerprint-bans')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'fingerprint-bans'
+                ? 'border-interactive-primary text-interactive-primary'
+                : 'border-transparent text-content-tertiary hover:text-content-secondary hover:border-content-tertiary'
+            }`}
+          >
+            Device Bans
           </button>
         </nav>
       </div>
@@ -347,110 +318,18 @@ export function AdminPage() {
         </div>
       )}
 
-      {/* User Lookup Tab */}
-      {activeTab === 'lookup' && (
-        <div className="bg-surface-base rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-theme-default">
-            <h2 className="text-xl font-semibold text-content-primary">User Lookup</h2>
-            <p className="text-sm text-content-tertiary mt-1">
-              Search for users by username to manage their status
-            </p>
-          </div>
+      {/* All Users Tab */}
+      {activeTab === 'users' && <UserListTab />}
 
-          <div className="px-6 py-6">
-            <form onSubmit={handleLookupUser} className="max-w-md">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={lookupUsername}
-                  onChange={(e) => setLookupUsername(e.target.value)}
-                  placeholder="Enter username"
-                  className="flex-1 px-4 py-2 bg-surface-raised border border-theme-default rounded text-content-primary placeholder-content-tertiary focus:outline-none focus:ring-2 focus:ring-interactive-primary"
-                />
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-interactive-primary text-white rounded hover:bg-interactive-primary/90"
-                >
-                  Search
-                </button>
-              </div>
-            </form>
+      {/* Pending Approval Tab */}
+      {activeTab === 'pending' && <PendingApprovalTab />}
 
-            {lookupError && (
-              <div className="mt-4 p-4 bg-red-100 border border-red-300 rounded text-red-800">
-                {lookupError}
-              </div>
-            )}
+      {/* IP Bans Tab */}
+      {activeTab === 'ip-bans' && <IPBansTab />}
 
-            {lookupResult && (
-              <div className="mt-6">
-                <div className="p-6 bg-surface-raised rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-xl font-semibold text-content-primary">
-                          {lookupResult.username}
-                        </h3>
-                        {lookupResult.is_admin && (
-                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                            ADMIN
-                          </span>
-                        )}
-                        {lookupResult.is_banned && (
-                          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
-                            BANNED
-                          </span>
-                        )}
-                        {lookupResult.id === currentUserId && (
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded">
-                            YOU
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-content-secondary mt-2">{lookupResult.email}</p>
-                      <p className="text-xs text-content-tertiary mt-1">
-                        Created: {new Date(lookupResult.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
+      {/* Device Fingerprint Bans Tab */}
+      {activeTab === 'fingerprint-bans' && <FingerprintBansTab />}
 
-                    <div className="flex gap-3 ml-4">
-                      {!lookupResult.is_banned && lookupResult.id !== currentUserId && (
-                        <button
-                          onClick={() => handleBanUser(lookupResult.id, lookupResult.username)}
-                          disabled={banMutation.isPending}
-                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {banMutation.isPending ? 'Banning...' : 'Ban User'}
-                        </button>
-                      )}
-
-                      {!lookupResult.is_admin && !lookupResult.is_banned && lookupResult.id !== currentUserId && (
-                        <button
-                          onClick={() => handleGrantAdmin(lookupResult.id, lookupResult.username)}
-                          disabled={grantAdminMutation.isPending}
-                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {grantAdminMutation.isPending ? 'Granting...' : 'Grant Admin'}
-                        </button>
-                      )}
-
-                      {lookupResult.is_admin && lookupResult.id !== currentUserId && (
-                        <button
-                          onClick={() => handleRevokeAdmin(lookupResult.id, lookupResult.username)}
-                          disabled={revokeAdminMutation.isPending}
-                          className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {revokeAdminMutation.isPending ? 'Revoking...' : 'Revoke Admin'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

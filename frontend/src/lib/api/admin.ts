@@ -23,7 +23,45 @@ export interface User {
   email: string;
   is_admin: boolean;
   is_banned: boolean;
+  pending_approval: boolean;
+  pending_approval_since?: string;
+  email_verified: boolean;
   createdAt: string;
+  created_at?: string;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface IPBan {
+  id: number;
+  ip_address: string;
+  created_by: number;
+  created_at: string;
+  reason?: string;
+  expires_at?: string;
+}
+
+export interface FingerprintBan {
+  id: number;
+  fingerprint: string;
+  created_by: number;
+  created_at: string;
+  reason?: string;
+}
+
+export interface SessionDetail {
+  id: number;
+  ip_address?: string;
+  user_agent?: string;
+  fingerprint?: string;
+  created_at: string;
+  last_seen_at: string;
+  expires: string;
 }
 
 /**
@@ -74,16 +112,57 @@ export class AdminApi extends BaseApiClient {
   }
 
   /**
-   * Look up a user by username
-   */
-  async getUserByUsername(username: string) {
-    return this.client.get<User>(`/api/v1/admin/users/lookup/${username}`);
-  }
-
-  /**
    * Delete a message (post or comment) (soft delete)
    */
   async deleteMessage(messageId: number) {
     return this.client.delete(`/api/v1/admin/messages/${messageId}`);
+  }
+
+  // ── User list ────────────────────────────────────────────────────────────
+
+  async listUsers(page = 1, limit = 25, search = '') {
+    return this.client.get<UserListResponse>(
+      `/api/v1/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
+    );
+  }
+
+  async listPendingUsers() {
+    return this.client.get<User[]>('/api/v1/admin/users/pending');
+  }
+
+  async approveUser(userId: number) {
+    return this.client.post(`/api/v1/admin/users/${userId}/approve`, {});
+  }
+
+  async getUserSessions(userId: number) {
+    return this.client.get<SessionDetail[]>(`/api/v1/admin/users/${userId}/sessions`);
+  }
+
+  // ── IP bans ──────────────────────────────────────────────────────────────
+
+  async listIPBans() {
+    return this.client.get<IPBan[]>('/api/v1/admin/ip-bans');
+  }
+
+  async createIPBan(ipAddress: string, reason: string, expiresAt?: string) {
+    return this.client.post<IPBan>('/api/v1/admin/ip-bans', { ip_address: ipAddress, reason, expires_at: expiresAt });
+  }
+
+  async deleteIPBan(id: number) {
+    return this.client.delete(`/api/v1/admin/ip-bans/${id}`);
+  }
+
+  // ── Fingerprint bans ─────────────────────────────────────────────────────
+
+  async listFingerprintBans() {
+    return this.client.get<FingerprintBan[]>('/api/v1/admin/fingerprint-bans');
+  }
+
+  async createFingerprintBan(fingerprint: string, reason: string) {
+    return this.client.post<FingerprintBan>('/api/v1/admin/fingerprint-bans', { fingerprint, reason });
+  }
+
+  async deleteFingerprintBan(id: number) {
+    return this.client.delete(`/api/v1/admin/fingerprint-bans/${id}`);
   }
 }

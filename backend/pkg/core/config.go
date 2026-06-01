@@ -127,6 +127,11 @@ type AppConfig struct {
 	// "Continue thread" button appears on comments at (CommentMaxDepth - 1) that have deeper replies
 	// Default: 5 (shows depths 0-4 with Reply buttons, "Continue thread" at depth 4)
 	CommentMaxDepth int `env:"COMMENT_MAX_DEPTH"`
+
+	// RequireRegistrationApproval gates new account creation behind admin approval.
+	// When true, new accounts are created with pending_approval=true and cannot login
+	// until an admin approves them via the admin panel.
+	RequireRegistrationApproval bool `env:"REQUIRE_REGISTRATION_APPROVAL"`
 }
 
 // StorageConfig contains file storage configuration.
@@ -198,7 +203,8 @@ func LoadConfig() (*Config, error) {
 			RunMigrations:   getEnvBool("RUN_MIGRATIONS", true),
 			CORSEnabled:     getEnvBool("CORS_ENABLED", true),
 			CORSOrigins:     getEnvStringSlice("CORS_ORIGINS", []string{"http://localhost:5173"}),
-			CommentMaxDepth: getEnvInt("COMMENT_MAX_DEPTH", 5),
+			CommentMaxDepth:             getEnvInt("COMMENT_MAX_DEPTH", 5),
+			RequireRegistrationApproval: getEnvBool("REQUIRE_REGISTRATION_APPROVAL", false),
 		},
 		Storage: StorageConfig{
 			Backend:    getEnvString("STORAGE_BACKEND", "local"),

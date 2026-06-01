@@ -44,6 +44,15 @@ type SessionServiceInterface interface {
 
 	// InvalidateAllUserSessions deletes all sessions for a user (used when banning)
 	InvalidateAllUserSessions(ctx context.Context, userID int32) error
+
+	// CreateSessionWithMetadata creates a session and stores IP, user agent, and fingerprint
+	CreateSessionWithMetadata(ctx context.Context, session *Session) (*Session, error)
+
+	// GetUserSessionsWithDetails returns sessions for a user including metadata (admin use)
+	GetUserSessionsWithDetails(ctx context.Context, userID int32) ([]*SessionWithDetails, error)
+
+	// UpdateSessionLastSeen updates the last_seen_at timestamp for a session
+	UpdateSessionLastSeen(ctx context.Context, sessionID int32) error
 }
 
 // UserServiceInterface defines the contract for user management operations.
@@ -95,6 +104,31 @@ type UserServiceInterface interface {
 	UnbanUser(ctx context.Context, userID int32) error
 	ListBannedUsers(ctx context.Context) ([]*BannedUser, error)
 	CheckUserBanned(ctx context.Context, userID int32) (bool, error)
+
+	// User listing and search (admin)
+	ListAllUsers(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error)
+
+	// Registration approval
+	ListPendingApprovalUsers(ctx context.Context) ([]*User, error)
+	ApproveUser(ctx context.Context, userID int32) error
+	SetPendingApproval(ctx context.Context, userID int32) error
+}
+
+// IPBanServiceInterface defines the contract for IP address banning.
+type IPBanServiceInterface interface {
+	CreateIPBan(ctx context.Context, ipAddress, reason string, createdBy int32, expiresAt *time.Time) (*IPBan, error)
+	ListIPBans(ctx context.Context) ([]*IPBan, error)
+	DeleteIPBan(ctx context.Context, id int32) error
+	IsIPBanned(ctx context.Context, ipAddress string) (bool, error)
+	CleanupExpiredIPBans(ctx context.Context) error
+}
+
+// FingerprintBanServiceInterface defines the contract for device fingerprint banning.
+type FingerprintBanServiceInterface interface {
+	CreateFingerprintBan(ctx context.Context, fingerprint, reason string, createdBy int32) (*FingerprintBan, error)
+	ListFingerprintBans(ctx context.Context) ([]*FingerprintBan, error)
+	DeleteFingerprintBan(ctx context.Context, id int32) error
+	IsFingerprintBanned(ctx context.Context, fingerprint string) (bool, error)
 }
 
 // GameServiceInterface defines the contract for game management operations.

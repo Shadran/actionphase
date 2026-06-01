@@ -39,10 +39,17 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract IP address and user agent for bot prevention
-	// Use GetClientIP to handle proxied requests correctly
+	// Extract IP address and user agent
 	ipAddress := core.GetClientIP(r)
 	userAgent := r.Header.Get("User-Agent")
+
+	// Check IP and device fingerprint bans before any expensive checks
+	if h.ipBanCheck(w, r) {
+		return
+	}
+	if h.fingerprintBanCheck(w, r, data.Fingerprint) {
+		return
+	}
 
 	// Perform bot prevention checks
 	botService := NewBotPreventionService(h.App.Pool)
@@ -97,6 +104,22 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If registration approval mode is enabled, place user in pending state
+	if h.App.Config.App.RequireRegistrationApproval {
+		if err := UserService.SetPendingApproval(ctx, int32(returnUser.ID)); err != nil {
+			h.App.ObsLogger.Error(ctx, "Failed to set pending approval", "error", err, "user_id", returnUser.ID)
+		} else {
+			h.App.ObsLogger.Info(ctx, "New account pending admin approval", "user_id", returnUser.ID, "username", returnUser.Username)
+		}
+		render.Status(r, http.StatusAccepted)
+		render.Render(w, r, &core.ErrResponse{
+			HTTPStatusCode: http.StatusAccepted,
+			StatusText:     "Pending Approval",
+			ErrorText:      "Your account has been created and is pending admin approval. You will be notified once approved.",
+		})
+		return
+	}
+
 	// Log successful registration
 	if err := botService.LogSuccessfulRegistration(ctx, checkRequest); err != nil {
 		h.App.ObsLogger.Warn(ctx, "Failed to log successful registration", "error", err, "username", returnUser.Username)
@@ -104,8 +127,12 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.App.ObsLogger.Info(ctx, "Creating token for new user", "username", returnUser.Username)
-	jwt := JWTHandler{App: h.App}
-	token, err := jwt.CreateToken(returnUser)
+	jwtHandler := JWTHandler{App: h.App}
+	token, err := jwtHandler.CreateToken(returnUser, SessionMetadata{
+		IPAddress:   ipAddress,
+		UserAgent:   userAgent,
+		Fingerprint: fingerprintPtr(data.Fingerprint),
+	})
 	if err != nil {
 		render.Render(w, r, core.ErrInternalError(err))
 		return

@@ -15,7 +15,7 @@ type MockUserRepository struct {
 	GetUserByUsernameFn func(ctx context.Context, username string) (db.User, error)
 	UpdateUserFn        func(ctx context.Context, params db.UpdateUserParams) error
 	DeleteUserFn        func(ctx context.Context, id int32) error
-	ListUsersFn         func(ctx context.Context) ([]db.User, error)
+	ListAllUsersFn      func(ctx context.Context, arg db.ListAllUsersParams) ([]db.User, error)
 }
 
 func (m *MockUserRepository) CreateUser(ctx context.Context, params db.CreateUserParams) (db.User, error) {
@@ -53,9 +53,9 @@ func (m *MockUserRepository) DeleteUser(ctx context.Context, id int32) error {
 	return nil
 }
 
-func (m *MockUserRepository) ListUsers(ctx context.Context) ([]db.User, error) {
-	if m.ListUsersFn != nil {
-		return m.ListUsersFn(ctx)
+func (m *MockUserRepository) ListAllUsers(ctx context.Context, arg db.ListAllUsersParams) ([]db.User, error) {
+	if m.ListAllUsersFn != nil {
+		return m.ListAllUsersFn(ctx, arg)
 	}
 	return []db.User{}, nil
 }

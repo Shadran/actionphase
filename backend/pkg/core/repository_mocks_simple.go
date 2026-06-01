@@ -83,7 +83,7 @@ func (m *SimpleMockUserRepository) DeleteUser(ctx context.Context, id int32) err
 	return errors.New("user not found")
 }
 
-func (m *SimpleMockUserRepository) ListUsers(ctx context.Context) ([]db.User, error) {
+func (m *SimpleMockUserRepository) ListAllUsers(ctx context.Context, arg db.ListAllUsersParams) ([]db.User, error) {
 	users := make([]db.User, 0, len(m.users))
 	for _, user := range m.users {
 		users = append(users, user)

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { ErrorDisplay } from './ErrorDisplay';
 import { Input, Button } from './ui';
+import { getDeviceFingerprint } from '../lib/fingerprint';
 import type { LoginRequest } from '../types/auth';
 
 interface LoginFormProps {
@@ -24,7 +25,8 @@ export const LoginForm = ({ onSuccess, hideForgotPassword = false }: LoginFormPr
     clearError();
 
     try {
-      await login(formData);
+      const fingerprint = await getDeviceFingerprint();
+      await login({ ...formData, fingerprint: fingerprint ?? undefined });
       onSuccess?.();
     } catch (_err) {
       handleError(_err);

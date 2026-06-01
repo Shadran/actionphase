@@ -13,27 +13,42 @@ import (
 
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (
-    user_id, data, expires
+    user_id, data, expires, ip_address, user_agent, fingerprint
 ) VALUES (
-             $1, $2, $3
-         )
-RETURNING id, user_id, data, expires
+    $1, $2, $3, $4, $5, $6
+)
+RETURNING id, user_id, data, expires, ip_address, user_agent, fingerprint, created_at, last_seen_at
 `
 
 type CreateSessionParams struct {
-	UserID  int32              `json:"user_id"`
-	Data    string             `json:"data"`
-	Expires pgtype.Timestamptz `json:"expires"`
+	UserID      int32              `json:"user_id"`
+	Data        string             `json:"data"`
+	Expires     pgtype.Timestamptz `json:"expires"`
+	IpAddress   pgtype.Text        `json:"ip_address"`
+	UserAgent   pgtype.Text        `json:"user_agent"`
+	Fingerprint pgtype.Text        `json:"fingerprint"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
-	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.Data, arg.Expires)
+	row := q.db.QueryRow(ctx, createSession,
+		arg.UserID,
+		arg.Data,
+		arg.Expires,
+		arg.IpAddress,
+		arg.UserAgent,
+		arg.Fingerprint,
+	)
 	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Data,
 		&i.Expires,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.Fingerprint,
+		&i.CreatedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
@@ -68,6 +83,26 @@ func (q *Queries) DeleteSessionByToken(ctx context.Context, data string) error {
 	return err
 }
 
+const deleteSessionsByFingerprint = `-- name: DeleteSessionsByFingerprint :exec
+DELETE FROM sessions
+WHERE fingerprint = $1
+`
+
+func (q *Queries) DeleteSessionsByFingerprint(ctx context.Context, fingerprint pgtype.Text) error {
+	_, err := q.db.Exec(ctx, deleteSessionsByFingerprint, fingerprint)
+	return err
+}
+
+const deleteSessionsByIP = `-- name: DeleteSessionsByIP :exec
+DELETE FROM sessions
+WHERE ip_address = $1
+`
+
+func (q *Queries) DeleteSessionsByIP(ctx context.Context, ipAddress pgtype.Text) error {
+	_, err := q.db.Exec(ctx, deleteSessionsByIP, ipAddress)
+	return err
+}
+
 const deleteUserSessions = `-- name: DeleteUserSessions :exec
 DELETE FROM sessions
 WHERE user_id = $1
@@ -80,7 +115,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID int32) error {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, user_id, data, expires FROM sessions
+SELECT id, user_id, data, expires, ip_address, user_agent, fingerprint, created_at, last_seen_at FROM sessions
 WHERE id = $1 LIMIT 1
 `
 
@@ -92,12 +127,17 @@ func (q *Queries) GetSession(ctx context.Context, id int32) (Session, error) {
 		&i.UserID,
 		&i.Data,
 		&i.Expires,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.Fingerprint,
+		&i.CreatedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getSessionByToken = `-- name: GetSessionByToken :one
-SELECT id, user_id, data, expires FROM sessions
+SELECT id, user_id, data, expires, ip_address, user_agent, fingerprint, created_at, last_seen_at FROM sessions
 WHERE data = $1 LIMIT 1
 `
 
@@ -109,12 +149,17 @@ func (q *Queries) GetSessionByToken(ctx context.Context, data string) (Session, 
 		&i.UserID,
 		&i.Data,
 		&i.Expires,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.Fingerprint,
+		&i.CreatedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getSessionsByUser = `-- name: GetSessionsByUser :many
-SELECT id, user_id, data, expires FROM sessions
+SELECT id, user_id, data, expires, ip_address, user_agent, fingerprint, created_at, last_seen_at FROM sessions
 WHERE user_id = $1 AND expires > NOW()
 `
 
@@ -132,6 +177,11 @@ func (q *Queries) GetSessionsByUser(ctx context.Context, userID int32) ([]Sessio
 			&i.UserID,
 			&i.Data,
 			&i.Expires,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Fingerprint,
+			&i.CreatedAt,
+			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -141,6 +191,85 @@ func (q *Queries) GetSessionsByUser(ctx context.Context, userID int32) ([]Sessio
 		return nil, err
 	}
 	return items, nil
+}
+
+const getUserSessionsWithDetails = `-- name: GetUserSessionsWithDetails :many
+SELECT id, ip_address, user_agent, fingerprint, created_at, last_seen_at, expires
+FROM sessions
+WHERE user_id = $1 AND expires > NOW()
+ORDER BY last_seen_at DESC
+`
+
+type GetUserSessionsWithDetailsRow struct {
+	ID          int32              `json:"id"`
+	IpAddress   pgtype.Text        `json:"ip_address"`
+	UserAgent   pgtype.Text        `json:"user_agent"`
+	Fingerprint pgtype.Text        `json:"fingerprint"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt  pgtype.Timestamptz `json:"last_seen_at"`
+	Expires     pgtype.Timestamptz `json:"expires"`
+}
+
+func (q *Queries) GetUserSessionsWithDetails(ctx context.Context, userID int32) ([]GetUserSessionsWithDetailsRow, error) {
+	rows, err := q.db.Query(ctx, getUserSessionsWithDetails, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserSessionsWithDetailsRow
+	for rows.Next() {
+		var i GetUserSessionsWithDetailsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Fingerprint,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+			&i.Expires,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateSessionLastSeen = `-- name: UpdateSessionLastSeen :exec
+UPDATE sessions
+SET last_seen_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateSessionLastSeen(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, updateSessionLastSeen, id)
+	return err
+}
+
+const updateSessionMetadata = `-- name: UpdateSessionMetadata :exec
+UPDATE sessions
+SET ip_address = $2, user_agent = $3, fingerprint = $4
+WHERE id = $1
+`
+
+type UpdateSessionMetadataParams struct {
+	ID          int32       `json:"id"`
+	IpAddress   pgtype.Text `json:"ip_address"`
+	UserAgent   pgtype.Text `json:"user_agent"`
+	Fingerprint pgtype.Text `json:"fingerprint"`
+}
+
+func (q *Queries) UpdateSessionMetadata(ctx context.Context, arg UpdateSessionMetadataParams) error {
+	_, err := q.db.Exec(ctx, updateSessionMetadata,
+		arg.ID,
+		arg.IpAddress,
+		arg.UserAgent,
+		arg.Fingerprint,
+	)
+	return err
 }
 
 const updateSessionToken = `-- name: UpdateSessionToken :exec
