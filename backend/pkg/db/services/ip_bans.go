@@ -18,7 +18,7 @@ type IPBanService struct {
 
 var _ core.IPBanServiceInterface = (*IPBanService)(nil)
 
-func (s *IPBanService) CreateIPBan(ctx context.Context, ipAddress, reason string, createdBy int32, expiresAt *time.Time) (*core.IPBan, error) {
+func (s *IPBanService) CreateIPBan(ctx context.Context, ipAddress, reason string, createdBy int32, expiresAt *time.Time, bannedUserID *int32) (*core.IPBan, error) {
 	q := db.New(s.DB)
 
 	params := db.CreateIPBanParams{
@@ -28,6 +28,9 @@ func (s *IPBanService) CreateIPBan(ctx context.Context, ipAddress, reason string
 	}
 	if expiresAt != nil {
 		params.ExpiresAt = pgtype.Timestamptz{Time: *expiresAt, Valid: true}
+	}
+	if bannedUserID != nil {
+		params.BannedUserID = pgtype.Int4{Int32: *bannedUserID, Valid: true}
 	}
 
 	row, err := q.CreateIPBan(ctx, params)
@@ -48,7 +51,7 @@ func (s *IPBanService) ListIPBans(ctx context.Context) ([]*core.IPBan, error) {
 	}
 	bans := make([]*core.IPBan, 0, len(rows))
 	for _, row := range rows {
-		bans = append(bans, ipBanFromDB(row))
+		bans = append(bans, ipBanFromListRow(row))
 	}
 	return bans, nil
 }
@@ -93,6 +96,33 @@ func ipBanFromDB(row db.IpBan) *core.IPBan {
 	}
 	if row.ExpiresAt.Valid {
 		ban.ExpiresAt = &row.ExpiresAt.Time
+	}
+	if row.BannedUserID.Valid {
+		v := row.BannedUserID.Int32
+		ban.BannedUserID = &v
+	}
+	return ban
+}
+
+func ipBanFromListRow(row db.ListIPBansRow) *core.IPBan {
+	ban := &core.IPBan{
+		ID:        row.ID,
+		IPAddress: row.IpAddress,
+		CreatedBy: row.CreatedBy,
+		CreatedAt: row.CreatedAt.Time,
+	}
+	if row.Reason.Valid {
+		ban.Reason = &row.Reason.String
+	}
+	if row.ExpiresAt.Valid {
+		ban.ExpiresAt = &row.ExpiresAt.Time
+	}
+	if row.BannedUserID.Valid {
+		v := row.BannedUserID.Int32
+		ban.BannedUserID = &v
+	}
+	if row.BannedUsername.Valid {
+		ban.BannedUsername = &row.BannedUsername.String
 	}
 	return ban
 }

@@ -40,21 +40,25 @@ type BannedUser struct {
 
 // IPBan represents a banned IP address.
 type IPBan struct {
-	ID        int32      `json:"id"`
-	IPAddress string     `json:"ip_address"`
-	CreatedBy int32      `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
-	Reason    *string    `json:"reason,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ID             int32      `json:"id"`
+	IPAddress      string     `json:"ip_address"`
+	CreatedBy      int32      `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Reason         *string    `json:"reason,omitempty"`
+	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	BannedUserID   *int32     `json:"banned_user_id,omitempty"`
+	BannedUsername *string    `json:"banned_username,omitempty"`
 }
 
 // FingerprintBan represents a banned device fingerprint.
 type FingerprintBan struct {
-	ID          int32     `json:"id"`
-	Fingerprint string    `json:"fingerprint"`
-	CreatedBy   int32     `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	Reason      *string   `json:"reason,omitempty"`
+	ID             int32     `json:"id"`
+	Fingerprint    string    `json:"fingerprint"`
+	CreatedBy      int32     `json:"created_by"`
+	CreatedAt      time.Time `json:"created_at"`
+	Reason         *string   `json:"reason,omitempty"`
+	BannedUserID   *int32    `json:"banned_user_id,omitempty"`
+	BannedUsername *string   `json:"banned_username,omitempty"`
 }
 
 // SessionWithDetails represents a session with metadata for admin views.

@@ -17,14 +17,19 @@ type FingerprintBanService struct {
 
 var _ core.FingerprintBanServiceInterface = (*FingerprintBanService)(nil)
 
-func (s *FingerprintBanService) CreateFingerprintBan(ctx context.Context, fingerprint, reason string, createdBy int32) (*core.FingerprintBan, error) {
+func (s *FingerprintBanService) CreateFingerprintBan(ctx context.Context, fingerprint, reason string, createdBy int32, bannedUserID *int32) (*core.FingerprintBan, error) {
 	q := db.New(s.DB)
 
-	row, err := q.CreateFingerprintBan(ctx, db.CreateFingerprintBanParams{
+	params := db.CreateFingerprintBanParams{
 		Fingerprint: fingerprint,
 		CreatedBy:   createdBy,
 		Reason:      pgtype.Text{String: reason, Valid: reason != ""},
-	})
+	}
+	if bannedUserID != nil {
+		params.BannedUserID = pgtype.Int4{Int32: *bannedUserID, Valid: true}
+	}
+
+	row, err := q.CreateFingerprintBan(ctx, params)
 	if err != nil {
 		s.Logger.LogError(ctx, err, "Failed to create fingerprint ban", "fingerprint", fingerprint)
 		return nil, err
@@ -42,7 +47,7 @@ func (s *FingerprintBanService) ListFingerprintBans(ctx context.Context) ([]*cor
 	}
 	bans := make([]*core.FingerprintBan, 0, len(rows))
 	for _, row := range rows {
-		bans = append(bans, fingerprintBanFromDB(row))
+		bans = append(bans, fingerprintBanFromListRow(row))
 	}
 	return bans, nil
 }
@@ -73,6 +78,30 @@ func fingerprintBanFromDB(row db.FingerprintBan) *core.FingerprintBan {
 	}
 	if row.Reason.Valid {
 		ban.Reason = &row.Reason.String
+	}
+	if row.BannedUserID.Valid {
+		v := row.BannedUserID.Int32
+		ban.BannedUserID = &v
+	}
+	return ban
+}
+
+func fingerprintBanFromListRow(row db.ListFingerprintBansRow) *core.FingerprintBan {
+	ban := &core.FingerprintBan{
+		ID:          row.ID,
+		Fingerprint: row.Fingerprint,
+		CreatedBy:   row.CreatedBy,
+		CreatedAt:   row.CreatedAt.Time,
+	}
+	if row.Reason.Valid {
+		ban.Reason = &row.Reason.String
+	}
+	if row.BannedUserID.Valid {
+		v := row.BannedUserID.Int32
+		ban.BannedUserID = &v
+	}
+	if row.BannedUsername.Valid {
+		ban.BannedUsername = &row.BannedUsername.String
 	}
 	return ban
 }

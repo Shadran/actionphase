@@ -1,14 +1,18 @@
 -- name: CreateFingerprintBan :one
 INSERT INTO fingerprint_bans (
-    fingerprint, created_by, reason
+    fingerprint, created_by, reason, banned_user_id
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
 RETURNING *;
 
 -- name: ListFingerprintBans :many
-SELECT * FROM fingerprint_bans
-ORDER BY created_at DESC;
+SELECT
+    b.*,
+    u.username AS banned_username
+FROM fingerprint_bans b
+LEFT JOIN users u ON u.id = b.banned_user_id
+ORDER BY b.created_at DESC;
 
 -- name: DeleteFingerprintBan :exec
 DELETE FROM fingerprint_bans

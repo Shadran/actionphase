@@ -13,18 +13,19 @@ import (
 
 const createIPBan = `-- name: CreateIPBan :one
 INSERT INTO ip_bans (
-    ip_address, created_by, reason, expires_at
+    ip_address, created_by, reason, expires_at, banned_user_id
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
-RETURNING id, ip_address, created_by, created_at, reason, expires_at
+RETURNING id, ip_address, created_by, created_at, reason, expires_at, banned_user_id
 `
 
 type CreateIPBanParams struct {
-	IpAddress string             `json:"ip_address"`
-	CreatedBy int32              `json:"created_by"`
-	Reason    pgtype.Text        `json:"reason"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	IpAddress    string             `json:"ip_address"`
+	CreatedBy    int32              `json:"created_by"`
+	Reason       pgtype.Text        `json:"reason"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	BannedUserID pgtype.Int4        `json:"banned_user_id"`
 }
 
 func (q *Queries) CreateIPBan(ctx context.Context, arg CreateIPBanParams) (IpBan, error) {
@@ -33,6 +34,7 @@ func (q *Queries) CreateIPBan(ctx context.Context, arg CreateIPBanParams) (IpBan
 		arg.CreatedBy,
 		arg.Reason,
 		arg.ExpiresAt,
+		arg.BannedUserID,
 	)
 	var i IpBan
 	err := row.Scan(
@@ -42,6 +44,7 @@ func (q *Queries) CreateIPBan(ctx context.Context, arg CreateIPBanParams) (IpBan
 		&i.CreatedAt,
 		&i.Reason,
 		&i.ExpiresAt,
+		&i.BannedUserID,
 	)
 	return i, err
 }
@@ -67,7 +70,7 @@ func (q *Queries) DeleteIPBan(ctx context.Context, id int32) error {
 }
 
 const getIPBanByAddress = `-- name: GetIPBanByAddress :one
-SELECT id, ip_address, created_by, created_at, reason, expires_at FROM ip_bans
+SELECT id, ip_address, created_by, created_at, reason, expires_at, banned_user_id FROM ip_bans
 WHERE ip_address = $1
 LIMIT 1
 `
@@ -82,6 +85,7 @@ func (q *Queries) GetIPBanByAddress(ctx context.Context, ipAddress string) (IpBa
 		&i.CreatedAt,
 		&i.Reason,
 		&i.ExpiresAt,
+		&i.BannedUserID,
 	)
 	return i, err
 }
@@ -102,20 +106,35 @@ func (q *Queries) IsIPBanned(ctx context.Context, ipAddress string) (bool, error
 }
 
 const listIPBans = `-- name: ListIPBans :many
-SELECT id, ip_address, created_by, created_at, reason, expires_at FROM ip_bans
-WHERE expires_at IS NULL OR expires_at > NOW()
-ORDER BY created_at DESC
+SELECT
+    b.id, b.ip_address, b.created_by, b.created_at, b.reason, b.expires_at, b.banned_user_id,
+    u.username AS banned_username
+FROM ip_bans b
+LEFT JOIN users u ON u.id = b.banned_user_id
+WHERE b.expires_at IS NULL OR b.expires_at > NOW()
+ORDER BY b.created_at DESC
 `
 
-func (q *Queries) ListIPBans(ctx context.Context) ([]IpBan, error) {
+type ListIPBansRow struct {
+	ID             int32              `json:"id"`
+	IpAddress      string             `json:"ip_address"`
+	CreatedBy      int32              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Reason         pgtype.Text        `json:"reason"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	BannedUserID   pgtype.Int4        `json:"banned_user_id"`
+	BannedUsername pgtype.Text        `json:"banned_username"`
+}
+
+func (q *Queries) ListIPBans(ctx context.Context) ([]ListIPBansRow, error) {
 	rows, err := q.db.Query(ctx, listIPBans)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []IpBan
+	var items []ListIPBansRow
 	for rows.Next() {
-		var i IpBan
+		var i ListIPBansRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.IpAddress,
@@ -123,6 +142,8 @@ func (q *Queries) ListIPBans(ctx context.Context) ([]IpBan, error) {
 			&i.CreatedAt,
 			&i.Reason,
 			&i.ExpiresAt,
+			&i.BannedUserID,
+			&i.BannedUsername,
 		); err != nil {
 			return nil, err
 		}

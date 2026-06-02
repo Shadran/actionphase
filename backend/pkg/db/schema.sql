@@ -83,7 +83,8 @@ CREATE TABLE ip_bans (
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     reason TEXT,
-    expires_at TIMESTAMPTZ
+    expires_at TIMESTAMPTZ,
+    banned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Device Fingerprint Bans
@@ -92,7 +93,8 @@ CREATE TABLE fingerprint_bans (
     fingerprint VARCHAR(255) NOT NULL UNIQUE,
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    reason TEXT
+    reason TEXT,
+    banned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Games table

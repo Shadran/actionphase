@@ -44,6 +44,8 @@ export interface IPBan {
   created_at: string;
   reason?: string;
   expires_at?: string;
+  banned_user_id?: number;
+  banned_username?: string;
 }
 
 export interface FingerprintBan {
@@ -52,6 +54,8 @@ export interface FingerprintBan {
   created_by: number;
   created_at: string;
   reason?: string;
+  banned_user_id?: number;
+  banned_username?: string;
 }
 
 export interface SessionDetail {
@@ -144,8 +148,13 @@ export class AdminApi extends BaseApiClient {
     return this.client.get<IPBan[]>('/api/v1/admin/ip-bans');
   }
 
-  async createIPBan(ipAddress: string, reason: string, expiresAt?: string) {
-    return this.client.post<IPBan>('/api/v1/admin/ip-bans', { ip_address: ipAddress, reason, expires_at: expiresAt });
+  async createIPBan(ipAddress: string, reason: string, expiresAt?: string, bannedUserId?: number) {
+    return this.client.post<IPBan>('/api/v1/admin/ip-bans', {
+      ip_address: ipAddress,
+      reason,
+      expires_at: expiresAt,
+      banned_user_id: bannedUserId,
+    });
   }
 
   async deleteIPBan(id: number) {
@@ -158,8 +167,12 @@ export class AdminApi extends BaseApiClient {
     return this.client.get<FingerprintBan[]>('/api/v1/admin/fingerprint-bans');
   }
 
-  async createFingerprintBan(fingerprint: string, reason: string) {
-    return this.client.post<FingerprintBan>('/api/v1/admin/fingerprint-bans', { fingerprint, reason });
+  async createFingerprintBan(fingerprint: string, reason: string, bannedUserId?: number) {
+    return this.client.post<FingerprintBan>('/api/v1/admin/fingerprint-bans', {
+      fingerprint,
+      reason,
+      banned_user_id: bannedUserId,
+    });
   }
 
   async deleteFingerprintBan(id: number) {

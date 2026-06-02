@@ -216,11 +216,12 @@ type EmailVerificationToken struct {
 }
 
 type FingerprintBan struct {
-	ID          int32              `json:"id"`
-	Fingerprint string             `json:"fingerprint"`
-	CreatedBy   int32              `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	Reason      pgtype.Text        `json:"reason"`
+	ID           int32              `json:"id"`
+	Fingerprint  string             `json:"fingerprint"`
+	CreatedBy    int32              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Reason       pgtype.Text        `json:"reason"`
+	BannedUserID pgtype.Int4        `json:"banned_user_id"`
 }
 
 type Game struct {
@@ -324,12 +325,13 @@ type HandoutComment struct {
 }
 
 type IpBan struct {
-	ID        int32              `json:"id"`
-	IpAddress string             `json:"ip_address"`
-	CreatedBy int32              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Reason    pgtype.Text        `json:"reason"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	ID           int32              `json:"id"`
+	IpAddress    string             `json:"ip_address"`
+	CreatedBy    int32              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Reason       pgtype.Text        `json:"reason"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	BannedUserID pgtype.Int4        `json:"banned_user_id"`
 }
 
 type Message struct {

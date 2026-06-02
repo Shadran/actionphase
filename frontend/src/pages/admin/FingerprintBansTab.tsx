@@ -94,6 +94,7 @@ export function FingerprintBansTab() {
                 {ban.reason && <div className="text-sm text-content-secondary">{ban.reason}</div>}
                 <div className="text-xs text-content-tertiary">
                   Banned {new Date(ban.created_at).toLocaleDateString()}
+                  {ban.banned_username && ` · User: ${ban.banned_username}`}
                 </div>
               </div>
               <Button

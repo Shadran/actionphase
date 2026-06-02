@@ -60,14 +60,14 @@ export function UserListTab() {
 
   const createIPBanMutation = useMutation({
     mutationFn: ({ ip, reason }: { ip: string; reason: string }) =>
-      apiClient.admin.createIPBan(ip, reason),
+      apiClient.admin.createIPBan(ip, reason, undefined, sessionUser?.id),
     onSuccess: () => { showSuccess('IP banned'); closeBanModal(); },
     onError: () => showError('Failed to ban IP'),
   });
 
   const createFingerprintBanMutation = useMutation({
     mutationFn: ({ fp, reason }: { fp: string; reason: string }) =>
-      apiClient.admin.createFingerprintBan(fp, reason),
+      apiClient.admin.createFingerprintBan(fp, reason, sessionUser?.id),
     onSuccess: () => { showSuccess('Device fingerprint banned'); closeBanModal(); },
     onError: () => showError('Failed to ban fingerprint'),
   });

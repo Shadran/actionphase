@@ -32,9 +32,10 @@ func (h *Handler) ListIPBans(w http.ResponseWriter, r *http.Request) {
 }
 
 type createIPBanRequest struct {
-	IPAddress string     `json:"ip_address"`
-	Reason    string     `json:"reason"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	IPAddress    string     `json:"ip_address"`
+	Reason       string     `json:"reason"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	BannedUserID *int32     `json:"banned_user_id,omitempty"`
 }
 
 // CreateIPBan adds a new IP ban.
@@ -64,7 +65,7 @@ func (h *Handler) CreateIPBan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	svc := &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	ban, err := svc.CreateIPBan(ctx, req.IPAddress, req.Reason, adminID, req.ExpiresAt)
+	ban, err := svc.CreateIPBan(ctx, req.IPAddress, req.Reason, adminID, req.ExpiresAt, req.BannedUserID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {

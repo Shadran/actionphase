@@ -13,21 +13,27 @@ import (
 
 const createFingerprintBan = `-- name: CreateFingerprintBan :one
 INSERT INTO fingerprint_bans (
-    fingerprint, created_by, reason
+    fingerprint, created_by, reason, banned_user_id
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
-RETURNING id, fingerprint, created_by, created_at, reason
+RETURNING id, fingerprint, created_by, created_at, reason, banned_user_id
 `
 
 type CreateFingerprintBanParams struct {
-	Fingerprint string      `json:"fingerprint"`
-	CreatedBy   int32       `json:"created_by"`
-	Reason      pgtype.Text `json:"reason"`
+	Fingerprint  string      `json:"fingerprint"`
+	CreatedBy    int32       `json:"created_by"`
+	Reason       pgtype.Text `json:"reason"`
+	BannedUserID pgtype.Int4 `json:"banned_user_id"`
 }
 
 func (q *Queries) CreateFingerprintBan(ctx context.Context, arg CreateFingerprintBanParams) (FingerprintBan, error) {
-	row := q.db.QueryRow(ctx, createFingerprintBan, arg.Fingerprint, arg.CreatedBy, arg.Reason)
+	row := q.db.QueryRow(ctx, createFingerprintBan,
+		arg.Fingerprint,
+		arg.CreatedBy,
+		arg.Reason,
+		arg.BannedUserID,
+	)
 	var i FingerprintBan
 	err := row.Scan(
 		&i.ID,
@@ -35,6 +41,7 @@ func (q *Queries) CreateFingerprintBan(ctx context.Context, arg CreateFingerprin
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.Reason,
+		&i.BannedUserID,
 	)
 	return i, err
 }
@@ -64,25 +71,41 @@ func (q *Queries) IsFingerprintBanned(ctx context.Context, fingerprint string) (
 }
 
 const listFingerprintBans = `-- name: ListFingerprintBans :many
-SELECT id, fingerprint, created_by, created_at, reason FROM fingerprint_bans
-ORDER BY created_at DESC
+SELECT
+    b.id, b.fingerprint, b.created_by, b.created_at, b.reason, b.banned_user_id,
+    u.username AS banned_username
+FROM fingerprint_bans b
+LEFT JOIN users u ON u.id = b.banned_user_id
+ORDER BY b.created_at DESC
 `
 
-func (q *Queries) ListFingerprintBans(ctx context.Context) ([]FingerprintBan, error) {
+type ListFingerprintBansRow struct {
+	ID             int32              `json:"id"`
+	Fingerprint    string             `json:"fingerprint"`
+	CreatedBy      int32              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Reason         pgtype.Text        `json:"reason"`
+	BannedUserID   pgtype.Int4        `json:"banned_user_id"`
+	BannedUsername pgtype.Text        `json:"banned_username"`
+}
+
+func (q *Queries) ListFingerprintBans(ctx context.Context) ([]ListFingerprintBansRow, error) {
 	rows, err := q.db.Query(ctx, listFingerprintBans)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []FingerprintBan
+	var items []ListFingerprintBansRow
 	for rows.Next() {
-		var i FingerprintBan
+		var i ListFingerprintBansRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Fingerprint,
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.Reason,
+			&i.BannedUserID,
+			&i.BannedUsername,
 		); err != nil {
 			return nil, err
 		}

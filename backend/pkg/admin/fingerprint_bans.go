@@ -29,8 +29,9 @@ func (h *Handler) ListFingerprintBans(w http.ResponseWriter, r *http.Request) {
 }
 
 type createFingerprintBanRequest struct {
-	Fingerprint string `json:"fingerprint"`
-	Reason      string `json:"reason"`
+	Fingerprint  string `json:"fingerprint"`
+	Reason       string `json:"reason"`
+	BannedUserID *int32 `json:"banned_user_id,omitempty"`
 }
 
 // CreateFingerprintBan adds a new device fingerprint ban.
@@ -60,7 +61,7 @@ func (h *Handler) CreateFingerprintBan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	svc := &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	ban, err := svc.CreateFingerprintBan(ctx, req.Fingerprint, req.Reason, adminID)
+	ban, err := svc.CreateFingerprintBan(ctx, req.Fingerprint, req.Reason, adminID, req.BannedUserID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {

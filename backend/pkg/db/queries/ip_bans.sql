@@ -1,8 +1,8 @@
 -- name: CreateIPBan :one
 INSERT INTO ip_bans (
-    ip_address, created_by, reason, expires_at
+    ip_address, created_by, reason, expires_at, banned_user_id
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 RETURNING *;
 
@@ -12,9 +12,13 @@ WHERE ip_address = $1
 LIMIT 1;
 
 -- name: ListIPBans :many
-SELECT * FROM ip_bans
-WHERE expires_at IS NULL OR expires_at > NOW()
-ORDER BY created_at DESC;
+SELECT
+    b.*,
+    u.username AS banned_username
+FROM ip_bans b
+LEFT JOIN users u ON u.id = b.banned_user_id
+WHERE b.expires_at IS NULL OR b.expires_at > NOW()
+ORDER BY b.created_at DESC;
 
 -- name: DeleteIPBan :exec
 DELETE FROM ip_bans

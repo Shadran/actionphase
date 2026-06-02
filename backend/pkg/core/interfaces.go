@@ -116,7 +116,7 @@ type UserServiceInterface interface {
 
 // IPBanServiceInterface defines the contract for IP address banning.
 type IPBanServiceInterface interface {
-	CreateIPBan(ctx context.Context, ipAddress, reason string, createdBy int32, expiresAt *time.Time) (*IPBan, error)
+	CreateIPBan(ctx context.Context, ipAddress, reason string, createdBy int32, expiresAt *time.Time, bannedUserID *int32) (*IPBan, error)
 	ListIPBans(ctx context.Context) ([]*IPBan, error)
 	DeleteIPBan(ctx context.Context, id int32) error
 	IsIPBanned(ctx context.Context, ipAddress string) (bool, error)
@@ -125,7 +125,7 @@ type IPBanServiceInterface interface {
 
 // FingerprintBanServiceInterface defines the contract for device fingerprint banning.
 type FingerprintBanServiceInterface interface {
-	CreateFingerprintBan(ctx context.Context, fingerprint, reason string, createdBy int32) (*FingerprintBan, error)
+	CreateFingerprintBan(ctx context.Context, fingerprint, reason string, createdBy int32, bannedUserID *int32) (*FingerprintBan, error)
 	ListFingerprintBans(ctx context.Context) ([]*FingerprintBan, error)
 	DeleteFingerprintBan(ctx context.Context, id int32) error
 	IsFingerprintBanned(ctx context.Context, fingerprint string) (bool, error)

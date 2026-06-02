@@ -105,6 +105,7 @@ export function IPBansTab() {
                 <div className="text-xs text-content-tertiary">
                   Banned {new Date(ban.created_at).toLocaleDateString()}
                   {ban.expires_at && ` · Expires ${new Date(ban.expires_at).toLocaleDateString()}`}
+                  {ban.banned_username && ` · User: ${ban.banned_username}`}
                 </div>
               </div>
               <Button
