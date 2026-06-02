@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AxiosResponse } from 'axios';
 import { AdminPage } from './AdminPage';
 import { apiClient } from '../lib/api';
@@ -14,11 +15,15 @@ vi.mock('../lib/api', () => ({
     admin: {
       listAdmins: vi.fn(),
       listBannedUsers: vi.fn(),
+      listUsers: vi.fn(),
       banUser: vi.fn(),
       unbanUser: vi.fn(),
       revokeAdminStatus: vi.fn(),
       grantAdminStatus: vi.fn(),
       getUserByUsername: vi.fn(),
+      getUserSessions: vi.fn(),
+      createIPBan: vi.fn(),
+      createFingerprintBan: vi.fn(),
     },
   },
 }));
@@ -37,38 +42,34 @@ vi.mock('../contexts/AuthContext', () => ({
   }),
 }));
 
-// Mock window.confirm and window.alert
-const mockConfirm = vi.fn();
-const mockAlert = vi.fn();
-global.confirm = mockConfirm;
-global.alert = mockAlert;
-
 describe('AdminPage', () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
-    // Create a new QueryClient for each test to ensure isolation
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     });
-
-    // Reset all mocks
     vi.clearAllMocks();
-    mockConfirm.mockReturnValue(true);
   });
 
   const renderAdminPage = () => {
     return render(
-      <QueryClientProvider client={queryClient}>
-        <AdminModeProvider>
-          <ToastProvider>
-            <AdminPage />
-          </ToastProvider>
-        </AdminModeProvider>
-      </QueryClientProvider>
+      <MemoryRouter initialEntries={['/admin']}>
+        <Routes>
+          <Route path="/admin/:tab?" element={
+            <QueryClientProvider client={queryClient}>
+              <AdminModeProvider>
+                <ToastProvider>
+                  <AdminPage />
+                </ToastProvider>
+              </AdminModeProvider>
+            </QueryClientProvider>
+          } />
+        </Routes>
+      </MemoryRouter>
     );
   };
 
@@ -81,7 +82,6 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await user.click(screen.getByRole('button', { name: /banned users/i }));
 
       expect(screen.getByText(/loading banned users/i)).toBeInTheDocument();
@@ -95,7 +95,6 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await user.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
@@ -132,7 +131,6 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await user.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
@@ -142,11 +140,9 @@ describe('AdminPage', () => {
         expect(screen.getByText('banned2@example.com')).toBeInTheDocument();
       });
 
-      // Check for BANNED badges
       const badges = screen.getAllByText('BANNED');
       expect(badges).toHaveLength(2);
 
-      // Check for "Banned by" information (text is split across elements)
       const bannedByTexts = screen.getAllByText(/^Banned by:/i);
       expect(bannedByTexts).toHaveLength(2);
     });
@@ -159,17 +155,14 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await user.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/error loading banned users/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/error loading banned users/i)).toBeInTheDocument();
       });
     });
 
-    it('unbans a user when unban button is clicked and confirmed', async () => {
+    it('unbans a user when unban button is clicked and confirmed via modal', async () => {
       const userActions = userEvent.setup();
       const bannedUser = {
         id: 1,
@@ -184,41 +177,33 @@ describe('AdminPage', () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [bannedUser],
       } as Partial<AxiosResponse<unknown[]>>);
-
       vi.mocked(apiClient.admin.unbanUser).mockResolvedValue({} as Partial<AxiosResponse<unknown>>);
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await userActions.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
       });
 
-      const unbanButton = screen.getByRole('button', { name: /unban user/i });
-      await userActions.click(unbanButton);
+      // Click Unban User to open the confirmation modal
+      await userActions.click(screen.getByRole('button', { name: /unban user/i }));
 
-      // Verify confirmation dialog was shown
-      expect(mockConfirm).toHaveBeenCalledWith(
-        'Are you sure you want to unban user banneduser?'
-      );
+      // Confirm via the modal's confirm button
+      await userActions.click(screen.getByRole('button', { name: /^unban$/i }));
 
-      // Verify API was called
       await waitFor(() => {
         expect(apiClient.admin.unbanUser).toHaveBeenCalledWith(1);
       });
 
-      // Success is shown via toast, not alert
       await waitFor(() => {
         expect(screen.getByText('User unbanned successfully')).toBeInTheDocument();
       });
     });
 
-    it('does not unban user when confirmation is cancelled', async () => {
+    it('does not unban user when confirmation modal is cancelled', async () => {
       const userActions = userEvent.setup();
-      mockConfirm.mockReturnValue(false);
-
       const bannedUser = {
         id: 1,
         username: 'banneduser',
@@ -235,21 +220,21 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await userActions.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
       });
 
-      const unbanButton = screen.getByRole('button', { name: /unban user/i });
-      await userActions.click(unbanButton);
+      await userActions.click(screen.getByRole('button', { name: /unban user/i }));
 
-      // Verify API was not called
+      // Cancel via the modal's cancel button
+      await userActions.click(screen.getByRole('button', { name: /^cancel$/i }));
+
       expect(apiClient.admin.unbanUser).not.toHaveBeenCalled();
     });
 
-    it('shows error alert when unban fails', async () => {
+    it('shows error toast when unban fails', async () => {
       const userActions = userEvent.setup();
       const bannedUser = {
         id: 1,
@@ -264,24 +249,19 @@ describe('AdminPage', () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [bannedUser],
       } as Partial<AxiosResponse<unknown[]>>);
-
-      vi.mocked(apiClient.admin.unbanUser).mockRejectedValue(
-        new Error('API Error')
-      );
+      vi.mocked(apiClient.admin.unbanUser).mockRejectedValue(new Error('API Error'));
 
       renderAdminPage();
 
-      // Click on Banned Users tab
       await userActions.click(screen.getByRole('button', { name: /banned users/i }));
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
       });
 
-      const unbanButton = screen.getByRole('button', { name: /unban user/i });
-      await userActions.click(unbanButton);
+      await userActions.click(screen.getByRole('button', { name: /unban user/i }));
+      await userActions.click(screen.getByRole('button', { name: /^unban$/i }));
 
-      // Error is shown via toast, not alert
       await waitFor(() => {
         expect(screen.getByText(/failed to unban user/i)).toBeInTheDocument();
       });
@@ -342,7 +322,6 @@ describe('AdminPage', () => {
         expect(screen.getByText('admin2@example.com')).toBeInTheDocument();
       });
 
-      // Check for ADMIN badges
       const badges = screen.getAllByText('ADMIN');
       expect(badges.length).toBeGreaterThanOrEqual(2);
     });
@@ -369,9 +348,7 @@ describe('AdminPage', () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.listAdmins).mockRejectedValue(
-        new Error('API Error')
-      );
+      vi.mocked(apiClient.admin.listAdmins).mockRejectedValue(new Error('API Error'));
 
       renderAdminPage();
 
@@ -379,9 +356,7 @@ describe('AdminPage', () => {
       await userEvent.click(adminsTab);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/error loading administrators/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/error loading administrators/i)).toBeInTheDocument();
       });
     });
   });
@@ -409,12 +384,10 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      // Start on Admin Mode tab
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /^admin mode$/i })).toBeInTheDocument();
       });
 
-      // Switch to Admins tab
       const adminsTab = screen.getByRole('button', { name: /^admins$/i });
       await userEvent.click(adminsTab);
 
@@ -422,129 +395,12 @@ describe('AdminPage', () => {
         expect(screen.getByRole('heading', { name: /administrator users/i })).toBeInTheDocument();
       });
 
-      // Switch to Banned Users tab
       const bannedUsersTab = screen.getByRole('button', { name: /banned users/i });
       await userEvent.click(bannedUsersTab);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /^banned users$/i })).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('Grant Admin Functionality', () => {
-    it('grants admin status when grant admin button is clicked and confirmed', async () => {
-      const admins = [
-        {
-          id: 1,
-          username: 'testadmin',
-          email: 'test@example.com',
-          createdAt: '2025-01-01T00:00:00Z',
-        },
-      ];
-
-      vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
-        data: [],
-      } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.listAdmins).mockResolvedValue({
-        data: admins,
-      } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.grantAdminStatus).mockResolvedValue({} as Partial<AxiosResponse<unknown>>);
-
-      renderAdminPage();
-
-      // Switch to User Lookup tab
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /user lookup/i })).toBeInTheDocument();
-      });
-
-      // Mock user lookup response for a non-admin user
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
-          id: 2,
-          username: 'regularuser',
-          email: 'regular@example.com',
-          is_admin: false,
-          is_banned: false,
-          createdAt: '2025-01-02T00:00:00Z',
-        },
-      } as Partial<AxiosResponse<unknown>>);
-
-      // Search for user
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'regularuser');
-      await userEvent.click(searchButton);
-
-      // Wait for user to appear
-      await waitFor(() => {
-        expect(screen.getByText('regularuser')).toBeInTheDocument();
-      });
-
-      // Click Grant Admin button
-      const grantButton = screen.getByRole('button', { name: /grant admin/i });
-      await userEvent.click(grantButton);
-
-      // Verify confirmation dialog
-      expect(mockConfirm).toHaveBeenCalledWith(
-        'Are you sure you want to grant admin access to regularuser?'
-      );
-
-      // Verify API was called
-      await waitFor(() => {
-        expect(apiClient.admin.grantAdminStatus).toHaveBeenCalledWith(2);
-      });
-
-      // Verify success via toast
-      await waitFor(() => {
-        expect(screen.getByText('Admin status granted successfully')).toBeInTheDocument();
-      });
-    });
-
-    it('does not grant admin when confirmation is cancelled', async () => {
-      mockConfirm.mockReturnValue(false);
-
-      vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
-        data: [],
-      } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.listAdmins).mockResolvedValue({
-        data: [],
-      } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
-          id: 2,
-          username: 'regularuser',
-          email: 'regular@example.com',
-          is_admin: false,
-          is_banned: false,
-          createdAt: '2025-01-02T00:00:00Z',
-        },
-      } as Partial<AxiosResponse<unknown>>);
-
-      renderAdminPage();
-
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'regularuser');
-      await userEvent.click(searchButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('regularuser')).toBeInTheDocument();
-      });
-
-      const grantButton = screen.getByRole('button', { name: /grant admin/i });
-      await userEvent.click(grantButton);
-
-      // Verify API was not called
-      expect(apiClient.admin.grantAdminStatus).not.toHaveBeenCalled();
     });
   });
 
@@ -582,7 +438,6 @@ describe('AdminPage', () => {
         expect(screen.getByText('anotheradmin')).toBeInTheDocument();
       });
 
-      // Should see YOU badge for current user
       expect(screen.getByText('YOU')).toBeInTheDocument();
 
       // Should only see 1 Revoke Admin button (for anotheradmin, not testadmin)
@@ -590,7 +445,7 @@ describe('AdminPage', () => {
       expect(revokeButtons).toHaveLength(1);
     });
 
-    it('revokes admin status for other users', async () => {
+    it('revokes admin status for other users via confirmation modal', async () => {
       const admins = [
         {
           id: 1,
@@ -623,110 +478,75 @@ describe('AdminPage', () => {
         expect(screen.getByText('anotheradmin')).toBeInTheDocument();
       });
 
-      const revokeButton = screen.getByRole('button', { name: /revoke admin/i });
-      await userEvent.click(revokeButton);
+      await userEvent.click(screen.getByRole('button', { name: /revoke admin/i }));
 
-      // Verify confirmation dialog
-      expect(mockConfirm).toHaveBeenCalledWith(
-        'Are you sure you want to revoke admin status from anotheradmin?'
-      );
+      // Confirm via the modal
+      await userEvent.click(screen.getByRole('button', { name: /^revoke$/i }));
 
-      // Verify API was called
       await waitFor(() => {
         expect(apiClient.admin.revokeAdminStatus).toHaveBeenCalledWith(2);
       });
 
-      // Verify success via toast
       await waitFor(() => {
         expect(screen.getByText('Admin status revoked successfully')).toBeInTheDocument();
       });
     });
   });
 
-  describe('User Lookup Tab', () => {
-    it('shows user lookup tab when clicked', async () => {
+  describe('All Users Tab', () => {
+    const mockUsersResponse = (users: unknown[]) =>
+      vi.mocked(apiClient.admin.listUsers).mockResolvedValue({
+        data: { users, total: users.length, page: 1, page_size: 25 },
+      } as Partial<AxiosResponse<unknown>>);
+
+    it('shows All Users tab when clicked', async () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
+      mockUsersResponse([]);
 
       renderAdminPage();
 
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
+      const allUsersTab = screen.getByRole('button', { name: /all users/i });
+      await userEvent.click(allUsersTab);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /user lookup/i })).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/enter username/i)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /all users/i })).toBeInTheDocument();
       });
     });
 
-    it('searches for user and displays results', async () => {
+    it('displays list of users', async () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
+      mockUsersResponse([
+        {
           id: 2,
-          username: 'searchuser',
-          email: 'search@example.com',
+          username: 'regularuser',
+          email: 'regular@example.com',
           is_admin: false,
           is_banned: false,
           createdAt: '2025-01-02T00:00:00Z',
         },
-      } as Partial<AxiosResponse<unknown>>);
+      ]);
 
       renderAdminPage();
 
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'searchuser');
-      await userEvent.click(searchButton);
+      const allUsersTab = screen.getByRole('button', { name: /all users/i });
+      await userEvent.click(allUsersTab);
 
       await waitFor(() => {
-        expect(apiClient.admin.getUserByUsername).toHaveBeenCalledWith('searchuser');
-        expect(screen.getByText('searchuser')).toBeInTheDocument();
-        expect(screen.getByText('search@example.com')).toBeInTheDocument();
-      });
-
-      // Should show Ban User and Grant Admin buttons for non-admin user
-      expect(screen.getByRole('button', { name: /ban user/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /grant admin/i })).toBeInTheDocument();
-    });
-
-    it('displays error message when user not found', async () => {
-      vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
-        data: [],
-      } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockRejectedValue({
-        response: { data: { error: 'user not found' } },
-      });
-
-      renderAdminPage();
-
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'nonexistent');
-      await userEvent.click(searchButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/user not found/i)).toBeInTheDocument();
+        expect(screen.getByText('regularuser')).toBeInTheDocument();
+        expect(screen.getByText('regular@example.com')).toBeInTheDocument();
       });
     });
 
-    it('shows appropriate buttons for admin users', async () => {
+    it('shows ADMIN badge for admin users', async () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
+      mockUsersResponse([
+        {
           id: 2,
           username: 'adminuser',
           email: 'admin@example.com',
@@ -734,37 +554,24 @@ describe('AdminPage', () => {
           is_banned: false,
           createdAt: '2025-01-02T00:00:00Z',
         },
-      } as Partial<AxiosResponse<unknown>>);
+      ]);
 
       renderAdminPage();
 
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'adminuser');
-      await userEvent.click(searchButton);
+      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
 
       await waitFor(() => {
         expect(screen.getByText('adminuser')).toBeInTheDocument();
         expect(screen.getByText('ADMIN')).toBeInTheDocument();
       });
-
-      // Should show Ban User and Revoke Admin buttons for admin user
-      expect(screen.getByRole('button', { name: /ban user/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /revoke admin/i })).toBeInTheDocument();
-      // Should NOT show Grant Admin button
-      expect(screen.queryByRole('button', { name: /grant admin/i })).not.toBeInTheDocument();
     });
 
-    it('hides action buttons for banned users', async () => {
+    it('shows BANNED badge for banned users', async () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
+      mockUsersResponse([
+        {
           id: 2,
           username: 'banneduser',
           email: 'banned@example.com',
@@ -772,64 +579,31 @@ describe('AdminPage', () => {
           is_banned: true,
           createdAt: '2025-01-02T00:00:00Z',
         },
-      } as Partial<AxiosResponse<unknown>>);
+      ]);
 
       renderAdminPage();
 
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'banneduser');
-      await userEvent.click(searchButton);
+      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
         expect(screen.getByText('BANNED')).toBeInTheDocument();
       });
-
-      // Should NOT show Ban User or Grant Admin buttons for banned user
-      expect(screen.queryByRole('button', { name: /ban user/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /grant admin/i })).not.toBeInTheDocument();
     });
 
-    it('hides all action buttons for current user', async () => {
+    it('shows empty state when no users found', async () => {
       vi.mocked(apiClient.admin.listBannedUsers).mockResolvedValue({
         data: [],
       } as Partial<AxiosResponse<unknown[]>>);
-      vi.mocked(apiClient.admin.getUserByUsername).mockResolvedValue({
-        data: {
-          id: 1, // Same as mocked currentUser.id
-          username: 'testadmin',
-          email: 'test@example.com',
-          is_admin: true,
-          is_banned: false,
-          createdAt: '2025-01-01T00:00:00Z',
-        },
-      } as Partial<AxiosResponse<unknown>>);
+      mockUsersResponse([]);
 
       renderAdminPage();
 
-      const lookupTab = screen.getByRole('button', { name: /user lookup/i });
-      await userEvent.click(lookupTab);
-
-      const searchInput = screen.getByPlaceholderText(/enter username/i);
-      const searchButton = screen.getByRole('button', { name: /search/i });
-
-      await userEvent.type(searchInput, 'testadmin');
-      await userEvent.click(searchButton);
+      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('testadmin')).toBeInTheDocument();
-        expect(screen.getByText('YOU')).toBeInTheDocument();
+        expect(screen.getByText(/no users found/i)).toBeInTheDocument();
       });
-
-      // Should NOT show any action buttons for current user
-      expect(screen.queryByRole('button', { name: /ban user/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /grant admin/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /revoke admin/i })).not.toBeInTheDocument();
     });
   });
 });
