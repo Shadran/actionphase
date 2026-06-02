@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
-import { Badge, Button, Input } from '../../components/ui';
+import { Badge, Button, Input, Modal, Textarea } from '../../components/ui';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import type { SessionDetail, User } from '../../lib/api/admin';
+
+type PendingBan = { type: 'ip'; value: string } | { type: 'fingerprint'; value: string };
 
 export function UserListTab() {
   const queryClient = useQueryClient();
@@ -14,6 +17,9 @@ export function UserListTab() {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[] | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [pendingBan, setPendingBan] = useState<PendingBan | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [userToBan, setUserToBan] = useState<User | null>(null);
 
   // Debounce search input
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,6 +43,7 @@ export function UserListTab() {
     mutationFn: (userId: number) => apiClient.admin.banUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      setUserToBan(null);
       showSuccess('User banned');
     },
     onError: () => showError('Failed to ban user'),
@@ -52,16 +59,34 @@ export function UserListTab() {
   });
 
   const createIPBanMutation = useMutation({
-    mutationFn: (ip: string) => apiClient.admin.createIPBan(ip, 'Banned via user session view'),
-    onSuccess: () => showSuccess('IP banned'),
+    mutationFn: ({ ip, reason }: { ip: string; reason: string }) =>
+      apiClient.admin.createIPBan(ip, reason),
+    onSuccess: () => { showSuccess('IP banned'); closeBanModal(); },
     onError: () => showError('Failed to ban IP'),
   });
 
   const createFingerprintBanMutation = useMutation({
-    mutationFn: (fp: string) => apiClient.admin.createFingerprintBan(fp, 'Banned via user session view'),
-    onSuccess: () => showSuccess('Device fingerprint banned'),
+    mutationFn: ({ fp, reason }: { fp: string; reason: string }) =>
+      apiClient.admin.createFingerprintBan(fp, reason),
+    onSuccess: () => { showSuccess('Device fingerprint banned'); closeBanModal(); },
     onError: () => showError('Failed to ban fingerprint'),
   });
+
+  const closeBanModal = () => {
+    setPendingBan(null);
+    setBanReason('');
+    setSessionUser(null);
+    setSessions(null);
+  };
+
+  const confirmBan = () => {
+    if (!pendingBan) return;
+    if (pendingBan.type === 'ip') {
+      createIPBanMutation.mutate({ ip: pendingBan.value, reason: banReason });
+    } else {
+      createFingerprintBanMutation.mutate({ fp: pendingBan.value, reason: banReason });
+    }
+  };
 
   const handleViewSessions = async (user: User) => {
     setSessionUser(user);
@@ -134,9 +159,7 @@ export function UserListTab() {
                     ) : (
                       <Button
                         variant="danger"
-                        onClick={() => {
-                          if (confirm(`Ban ${user.username}?`)) banMutation.mutate(user.id);
-                        }}
+                        onClick={() => setUserToBan(user)}
                         disabled={banMutation.isPending}
                       >
                         Ban
@@ -167,6 +190,53 @@ export function UserListTab() {
           </div>
         </>
       )}
+
+      {/* Ban User Confirmation */}
+      <ConfirmModal
+        isOpen={userToBan !== null}
+        onClose={() => setUserToBan(null)}
+        onConfirm={() => banMutation.mutate(userToBan!.id)}
+        title="Ban User"
+        message={`Ban ${userToBan?.username}? They will not be able to log in.`}
+        confirmText="Ban"
+        variant="danger"
+        isLoading={banMutation.isPending}
+      />
+
+      {/* Ban IP / Device Confirmation Modal */}
+      <Modal
+        isOpen={pendingBan !== null}
+        onClose={closeBanModal}
+        title={pendingBan?.type === 'ip' ? `Ban IP: ${pendingBan.value}` : 'Ban Device'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeBanModal}>Cancel</Button>
+            <Button
+              variant="danger"
+              onClick={confirmBan}
+              disabled={createIPBanMutation.isPending || createFingerprintBanMutation.isPending}
+            >
+              Confirm Ban
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {pendingBan?.type === 'fingerprint' && (
+            <p className="text-sm text-content-secondary break-all">
+              <span className="font-medium">Fingerprint:</span> {pendingBan.value}
+            </p>
+          )}
+          <Textarea
+            label="Reason (optional)"
+            placeholder="e.g. Spamming, ban evasion..."
+            value={banReason}
+            onChange={e => setBanReason(e.target.value)}
+            rows={3}
+          />
+        </div>
+      </Modal>
 
       {/* Sessions Modal */}
       {sessionUser && (
@@ -200,9 +270,7 @@ export function UserListTab() {
                         {s.ip_address && (
                           <Button
                             variant="danger"
-                            onClick={() => {
-                              if (confirm(`Ban IP ${s.ip_address}?`)) createIPBanMutation.mutate(s.ip_address!);
-                            }}
+                            onClick={() => setPendingBan({ type: 'ip', value: s.ip_address! })}
                           >
                             Ban IP
                           </Button>
@@ -210,9 +278,7 @@ export function UserListTab() {
                         {s.fingerprint && (
                           <Button
                             variant="danger"
-                            onClick={() => {
-                              if (confirm('Ban this device fingerprint?')) createFingerprintBanMutation.mutate(s.fingerprint!);
-                            }}
+                            onClick={() => setPendingBan({ type: 'fingerprint', value: s.fingerprint! })}
                           >
                             Ban Device
                           </Button>

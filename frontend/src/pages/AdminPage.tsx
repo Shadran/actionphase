@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { AdminModeToggle } from '../components/AdminModeToggle';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { UserListTab } from './admin/UserListTab';
 import { PendingApprovalTab } from './admin/PendingApprovalTab';
 import { IPBansTab } from './admin/IPBansTab';
@@ -23,6 +25,9 @@ export function AdminPage() {
 
   const activeTab: TabId = (tab && VALID_TABS.includes(tab as TabId)) ? (tab as TabId) : 'mode';
   const setActiveTab = (t: TabId) => navigate(`/admin/${t}`, { replace: false });
+
+  const [userToUnban, setUserToUnban] = useState<BannedUser | null>(null);
+  const [userToRevokeAdmin, setUserToRevokeAdmin] = useState<AdminUser | null>(null);
 
   // Fetch admins
   const {
@@ -55,6 +60,7 @@ export function AdminPage() {
     mutationFn: (userId: number) => apiClient.admin.unbanUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bannedUsers'] });
+      setUserToUnban(null);
       showSuccess('User unbanned successfully');
     },
     onError: (error) => {
@@ -67,26 +73,13 @@ export function AdminPage() {
     mutationFn: (userId: number) => apiClient.admin.revokeAdminStatus(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admins'] });
+      setUserToRevokeAdmin(null);
       showSuccess('Admin status revoked successfully');
     },
     onError: (error) => {
       showError(`Failed to revoke admin status: ${error}`);
     },
   });
-
-  const handleUnbanUser = (userId: number, username: string) => {
-    // eslint-disable-next-line no-alert
-    if (confirm(`Are you sure you want to unban user ${username}?`)) {
-      unbanMutation.mutate(userId);
-    }
-  };
-
-  const handleRevokeAdmin = (userId: number, username: string) => {
-    // eslint-disable-next-line no-alert
-    if (confirm(`Are you sure you want to revoke admin status from ${username}?`)) {
-      revokeAdminMutation.mutate(userId);
-    }
-  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -248,11 +241,11 @@ export function AdminPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleUnbanUser(user.id, user.username)}
+                      onClick={() => setUserToUnban(user)}
                       disabled={unbanMutation.isPending}
                       className="ml-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {unbanMutation.isPending ? 'Unbanning...' : 'Unban User'}
+                      Unban User
                     </button>
                   </div>
                 </div>
@@ -310,11 +303,11 @@ export function AdminPage() {
                     </div>
                     {user.id !== currentUserId && (
                       <button
-                        onClick={() => handleRevokeAdmin(user.id, user.username)}
+                        onClick={() => setUserToRevokeAdmin(user)}
                         disabled={revokeAdminMutation.isPending}
                         className="ml-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {revokeAdminMutation.isPending ? 'Revoking...' : 'Revoke Admin'}
+                        Revoke Admin
                       </button>
                     )}
                   </div>
@@ -336,6 +329,28 @@ export function AdminPage() {
 
       {/* Device Fingerprint Bans Tab */}
       {activeTab === 'fingerprint-bans' && <FingerprintBansTab />}
+
+      <ConfirmModal
+        isOpen={userToUnban !== null}
+        onClose={() => setUserToUnban(null)}
+        onConfirm={() => unbanMutation.mutate(userToUnban!.id)}
+        title="Unban User"
+        message={`Are you sure you want to unban ${userToUnban?.username}?`}
+        confirmText="Unban"
+        variant="primary"
+        isLoading={unbanMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={userToRevokeAdmin !== null}
+        onClose={() => setUserToRevokeAdmin(null)}
+        onConfirm={() => revokeAdminMutation.mutate(userToRevokeAdmin!.id)}
+        title="Revoke Admin Status"
+        message={`Are you sure you want to revoke admin status from ${userToRevokeAdmin?.username}?`}
+        confirmText="Revoke"
+        variant="danger"
+        isLoading={revokeAdminMutation.isPending}
+      />
 
     </div>
   );

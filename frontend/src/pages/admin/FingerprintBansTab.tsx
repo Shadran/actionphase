@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button, Input } from '../../components/ui';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import type { FingerprintBan } from '../../lib/api/admin';
 
 export function FingerprintBansTab() {
@@ -10,6 +11,7 @@ export function FingerprintBansTab() {
   const { showSuccess, showError } = useToast();
   const [fingerprint, setFingerprint] = useState('');
   const [reason, setReason] = useState('');
+  const [banToDelete, setBanToDelete] = useState<FingerprintBan | null>(null);
 
   const { data: bans, isLoading } = useQuery({
     queryKey: ['fingerprintBans'],
@@ -34,6 +36,7 @@ export function FingerprintBansTab() {
     mutationFn: (id: number) => apiClient.admin.deleteFingerprintBan(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fingerprintBans'] });
+      setBanToDelete(null);
       showSuccess('Fingerprint ban removed');
     },
     onError: () => showError('Failed to remove fingerprint ban'),
@@ -95,9 +98,7 @@ export function FingerprintBansTab() {
               </div>
               <Button
                 variant="secondary"
-                onClick={() => {
-                  if (confirm('Remove this fingerprint ban?')) deleteMutation.mutate(ban.id);
-                }}
+                onClick={() => setBanToDelete(ban)}
                 disabled={deleteMutation.isPending}
               >
                 Remove
@@ -106,6 +107,17 @@ export function FingerprintBansTab() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={banToDelete !== null}
+        onClose={() => setBanToDelete(null)}
+        onConfirm={() => deleteMutation.mutate(banToDelete!.id)}
+        title="Remove Device Ban"
+        message={`Remove ban for fingerprint: ${banToDelete?.fingerprint.slice(0, 20)}...?`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }

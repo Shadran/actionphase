@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button, Input } from '../../components/ui';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import type { IPBan } from '../../lib/api/admin';
 
 export function IPBansTab() {
@@ -11,6 +12,7 @@ export function IPBansTab() {
   const [ip, setIP] = useState('');
   const [reason, setReason] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [banToDelete, setBanToDelete] = useState<IPBan | null>(null);
 
   const { data: bans, isLoading } = useQuery({
     queryKey: ['ipBans'],
@@ -36,6 +38,7 @@ export function IPBansTab() {
     mutationFn: (id: number) => apiClient.admin.deleteIPBan(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ipBans'] });
+      setBanToDelete(null);
       showSuccess('IP ban removed');
     },
     onError: () => showError('Failed to remove IP ban'),
@@ -106,9 +109,7 @@ export function IPBansTab() {
               </div>
               <Button
                 variant="secondary"
-                onClick={() => {
-                  if (confirm(`Remove ban for ${ban.ip_address}?`)) deleteMutation.mutate(ban.id);
-                }}
+                onClick={() => setBanToDelete(ban)}
                 disabled={deleteMutation.isPending}
               >
                 Remove
@@ -117,6 +118,17 @@ export function IPBansTab() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={banToDelete !== null}
+        onClose={() => setBanToDelete(null)}
+        onConfirm={() => deleteMutation.mutate(banToDelete!.id)}
+        title="Remove IP Ban"
+        message={`Remove ban for ${banToDelete?.ip_address}?`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }
