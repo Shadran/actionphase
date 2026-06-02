@@ -123,7 +123,7 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 
 	// Check if only unread notifications are requested
 	unreadOnly := r.URL.Query().Get("unread") == "true"
@@ -187,7 +187,7 @@ func (h *Handler) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 
 	userID := int32(authUser.ID)
 
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 	count, err := service.GetUnreadCount(ctx, userID)
 	if err != nil {
 		render.Render(w, r, &core.ErrResponse{
@@ -234,7 +234,7 @@ func (h *Handler) GetNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 
 	// Get all user's notifications to check ownership
 	// (This is a simple approach; for production, you might want a dedicated GetNotificationByID method)
@@ -299,7 +299,7 @@ func (h *Handler) MarkNotificationAsRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 	err = service.MarkAsRead(ctx, int32(notificationID), userID)
 	if err != nil {
 		render.Render(w, r, &core.ErrResponse{
@@ -339,7 +339,7 @@ func (h *Handler) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 	userID := int32(authUser.ID)
 
 	// Get count before marking all as read (for response)
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 	unreadCount, err := service.GetUnreadCount(ctx, userID)
 	if err != nil {
 		unreadCount = 0 // Don't fail if we can't get count
@@ -391,7 +391,7 @@ func (h *Handler) DeleteNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 	err = service.DeleteNotification(ctx, int32(notificationID), userID)
 	if err != nil {
 		render.Render(w, r, &core.ErrResponse{

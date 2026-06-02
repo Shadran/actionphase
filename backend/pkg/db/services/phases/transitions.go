@@ -308,7 +308,7 @@ func (ps *PhaseService) deactivatePhaseInternal(ctx context.Context, phaseID int
 
 // notifyPhaseActivated sends notifications to game participants when a phase is activated
 func (ps *PhaseService) notifyPhaseActivated(ctx context.Context, gameID, phaseID int32, phaseTitle string, excludeUserID int32) {
-	notificationService := &db.NotificationService{DB: ps.DB, Logger: ps.Logger}
+	notificationService := db.NewNotificationService(ps.DB, ps.Logger)
 
 	// Notify all participants except the GM who activated the phase
 	err := notificationService.NotifyPhaseCreated(

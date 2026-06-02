@@ -42,7 +42,7 @@ func (s *MessageService) notifyCharacterMentions(ctx context.Context, mentionedC
 	}
 
 	queries := models.New(s.DB)
-	notificationService := &db.NotificationService{DB: s.DB, Logger: s.Logger}
+	notificationService := db.NewNotificationService(s.DB, s.Logger)
 
 	// Get the author character's name
 	authorChar, err := queries.GetCharacter(ctx, authorCharacterID)
@@ -116,7 +116,7 @@ func (s *MessageService) notifyCharacterMentions(ctx context.Context, mentionedC
 // This runs in a goroutine and should not fail the parent operation
 func (s *MessageService) notifyCommentReply(ctx context.Context, parentMessageID, replierCharacterID, replierUserID, gameID, replyMessageID int32) {
 	queries := models.New(s.DB)
-	notificationService := &db.NotificationService{DB: s.DB, Logger: s.Logger}
+	notificationService := db.NewNotificationService(s.DB, s.Logger)
 
 	// Get the parent message
 	parentMessage, err := queries.GetComment(ctx, parentMessageID)

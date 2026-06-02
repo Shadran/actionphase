@@ -98,7 +98,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Send approval notification to the applicant
-				notificationService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+				notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 				title := fmt.Sprintf("Joined %s", game.Title)
 				content := fmt.Sprintf("You have joined %s as an audience member!", game.Title)
 				linkURL := fmt.Sprintf("/games/%d", gameID)
@@ -121,7 +121,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		notificationService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 		roleLabel := "player"
 		if data.Role == "audience" {
 			roleLabel = "audience member"

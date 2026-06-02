@@ -571,7 +571,7 @@ func (h *Handler) Start() {
 
 	// Background job: delete notifications older than 30 days, runs once per day
 	go func() {
-		notificationService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
