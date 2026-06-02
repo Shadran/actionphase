@@ -1529,6 +1529,48 @@ type UserProfileServiceInterface interface {
 	UpdateUserProfile(ctx context.Context, userID int32, displayName *string, bio *string) error
 }
 
+// DiscordClientInterface defines the contract for sending Discord DMs.
+type DiscordClientInterface interface {
+	// SendDM sends a direct message to a Discord user by their Discord user ID
+	SendDM(ctx context.Context, discordUserID string, message string) error
+}
+
+// DiscordAccount represents a linked Discord account for a user.
+type DiscordAccount struct {
+	ID              int32      `json:"id"`
+	UserID          int32      `json:"user_id"`
+	DiscordUserID   string     `json:"discord_user_id"`
+	DiscordUsername string     `json:"discord_username"`
+	AccessToken     string     `json:"-"` // Never expose tokens in JSON
+	RefreshToken    *string    `json:"-"`
+	TokenExpiresAt  *time.Time `json:"-"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+// UpsertDiscordAccountRequest contains the data needed to link/update a Discord account.
+type UpsertDiscordAccountRequest struct {
+	UserID          int32
+	DiscordUserID   string
+	DiscordUsername string
+	AccessToken     string
+	RefreshToken    *string
+	TokenExpiresAt  *time.Time
+}
+
+// DiscordAccountServiceInterface defines the contract for Discord account management.
+type DiscordAccountServiceInterface interface {
+	// GetDiscordAccount retrieves a user's linked Discord account
+	// Returns nil, nil if no Discord account is linked
+	GetDiscordAccount(ctx context.Context, userID int32) (*DiscordAccount, error)
+
+	// UpsertDiscordAccount creates or updates a user's Discord account link
+	UpsertDiscordAccount(ctx context.Context, req *UpsertDiscordAccountRequest) (*DiscordAccount, error)
+
+	// DeleteDiscordAccount removes a user's Discord account link
+	DeleteDiscordAccount(ctx context.Context, userID int32) error
+}
+
 // UserAvatarServiceInterface defines the contract for user avatar operations.
 type UserAvatarServiceInterface interface {
 	// UploadUserAvatar uploads an avatar image for a user.

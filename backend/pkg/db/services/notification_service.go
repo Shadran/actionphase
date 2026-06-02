@@ -3,9 +3,11 @@ package db
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"actionphase/pkg/core"
+	"actionphase/pkg/discord"
 	models "actionphase/pkg/db/models"
 	"actionphase/pkg/observability"
 
@@ -15,8 +17,31 @@ import (
 
 // NotificationService implements core.NotificationServiceInterface.
 type NotificationService struct {
-	DB     *pgxpool.Pool
-	Logger *observability.Logger
+	DB              *pgxpool.Pool
+	Logger          *observability.Logger
+	DiscordNotifier core.DiscordClientInterface // optional; nil means no Discord dispatch
+}
+
+// appDiscordNotifier is a package-level Discord notifier set by main at startup.
+// This enables service-internal usages (conversations, messages, phases) that
+// don't have access to h.App to still dispatch Discord DMs.
+// Only set once during application initialization; never mutated after that.
+var appDiscordNotifier core.DiscordClientInterface
+
+// SetAppDiscordNotifier registers the application-wide Discord notifier.
+// Call this once from main.go after the notifier is initialized.
+func SetAppDiscordNotifier(n core.DiscordClientInterface) {
+	appDiscordNotifier = n
+}
+
+// NewNotificationService creates a NotificationService wired with the application-wide
+// Discord notifier. Use this in handlers/services that don't hold an App reference.
+func NewNotificationService(db *pgxpool.Pool, logger *observability.Logger) *NotificationService {
+	return &NotificationService{
+		DB:              db,
+		Logger:          logger,
+		DiscordNotifier: appDiscordNotifier,
+	}
 }
 
 // Compile-time verification that NotificationService implements the interface
@@ -167,7 +192,66 @@ func (s *NotificationService) CreateNotification(ctx context.Context, req *core.
 		"type", req.Type,
 	)
 
-	return convertDbNotificationToCore(dbNotif), nil
+	notification := convertDbNotificationToCore(dbNotif)
+
+	// Fire-and-forget Discord DM dispatch (does not block the API response)
+	if s.DiscordNotifier != nil {
+		go s.dispatchDiscordDM(context.Background(), notification)
+	}
+
+	return notification, nil
+}
+
+// dispatchDiscordDM sends a Discord DM for a notification if:
+//   - The recipient has a linked Discord account
+//   - The notification type is enabled in their preferences
+//
+// Errors are logged but never propagated — Discord dispatch is best-effort.
+func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notification *core.Notification) {
+	discordSvc := &DiscordAccountService{DB: s.DB}
+	prefsSvc := NewUserPreferencesService(s.DB)
+
+	// 1. Get Discord account for user
+	acct, err := discordSvc.GetDiscordAccount(ctx, notification.UserID)
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to get discord account",
+			"user_id", notification.UserID)
+		return
+	}
+	if acct == nil {
+		// No Discord account linked — skip silently
+		return
+	}
+
+	// 2. Check user preferences
+	prefs, err := prefsSvc.GetUserPreferences(ctx, notification.UserID)
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to get user preferences",
+			"user_id", notification.UserID)
+		return
+	}
+
+	if !discord.IsEnabledForUser(prefs.DiscordNotifications, notification.Type) {
+		return
+	}
+
+	// 3. Build message
+	frontendURL := os.Getenv("FRONTEND_URL")
+	var msg string
+	if notification.LinkURL != nil && *notification.LinkURL != "" {
+		msg = fmt.Sprintf("[ActionPhase] %s — %s%s", notification.Title, frontendURL, *notification.LinkURL)
+	} else {
+		msg = fmt.Sprintf("[ActionPhase] %s", notification.Title)
+	}
+
+	// 4. Send DM — log error but never propagate
+	if err := s.DiscordNotifier.SendDM(ctx, acct.DiscordUserID, msg); err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to send DM",
+			"user_id", notification.UserID,
+			"discord_user_id", acct.DiscordUserID,
+			"notification_type", notification.Type,
+		)
+	}
 }
 
 // CreateBulkNotifications creates notifications for multiple users (fire-and-forget).

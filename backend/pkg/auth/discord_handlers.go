@@ -1,0 +1,355 @@
+package auth
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"actionphase/pkg/core"
+	db "actionphase/pkg/db/services"
+
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-chi/render"
+)
+
+// DiscordConnectResponse is returned by GET /api/v1/auth/discord/connect
+type DiscordConnectResponse struct {
+	URL string `json:"url"`
+}
+
+func (r *DiscordConnectResponse) Render(w http.ResponseWriter, req *http.Request) error {
+	return nil
+}
+
+// DiscordStatusResponse is returned by GET /api/v1/auth/discord/status
+type DiscordStatusResponse struct {
+	Linked          bool    `json:"linked"`
+	DiscordUsername *string `json:"discord_username,omitempty"`
+}
+
+func (r *DiscordStatusResponse) Render(w http.ResponseWriter, req *http.Request) error {
+	return nil
+}
+
+// discordOAuthState encodes the ActionPhase user ID into an HMAC-signed state
+// parameter. Format: base64(userID + "." + hmac-sha256-hex).
+// This avoids server-side session storage while preventing CSRF.
+func (h *Handler) buildDiscordState(userID int32) string {
+	payload := strconv.Itoa(int(userID))
+	mac := hmac.New(sha256.New, []byte(h.App.Config.JWT.Secret))
+	mac.Write([]byte(payload))
+	sig := fmt.Sprintf("%x", mac.Sum(nil))
+	raw := payload + "." + sig
+	return base64.URLEncoding.EncodeToString([]byte(raw))
+}
+
+// verifyDiscordState validates the HMAC state and returns the encoded userID.
+// Returns an error if the state is tampered or malformed.
+func (h *Handler) verifyDiscordState(state string) (int32, error) {
+	decoded, err := base64.URLEncoding.DecodeString(state)
+	if err != nil {
+		return 0, fmt.Errorf("invalid state encoding")
+	}
+
+	parts := strings.SplitN(string(decoded), ".", 2)
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("malformed state")
+	}
+
+	payload, sig := parts[0], parts[1]
+
+	mac := hmac.New(sha256.New, []byte(h.App.Config.JWT.Secret))
+	mac.Write([]byte(payload))
+	expectedSig := fmt.Sprintf("%x", mac.Sum(nil))
+
+	if !hmac.Equal([]byte(sig), []byte(expectedSig)) {
+		return 0, fmt.Errorf("state HMAC mismatch")
+	}
+
+	uid, err := strconv.ParseInt(payload, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid user ID in state")
+	}
+
+	return int32(uid), nil
+}
+
+// getUserIDFromJWT extracts the user ID from the JWT in the request context.
+// Returns an error if the token is missing or the sub claim is invalid.
+func getUserIDFromJWT(r *http.Request) (int32, error) {
+	token, _, err := jwtauth.FromContext(r.Context())
+	if err != nil || token == nil {
+		return 0, fmt.Errorf("missing or invalid token")
+	}
+
+	userIDStr, ok := token.Get("sub")
+	if !ok {
+		return 0, fmt.Errorf("sub claim missing")
+	}
+
+	var uid int
+	if _, err := fmt.Sscanf(userIDStr.(string), "%d", &uid); err != nil || uid == 0 {
+		return 0, fmt.Errorf("invalid sub claim")
+	}
+
+	return int32(uid), nil
+}
+
+// V1DiscordConnect returns the Discord OAuth2 authorization URL for the current user.
+// GET /api/v1/auth/discord/connect (protected)
+func (h *Handler) V1DiscordConnect(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_discord_connect")()
+
+	userID, err := getUserIDFromJWT(r)
+	if err != nil {
+		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		return
+	}
+
+	state := h.buildDiscordState(userID)
+
+	params := url.Values{}
+	params.Set("client_id", h.App.Config.Discord.OAuthClientID)
+	params.Set("redirect_uri", h.App.Config.Discord.OAuthRedirectURL)
+	params.Set("response_type", "code")
+	params.Set("scope", "identify")
+	params.Set("state", state)
+
+	authURL := "https://discord.com/api/oauth2/authorize?" + params.Encode()
+
+	h.App.ObsLogger.Info(ctx, "Discord connect URL generated", "user_id", userID)
+	render.Render(w, r, &DiscordConnectResponse{URL: authURL})
+}
+
+// V1DiscordStatus returns whether the current user has a Discord account linked.
+// GET /api/v1/auth/discord/status (protected)
+func (h *Handler) V1DiscordStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_discord_status")()
+
+	userID, err := getUserIDFromJWT(r)
+	if err != nil {
+		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		return
+	}
+
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	acct, err := discordSvc.GetDiscordAccount(ctx, userID)
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to get Discord account", "user_id", userID)
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+
+	resp := &DiscordStatusResponse{Linked: false}
+	if acct != nil {
+		resp.Linked = true
+		resp.DiscordUsername = &acct.DiscordUsername
+	}
+
+	render.Render(w, r, resp)
+}
+
+// V1DiscordDisconnect unlinks the current user's Discord account.
+// DELETE /api/v1/auth/discord/disconnect (protected)
+func (h *Handler) V1DiscordDisconnect(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_discord_disconnect")()
+
+	userID, err := getUserIDFromJWT(r)
+	if err != nil {
+		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		return
+	}
+
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	if err := discordSvc.DeleteDiscordAccount(ctx, userID); err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to delete Discord account", "user_id", userID)
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+
+	h.App.ObsLogger.Info(ctx, "Discord account unlinked", "user_id", userID)
+	render.JSON(w, r, map[string]string{"message": "Discord account disconnected"})
+}
+
+// discordTokenResponse models the Discord OAuth2 token endpoint response.
+type discordTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+}
+
+// discordUserResponse models the Discord /users/@me endpoint response.
+type discordUserResponse struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+}
+
+// V1DiscordCallback handles the OAuth2 redirect from Discord.
+// GET /api/v1/auth/discord/callback (public)
+func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_discord_callback")()
+
+	frontendURL := fmt.Sprintf("%s/settings?discord=linked", h.discordFrontendURL())
+
+	// 1. Validate state
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		h.App.ObsLogger.Warn(ctx, "Discord callback: missing state parameter")
+		http.Error(w, "missing state", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := h.verifyDiscordState(state)
+	if err != nil {
+		h.App.ObsLogger.Warn(ctx, "Discord callback: invalid state", "error", err)
+		http.Error(w, "invalid state", http.StatusBadRequest)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		h.App.ObsLogger.Warn(ctx, "Discord callback: missing code parameter", "user_id", userID)
+		http.Error(w, "missing code", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Exchange code for tokens
+	tokens, err := h.exchangeDiscordCode(r, code)
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Discord callback: token exchange failed", "user_id", userID)
+		http.Error(w, "token exchange failed", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Fetch Discord user info
+	discordUser, err := h.fetchDiscordUser(r, tokens.AccessToken)
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Discord callback: failed to fetch user info", "user_id", userID)
+		http.Error(w, "failed to fetch discord user", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Upsert account
+	var refreshToken *string
+	if tokens.RefreshToken != "" {
+		refreshToken = &tokens.RefreshToken
+	}
+
+	var expiresAt *time.Time
+	if tokens.ExpiresIn > 0 {
+		t := time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second)
+		expiresAt = &t
+	}
+
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	_, err = discordSvc.UpsertDiscordAccount(ctx, &core.UpsertDiscordAccountRequest{
+		UserID:          userID,
+		DiscordUserID:   discordUser.ID,
+		DiscordUsername: discordUser.Username,
+		AccessToken:     tokens.AccessToken,
+		RefreshToken:    refreshToken,
+		TokenExpiresAt:  expiresAt,
+	})
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Discord callback: upsert failed", "user_id", userID)
+		http.Error(w, "failed to save discord account", http.StatusInternalServerError)
+		return
+	}
+
+	h.App.ObsLogger.Info(ctx, "Discord account linked",
+		"user_id", userID,
+		"discord_username", discordUser.Username,
+	)
+
+	// 5. Redirect to frontend settings page
+	http.Redirect(w, r, frontendURL, http.StatusFound)
+}
+
+// discordFrontendURL returns the frontend base URL from config/env.
+func (h *Handler) discordFrontendURL() string {
+	// Try the Discord redirect URL to derive base URL, fall back to env
+	if h.App.Config.Discord.OAuthRedirectURL != "" {
+		u, err := url.Parse(h.App.Config.Discord.OAuthRedirectURL)
+		if err == nil {
+			return fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+		}
+	}
+	return "http://localhost:5173"
+}
+
+// exchangeDiscordCode exchanges an OAuth2 code for tokens.
+func (h *Handler) exchangeDiscordCode(r *http.Request, code string) (*discordTokenResponse, error) {
+	data := url.Values{}
+	data.Set("client_id", h.App.Config.Discord.OAuthClientID)
+	data.Set("client_secret", h.App.Config.Discord.OAuthClientSecret)
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", h.App.Config.Discord.OAuthRedirectURL)
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+		"https://discord.com/api/oauth2/token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("discord token exchange error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp discordTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, fmt.Errorf("decode token response: %w", err)
+	}
+
+	return &tokenResp, nil
+}
+
+// fetchDiscordUser retrieves the authenticated user's Discord profile.
+func (h *Handler) fetchDiscordUser(r *http.Request, accessToken string) (*discordUserResponse, error) {
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+		"https://discord.com/api/users/@me", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("discord user API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var user discordUserResponse
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("decode user response: %w", err)
+	}
+
+	return &user, nil
+}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
 )
 
@@ -26,8 +27,9 @@ func NewUserPreferencesService(db *pgxpool.Pool) *UserPreferencesService {
 
 // PreferencesData represents the structured preferences object
 type PreferencesData struct {
-	Theme           string `json:"theme"`             // "light" | "dark" | "auto"
-	CommentReadMode string `json:"comment_read_mode"` // "auto" | "manual"
+	Theme                string          `json:"theme"`                           // "light" | "dark" | "auto"
+	CommentReadMode      string          `json:"comment_read_mode"`               // "auto" | "manual"
+	DiscordNotifications map[string]bool `json:"discord_notifications,omitempty"` // per-type Discord DM toggles
 }
 
 // GetUserPreferences gets user preferences, returning defaults if not found
@@ -78,6 +80,15 @@ func (s *UserPreferencesService) UpdateUserPreferences(ctx context.Context, user
 	validReadModes := map[string]bool{"auto": true, "manual": true}
 	if !validReadModes[prefs.CommentReadMode] {
 		return nil, fmt.Errorf("invalid comment_read_mode value: must be 'auto' or 'manual'")
+	}
+
+	// Validate discord_notifications keys (if provided)
+	if prefs.DiscordNotifications != nil {
+		for k := range prefs.DiscordNotifications {
+			if !core.IsValidNotificationType(k) {
+				return nil, fmt.Errorf("invalid discord notification type: %q", k)
+			}
+		}
 	}
 
 	// Marshal preferences to JSONB

@@ -541,6 +541,18 @@ type UserCommonRoomRead struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserDiscordAccount struct {
+	ID              int32              `json:"id"`
+	UserID          int32              `json:"user_id"`
+	DiscordUserID   string             `json:"discord_user_id"`
+	DiscordUsername string             `json:"discord_username"`
+	AccessToken     string             `json:"access_token"`
+	RefreshToken    pgtype.Text        `json:"refresh_token"`
+	TokenExpiresAt  pgtype.Timestamptz `json:"token_expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type UserPreference struct {
 	ID          int32              `json:"id"`
 	UserID      int32              `json:"user_id"`

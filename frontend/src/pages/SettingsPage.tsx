@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProfileSection } from '../components/ProfileSection';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
@@ -6,8 +6,10 @@ import { ActiveSessions } from '../components/ActiveSessions';
 import { ChangeUsernameForm } from '../components/ChangeUsernameForm';
 import { ChangeEmailForm } from '../components/ChangeEmailForm';
 import { SettingsSidebar } from '../components/SettingsSidebar';
+import { DiscordNotificationsSection } from '../components/DiscordNotificationsSection';
 import { Radio } from '@/components/ui';
 import { useUserPreferences, useUpdateUserPreferences } from '../hooks/useUserPreferences';
+import { useQueryClient } from '@tanstack/react-query';
 import type { CommentReadMode } from '../lib/api/auth';
 
 export function SettingsPage() {
@@ -15,6 +17,22 @@ export function SettingsPage() {
   const [activeSection, setActiveSection] = useState('profile');
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdateUserPreferences();
+  const queryClient = useQueryClient();
+
+  // When the Discord OAuth callback redirects back with ?discord=linked,
+  // invalidate the Discord status query to reflect the new link immediately.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('discord') === 'linked') {
+      queryClient.invalidateQueries({ queryKey: ['discordStatus'] });
+      // Switch to notifications tab so the user sees the linked state
+      setActiveSection('notifications');
+      // Clean up the query param without pushing a new history entry
+      const url = new URL(window.location.href);
+      url.searchParams.delete('discord');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [queryClient]);
 
   const handleCommentReadModeChange = (mode: CommentReadMode) => {
     updatePreferences.mutate({
@@ -66,6 +84,15 @@ export function SettingsPage() {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
       ),
     },
@@ -251,6 +278,14 @@ export function SettingsPage() {
               <ChangeUsernameForm />
               <ChangeEmailForm />
             </div>
+          </div>
+        )}
+
+        {/* Notifications Section */}
+        {activeSection === 'notifications' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-content-primary">Notifications</h2>
+            <DiscordNotificationsSection />
           </div>
         )}
 
