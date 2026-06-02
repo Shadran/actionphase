@@ -123,8 +123,8 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 	clientIP := core.GetClientIP(r)
 	userAgent := r.UserAgent()
 	token, err := jwtHandler.CreateToken(user, SessionMetadata{
-		IPAddress: clientIP,
-		UserAgent: userAgent,
+		IPAddress:   clientIP,
+		UserAgent:   userAgent,
 		Fingerprint: fingerprintPtr(data.Fingerprint),
 	})
 	if err != nil {

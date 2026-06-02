@@ -10,20 +10,20 @@ import (
 // It includes authentication credentials, contact information, and metadata.
 // The struct supports JSON serialization and validation tags for API usage.
 type User struct {
-	ID             int        `json:"id"`                                        // Unique user identifier
-	Username       string     `json:"username" validate:"required"`              // Unique username for login
-	Email          string     `json:"email" validate:"required,email"`           // User's email address
-	EmailVerified  bool       `json:"email_verified"`                            // Whether user has verified their email
-	Password       string     `json:"password" validate:"required,min=8,max=64"` // Hashed password (bcrypt)
-	Bio            *string    `json:"bio,omitempty"`                             // User's bio/about text
-	AvatarURL      *string    `json:"avatar_url,omitempty"`                      // URL to user's avatar image
-	IsAdmin        bool       `json:"is_admin"`                                  // Whether user has admin privileges
+	ID                   int        `json:"id"`                                        // Unique user identifier
+	Username             string     `json:"username" validate:"required"`              // Unique username for login
+	Email                string     `json:"email" validate:"required,email"`           // User's email address
+	EmailVerified        bool       `json:"email_verified"`                            // Whether user has verified their email
+	Password             string     `json:"password" validate:"required,min=8,max=64"` // Hashed password (bcrypt)
+	Bio                  *string    `json:"bio,omitempty"`                             // User's bio/about text
+	AvatarURL            *string    `json:"avatar_url,omitempty"`                      // URL to user's avatar image
+	IsAdmin              bool       `json:"is_admin"`                                  // Whether user has admin privileges
 	IsBanned             bool       `json:"is_banned"`                                 // Whether user is banned from platform
 	BannedAt             *time.Time `json:"banned_at,omitempty"`                       // When user was banned
 	BannedByUserID       *int32     `json:"banned_by_user_id,omitempty"`               // ID of admin who banned user
 	CreatedAt            *time.Time `json:"createdAt"`                                 // Account creation timestamp
 	PendingApproval      bool       `json:"pending_approval"`                          // Whether account is awaiting admin approval
-	PendingApprovalSince *time.Time `json:"pending_approval_since,omitempty"`           // When account was placed into pending state
+	PendingApprovalSince *time.Time `json:"pending_approval_since,omitempty"`          // When account was placed into pending state
 }
 
 // BannedUser represents a banned user with additional ban information.
@@ -63,13 +63,13 @@ type FingerprintBan struct {
 
 // SessionWithDetails represents a session with metadata for admin views.
 type SessionWithDetails struct {
-	ID          int32      `json:"id"`
-	IPAddress   *string    `json:"ip_address,omitempty"`
-	UserAgent   *string    `json:"user_agent,omitempty"`
-	Fingerprint *string    `json:"fingerprint,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	LastSeenAt  time.Time  `json:"last_seen_at"`
-	Expires     time.Time  `json:"expires"`
+	ID          int32     `json:"id"`
+	IPAddress   *string   `json:"ip_address,omitempty"`
+	UserAgent   *string   `json:"user_agent,omitempty"`
+	Fingerprint *string   `json:"fingerprint,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+	Expires     time.Time `json:"expires"`
 }
 
 // validate is the shared validator instance for user validation
@@ -142,7 +142,7 @@ func (u *User) Validate() error {
 }
 
 type Session struct {
-	ID          int        `json:"id"`
+	ID          int `json:"id"`
 	User        *User
 	Token       string     `json:"token"`
 	Expires     *time.Time `json:"expires"`

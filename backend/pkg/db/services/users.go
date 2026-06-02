@@ -54,13 +54,13 @@ func (s *UserService) GetUserByID(userID int) (*core.User, error) {
 	}
 
 	return &core.User{
-		ID:             int(dbUser.ID),
-		Username:       dbUser.Username,
-		Password:       dbUser.Password,
-		Email:          dbUser.Email,
-		EmailVerified:  dbUser.EmailVerified,
-		Bio:            bio,
-		AvatarURL:      avatarURL,
+		ID:              int(dbUser.ID),
+		Username:        dbUser.Username,
+		Password:        dbUser.Password,
+		Email:           dbUser.Email,
+		EmailVerified:   dbUser.EmailVerified,
+		Bio:             bio,
+		AvatarURL:       avatarURL,
 		IsAdmin:         dbUser.IsAdmin.Bool,
 		IsBanned:        dbUser.IsBanned,
 		BannedAt:        bannedAt,
@@ -102,13 +102,13 @@ func (s *UserService) UserByUsername(username string) (*core.User, error) {
 	}
 
 	return &core.User{
-		ID:             int(dbUser.ID),
-		Username:       dbUser.Username,
-		Password:       dbUser.Password,
-		Email:          dbUser.Email,
-		EmailVerified:  dbUser.EmailVerified,
-		Bio:            bio,
-		AvatarURL:      avatarURL,
+		ID:              int(dbUser.ID),
+		Username:        dbUser.Username,
+		Password:        dbUser.Password,
+		Email:           dbUser.Email,
+		EmailVerified:   dbUser.EmailVerified,
+		Bio:             bio,
+		AvatarURL:       avatarURL,
 		IsAdmin:         dbUser.IsAdmin.Bool,
 		IsBanned:        dbUser.IsBanned,
 		BannedAt:        bannedAt,
@@ -150,13 +150,13 @@ func (s *UserService) UserByEmail(email string) (*core.User, error) {
 	}
 
 	return &core.User{
-		ID:             int(dbUser.ID),
-		Username:       dbUser.Username,
-		Password:       dbUser.Password,
-		Email:          dbUser.Email,
-		EmailVerified:  dbUser.EmailVerified,
-		Bio:            bio,
-		AvatarURL:      avatarURL,
+		ID:              int(dbUser.ID),
+		Username:        dbUser.Username,
+		Password:        dbUser.Password,
+		Email:           dbUser.Email,
+		EmailVerified:   dbUser.EmailVerified,
+		Bio:             bio,
+		AvatarURL:       avatarURL,
 		IsAdmin:         dbUser.IsAdmin.Bool,
 		IsBanned:        dbUser.IsBanned,
 		BannedAt:        bannedAt,
