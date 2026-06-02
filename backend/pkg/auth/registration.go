@@ -115,7 +115,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, &core.ErrResponse{
 			HTTPStatusCode: http.StatusAccepted,
 			StatusText:     "Pending Approval",
-			ErrorText:      "Your account has been created and is pending admin approval. You will be notified once approved.",
+			ErrorText:      "Your account has been created and is pending admin approval.",
 		})
 		return
 	}

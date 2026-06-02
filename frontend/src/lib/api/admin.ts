@@ -138,6 +138,10 @@ export class AdminApi extends BaseApiClient {
     return this.client.post(`/api/v1/admin/users/${userId}/approve`, {});
   }
 
+  async rejectUser(userId: number) {
+    return this.client.post(`/api/v1/admin/users/${userId}/reject`, {});
+  }
+
   async getUserSessions(userId: number) {
     return this.client.get<SessionDetail[]>(`/api/v1/admin/users/${userId}/sessions`);
   }

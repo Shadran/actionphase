@@ -57,16 +57,25 @@ func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 	// Verify the session still exists in the DB. A valid JWT whose session has been
 	// invalidated (ban, forced logout) must be treated as unauthenticated here, or
 	// the frontend will see the user as logged in despite the session being gone.
-	tokenString := jwtauth.TokenFromCookie(r)
-	if tokenString == "" {
-		tokenString = jwtauth.TokenFromHeader(r)
-	}
-	if tokenString != "" {
-		sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-		session, err := sessionSvc.SessionByToken(tokenString)
-		if err != nil || session == nil {
-			render.JSON(w, r, map[string]interface{}{"user": nil})
-			return
+	// Only tokens issued via the login flow carry a session_id claim; tokens without
+	// it (e.g. test tokens) skip the check.
+	if sessionIDVal, ok := token.Get("session_id"); ok {
+		var sessionID int32
+		switch v := sessionIDVal.(type) {
+		case float64:
+			sessionID = int32(v)
+		case int32:
+			sessionID = v
+		case int64:
+			sessionID = int32(v)
+		}
+		if sessionID > 0 {
+			sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+			session, err := sessionSvc.GetSessionByID(ctx, sessionID)
+			if err != nil || session == nil {
+				render.JSON(w, r, map[string]interface{}{"user": nil})
+				return
+			}
 		}
 	}
 

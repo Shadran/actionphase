@@ -26,6 +26,7 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   const [captchaError, setCaptchaError] = useState<string>('');
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [registrationError, setRegistrationError] = useState<unknown>(null);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,8 +49,12 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
 
     try {
       const fingerprint = await getDeviceFingerprint();
-      await register({ ...formData, fingerprint: fingerprint ?? undefined });
-      onSuccess?.();
+      const response = await register({ ...formData, fingerprint: fingerprint ?? undefined });
+      if (response.status === 202) {
+        setPendingApproval(true);
+      } else {
+        onSuccess?.();
+      }
     } catch (_err) {
       // Store the error for display
       setRegistrationError(_err);
@@ -104,6 +109,17 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       {errorMessage}
     </Alert>
   ) : null;
+
+  if (pendingApproval) {
+    return (
+      <Card variant="elevated" padding="md" className="max-w-md mx-auto">
+        <h2 className="text-2xl font-bold text-content-primary mb-4">Registration Submitted</h2>
+        <p className="text-content-secondary">
+          Your account has been created and is pending admin approval. You will be able to log in once an admin reviews your request.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <Card variant="elevated" padding="md" className="max-w-md mx-auto">

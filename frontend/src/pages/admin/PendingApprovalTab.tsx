@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/ui';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import type { User } from '../../lib/api/admin';
 
 export function PendingApprovalTab() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useToast();
+  const [userToReject, setUserToReject] = useState<User | null>(null);
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['pendingUsers'],
@@ -24,6 +27,16 @@ export function PendingApprovalTab() {
       showSuccess('User approved');
     },
     onError: () => showError('Failed to approve user'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (userId: number) => apiClient.admin.rejectUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pendingUsers'] });
+      setUserToReject(null);
+      showSuccess('User rejected');
+    },
+    onError: () => showError('Failed to reject user'),
   });
 
   return (
@@ -52,17 +65,37 @@ export function PendingApprovalTab() {
                   </div>
                 )}
               </div>
-              <Button
-                variant="primary"
-                onClick={() => approveMutation.mutate(user.id)}
-                disabled={approveMutation.isPending}
-              >
-                Approve
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  onClick={() => approveMutation.mutate(user.id)}
+                  disabled={approveMutation.isPending || rejectMutation.isPending}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => setUserToReject(user)}
+                  disabled={approveMutation.isPending || rejectMutation.isPending}
+                >
+                  Reject
+                </Button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={userToReject !== null}
+        onClose={() => setUserToReject(null)}
+        onConfirm={() => rejectMutation.mutate(userToReject!.id)}
+        title="Reject Registration"
+        message={`Reject ${userToReject?.username}? Their account will be banned.`}
+        confirmText="Reject"
+        variant="danger"
+        isLoading={rejectMutation.isPending}
+      />
     </div>
   );
 }

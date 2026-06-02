@@ -131,6 +131,10 @@ func (m *MockUserService) ApproveUser(ctx context.Context, userID int32) error {
 	return nil
 }
 
+func (m *MockUserService) RejectUser(ctx context.Context, userID int32, adminID int32) error {
+	return nil
+}
+
 func (m *MockUserService) SetPendingApproval(ctx context.Context, userID int32) error {
 	return nil
 }

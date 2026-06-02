@@ -22,6 +22,18 @@ func (s *SessionService) Session(id int) (*core.Session, error) {
 	return nil, nil
 }
 
+func (s *SessionService) GetSessionByID(ctx context.Context, id int32) (*core.Session, error) {
+	q := db.New(s.DB)
+	dbSession, err := q.GetSession(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &core.Session{
+		ID:   int(dbSession.ID),
+		User: &core.User{ID: int(dbSession.UserID)},
+	}, nil
+}
+
 func (s *SessionService) SessionByToken(token string) (*core.Session, error) {
 	ctx := context.Background()
 	q := db.New(s.DB)

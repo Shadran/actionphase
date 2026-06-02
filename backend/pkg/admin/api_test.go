@@ -49,6 +49,7 @@ func setupAdminTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Get("/users", handler.ListUsers)
 		r.Get("/users/pending", handler.ListPendingApprovalUsers)
 		r.Post("/users/{id}/approve", handler.ApproveUser)
+		r.Post("/users/{id}/reject", handler.RejectUser)
 		r.Get("/users/{id}/sessions", handler.GetUserSessions)
 
 		r.Get("/ip-bans", handler.ListIPBans)
@@ -520,6 +521,67 @@ func TestAdminAPI_ApproveUser(t *testing.T) {
 
 	t.Run("returns 404 for non-existent user", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/api/v1/admin/users/999999/approve", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+}
+
+// TestAdminAPI_RejectUser tests POST /api/v1/admin/users/{id}/reject
+func TestAdminAPI_RejectUser(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupAdminTestRouter(app, testDB)
+
+	adminUser := testDB.CreateTestUser(t, "admin", "admin@example.com")
+	pendingUser := testDB.CreateTestUser(t, "pending", "pending@example.com")
+	activeUser := testDB.CreateTestUser(t, "active", "active@example.com")
+
+	_, err := testDB.Pool.Exec(context.Background(), "UPDATE users SET is_admin = true WHERE id = $1", adminUser.ID)
+	require.NoError(t, err)
+
+	userService := &dbsvc.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	require.NoError(t, userService.SetPendingApproval(context.Background(), int32(pendingUser.ID)))
+
+	adminToken, err := core.CreateTestJWTTokenForUser(app, adminUser)
+	require.NoError(t, err)
+
+	t.Run("rejects pending user: clears pending flag and sets banned", func(t *testing.T) {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/admin/users/%d/reject", pendingUser.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+
+		var isPending bool
+		var isBanned bool
+		err := testDB.Pool.QueryRow(context.Background(),
+			"SELECT pending_approval, is_banned FROM users WHERE id = $1", pendingUser.ID).Scan(&isPending, &isBanned)
+		require.NoError(t, err)
+		assert.False(t, isPending, "user should no longer be pending after rejection")
+		assert.True(t, isBanned, "user should be banned after rejection")
+	})
+
+	t.Run("returns 400 when user is not pending", func(t *testing.T) {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/admin/users/%d/reject", activeUser.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 404 for non-existent user", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/api/v1/admin/users/999999/reject", nil)
 		req.Header.Set("Authorization", "Bearer "+adminToken)
 
 		rec := httptest.NewRecorder()

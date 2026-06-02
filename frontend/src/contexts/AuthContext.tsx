@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
-import type { LoginRequest, RegisterRequest, User } from '../types/auth';
+import type { LoginRequest, RegisterRequest, User, AuthResponse } from '../types/auth';
+import type { AxiosResponse } from 'axios';
 import { logger } from '@/services/LoggingService';
 import { SessionExpiredModal } from '@/components/SessionExpiredModal';
 
@@ -16,7 +17,7 @@ interface AuthContextValue {
 
   // Auth methods
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<AxiosResponse<AuthResponse>>;
   logout: () => void;
   clearError: () => void;
 
@@ -186,7 +187,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await loginMutation.mutateAsync(data);
     },
     register: async (data: RegisterRequest) => {
-      await registerMutation.mutateAsync(data);
+      const response = await registerMutation.mutateAsync(data);
+      return response;
     },
     logout,
     clearError,

@@ -252,6 +252,36 @@ describe('RegisterForm', () => {
         expect(button).not.toBeDisabled();
       }, { timeout: 2000 });
     });
+
+    it('shows pending approval message and does not call onSuccess when server returns 202', async () => {
+      server.use(
+        http.post('/api/v1/auth/register', () => {
+          return HttpResponse.json(
+            { status_text: 'Pending Approval', error: 'Your account has been created and is pending admin approval.' },
+            { status: 202 }
+          );
+        })
+      );
+
+      const user = userEvent.setup();
+      const onSuccess = vi.fn();
+
+      renderWithProviders(<RegisterForm onSuccess={onSuccess} />);
+
+      await user.type(screen.getByLabelText(/username/i), 'newuser');
+      await user.type(screen.getByLabelText(/email/i), 'new@example.com');
+      await user.type(screen.getByLabelText(/^password$/i), 'password123');
+      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+
+      await user.click(screen.getByRole('button', { name: /^register$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /registration submitted/i })).toBeInTheDocument();
+      });
+
+      expect(screen.getByText(/pending admin approval/i)).toBeInTheDocument();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
   });
 
   describe('Error Handling', () => {

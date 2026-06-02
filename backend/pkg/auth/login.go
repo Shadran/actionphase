@@ -109,7 +109,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Info(ctx, "Login attempt by pending-approval user",
 			"username", user.Username,
 			"user_id", user.ID)
-		render.Render(w, r, core.ErrForbidden("Your account is pending admin approval. You will be notified once approved."))
+		render.Render(w, r, core.ErrForbidden("Your account is pending admin approval."))
 		return
 	}
 

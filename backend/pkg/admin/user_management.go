@@ -95,6 +95,44 @@ func (h *Handler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// RejectUser rejects a pending registration, banning the account.
+// POST /admin/users/{id}/reject
+func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, core.ErrInvalidRequest(err))
+		return
+	}
+
+	adminID, err := h.getUserIDFromContext(r)
+	if err != nil {
+		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		return
+	}
+
+	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	user, err := userService.GetUserByID(int(id))
+	if err != nil {
+		render.Render(w, r, core.ErrNotFound("user not found"))
+		return
+	}
+	if !user.PendingApproval {
+		render.Render(w, r, core.ErrInvalidRequest(errMsg("user is not pending approval")))
+		return
+	}
+
+	if err := userService.RejectUser(ctx, int32(id), adminID); err != nil {
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+
+	h.App.Logger.Info("Pending user rejected", "user_id", id, "admin_id", adminID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GetUserSessions returns session details for a user (admin view).
 // GET /admin/users/{id}/sessions
 func (h *Handler) GetUserSessions(w http.ResponseWriter, r *http.Request) {

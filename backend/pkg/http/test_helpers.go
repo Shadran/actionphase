@@ -79,9 +79,10 @@ func NewHandlerTestContext(t *testing.T) *HandlerTestContext {
 	}
 }
 
-// Cleanup closes database connections and cleans up resources
+// Cleanup closes database connections and cleans up test data
 func (ctx *HandlerTestContext) Cleanup() {
 	if ctx.TestDB != nil {
+		ctx.TestDB.CleanupTables(ctx.T)
 		ctx.TestDB.Close()
 	}
 }

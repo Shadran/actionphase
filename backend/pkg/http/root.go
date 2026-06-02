@@ -494,6 +494,7 @@ func (h *Handler) Start() {
 			r.Get("/users", adminHandler.ListUsers)
 			r.Get("/users/pending", adminHandler.ListPendingApprovalUsers)
 			r.Post("/users/{id}/approve", adminHandler.ApproveUser)
+			r.Post("/users/{id}/reject", adminHandler.RejectUser)
 			r.Get("/users/{id}/sessions", adminHandler.GetUserSessions)
 
 			// IP bans
