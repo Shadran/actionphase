@@ -37,6 +37,7 @@ export function UserListTab() {
       const res = await apiClient.admin.listUsers(page, 25, debouncedSearch);
       return res.data;
     },
+    staleTime: 0,
   });
 
   const banMutation = useMutation({

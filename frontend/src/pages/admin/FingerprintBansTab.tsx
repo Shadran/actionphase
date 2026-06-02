@@ -19,6 +19,7 @@ export function FingerprintBansTab() {
       const res = await apiClient.admin.listFingerprintBans();
       return res.data;
     },
+    staleTime: 0,
   });
 
   const createMutation = useMutation({

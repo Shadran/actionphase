@@ -14,6 +14,7 @@ export function PendingApprovalTab() {
       const res = await apiClient.admin.listPendingUsers();
       return res.data;
     },
+    staleTime: 0,
   });
 
   const approveMutation = useMutation({

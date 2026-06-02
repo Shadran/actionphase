@@ -20,6 +20,7 @@ export function IPBansTab() {
       const res = await apiClient.admin.listIPBans();
       return res.data;
     },
+    staleTime: 0,
   });
 
   const createMutation = useMutation({
