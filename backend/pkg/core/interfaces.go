@@ -111,7 +111,7 @@ type UserServiceInterface interface {
 	// Registration approval
 	ListPendingApprovalUsers(ctx context.Context) ([]*User, error)
 	ApproveUser(ctx context.Context, userID int32) error
-	RejectUser(ctx context.Context, userID int32, adminID int32) error
+	RejectUser(ctx context.Context, userID int32) error
 	SetPendingApproval(ctx context.Context, userID int32) error
 }
 

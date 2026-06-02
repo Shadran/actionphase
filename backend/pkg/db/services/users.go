@@ -501,17 +501,11 @@ func (s *UserService) ApproveUser(ctx context.Context, userID int32) error {
 	return q.ApprovePendingUser(ctx, userID)
 }
 
-// RejectUser rejects a pending registration by banning the user and clearing their pending status.
-func (s *UserService) RejectUser(ctx context.Context, userID int32, adminID int32) error {
-	s.Logger.Info(ctx, "Rejecting pending user", "user_id", userID, "admin_id", adminID)
+// RejectUser deletes a pending registration, removing the account entirely.
+func (s *UserService) RejectUser(ctx context.Context, userID int32) error {
+	s.Logger.Info(ctx, "Rejecting pending user", "user_id", userID)
 	q := db.New(s.DB)
-	if err := q.BanUser(ctx, db.BanUserParams{
-		ID:             userID,
-		BannedByUserID: pgtype.Int4{Int32: adminID, Valid: true},
-	}); err != nil {
-		return err
-	}
-	return q.ApprovePendingUser(ctx, userID)
+	return q.DeleteUser(ctx, userID)
 }
 
 // SetPendingApproval places a user in the pending approval state.

@@ -91,7 +91,7 @@ export function PendingApprovalTab() {
         onClose={() => setUserToReject(null)}
         onConfirm={() => rejectMutation.mutate(userToReject!.id)}
         title="Reject Registration"
-        message={`Reject ${userToReject?.username}? Their account will be banned.`}
+        message={`Reject ${userToReject?.username}? Their account will be deleted.`}
         confirmText="Reject"
         variant="danger"
         isLoading={rejectMutation.isPending}

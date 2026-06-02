@@ -552,7 +552,7 @@ func TestAdminAPI_RejectUser(t *testing.T) {
 	adminToken, err := core.CreateTestJWTTokenForUser(app, adminUser)
 	require.NoError(t, err)
 
-	t.Run("rejects pending user: clears pending flag and sets banned", func(t *testing.T) {
+	t.Run("rejects pending user: deletes the account", func(t *testing.T) {
 		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/admin/users/%d/reject", pendingUser.ID), nil)
 		req.Header.Set("Authorization", "Bearer "+adminToken)
 
@@ -561,13 +561,11 @@ func TestAdminAPI_RejectUser(t *testing.T) {
 
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 
-		var isPending bool
-		var isBanned bool
+		var count int
 		err := testDB.Pool.QueryRow(context.Background(),
-			"SELECT pending_approval, is_banned FROM users WHERE id = $1", pendingUser.ID).Scan(&isPending, &isBanned)
+			"SELECT COUNT(*) FROM users WHERE id = $1", pendingUser.ID).Scan(&count)
 		require.NoError(t, err)
-		assert.False(t, isPending, "user should no longer be pending after rejection")
-		assert.True(t, isBanned, "user should be banned after rejection")
+		assert.Equal(t, 0, count, "user should be deleted after rejection")
 	})
 
 	t.Run("returns 400 when user is not pending", func(t *testing.T) {

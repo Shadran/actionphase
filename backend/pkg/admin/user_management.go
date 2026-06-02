@@ -95,7 +95,7 @@ func (h *Handler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// RejectUser rejects a pending registration, banning the account.
+// RejectUser rejects a pending registration, deleting the account.
 // POST /admin/users/{id}/reject
 func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -104,12 +104,6 @@ func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
 		render.Render(w, r, core.ErrInvalidRequest(err))
-		return
-	}
-
-	adminID, err := h.getUserIDFromContext(r)
-	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
 		return
 	}
 
@@ -124,12 +118,12 @@ func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := userService.RejectUser(ctx, int32(id), adminID); err != nil {
+	if err := userService.RejectUser(ctx, int32(id)); err != nil {
 		render.Render(w, r, core.ErrInternalError(err))
 		return
 	}
 
-	h.App.Logger.Info("Pending user rejected", "user_id", id, "admin_id", adminID)
+	h.App.Logger.Info("Pending user rejected and deleted", "user_id", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
