@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,12 +10,19 @@ import { IPBansTab } from './admin/IPBansTab';
 import { FingerprintBansTab } from './admin/FingerprintBansTab';
 import type { AdminUser, BannedUser } from '../lib/api/admin';
 
+type TabId = 'mode' | 'admins' | 'banned' | 'users' | 'pending' | 'ip-bans' | 'fingerprint-bans';
+const VALID_TABS: TabId[] = ['mode', 'admins', 'banned', 'users', 'pending', 'ip-bans', 'fingerprint-bans'];
+
 export function AdminPage() {
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
   const { showSuccess, showError } = useToast();
   const currentUserId = currentUser?.id;
-  const [activeTab, setActiveTab] = useState<'mode' | 'admins' | 'banned' | 'users' | 'pending' | 'ip-bans' | 'fingerprint-bans'>('mode');
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+
+  const activeTab: TabId = (tab && VALID_TABS.includes(tab as TabId)) ? (tab as TabId) : 'mode';
+  const setActiveTab = (t: TabId) => navigate(`/admin/${t}`, { replace: false });
 
   // Fetch admins
   const {
