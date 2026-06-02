@@ -4,20 +4,23 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  requireAdmin?: boolean;
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isAuthenticated, isCheckingAuth } = useAuth();
+export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+  const { isAuthenticated, isCheckingAuth, currentUser } = useAuth();
   const location = useLocation();
 
-  // Wait for auth check to complete before redirecting
   if (isCheckingAuth) {
-    return null; // or a loading spinner
+    return null;
   }
 
   if (!isAuthenticated) {
-    // Save the current location they were trying to access
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (requireAdmin && !currentUser?.is_admin) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -233,6 +233,90 @@ describe('ProtectedRoute', () => {
     })
   })
 
+  describe('When requireAdmin is true', () => {
+    it('should render children when user is an admin', () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: true,
+        currentUser: { id: 1, username: 'adminuser', email: 'admin@example.com', is_admin: true, created_at: '', updated_at: '' },
+        isCheckingAuth: false,
+        isLoading: false,
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        error: null,
+      } as Partial<ReturnType<typeof useAuth>>)
+
+      render(
+        <MemoryRouter initialEntries={['/admin']}>
+          <ProtectedRoute requireAdmin>
+            <div data-testid="admin-content">Admin Panel</div>
+          </ProtectedRoute>
+        </MemoryRouter>
+      )
+
+      expect(screen.getByTestId('admin-content')).toBeInTheDocument()
+    })
+
+    it('should redirect non-admin authenticated users to /', () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: true,
+        currentUser: { id: 2, username: 'regularuser', email: 'user@example.com', is_admin: false, created_at: '', updated_at: '' },
+        isCheckingAuth: false,
+        isLoading: false,
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        error: null,
+      } as Partial<ReturnType<typeof useAuth>>)
+
+      render(
+        <MemoryRouter initialEntries={['/admin']}>
+          <Routes>
+            <Route path="/" element={<div data-testid="home-page">Home</div>} />
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin>
+                <div data-testid="admin-content">Admin Panel</div>
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </MemoryRouter>
+      )
+
+      expect(screen.queryByTestId('admin-content')).not.toBeInTheDocument()
+      expect(screen.getByTestId('home-page')).toBeInTheDocument()
+    })
+
+    it('should redirect unauthenticated users to /login, not /', () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        currentUser: null,
+        isCheckingAuth: false,
+        isLoading: false,
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        error: null,
+      } as Partial<ReturnType<typeof useAuth>>)
+
+      render(
+        <MemoryRouter initialEntries={['/admin']}>
+          <Routes>
+            <Route path="/login" element={<div data-testid="login-page">Login</div>} />
+            <Route path="/" element={<div data-testid="home-page">Home</div>} />
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin>
+                <div data-testid="admin-content">Admin Panel</div>
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </MemoryRouter>
+      )
+
+      expect(screen.queryByTestId('admin-content')).not.toBeInTheDocument()
+      expect(screen.getByTestId('login-page')).toBeInTheDocument()
+    })
+  })
+
   describe('Authentication state changes', () => {
     it('should update when authentication state changes from authenticated to unauthenticated', () => {
       // Start authenticated

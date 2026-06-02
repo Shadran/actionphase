@@ -119,11 +119,11 @@ const router = createBrowserRouter([
       },
       {
         path: '/admin',
-        element: <ProtectedRoute><AdminPage /></ProtectedRoute>,
+        element: <ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>,
       },
       {
         path: '/admin/:tab',
-        element: <ProtectedRoute><AdminPage /></ProtectedRoute>,
+        element: <ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>,
       },
       {
         path: '/theme-test',
