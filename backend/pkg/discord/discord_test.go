@@ -66,10 +66,9 @@ func TestIsEnabledForUser_DefaultsForHighValueTypes(t *testing.T) {
 		core.NotificationTypePrivateMessage,
 		core.NotificationTypeActionResult,
 		core.NotificationTypeCharacterApproved,
-		core.NotificationTypeCharacterRejected,
 		core.NotificationTypeApplicationApproved,
-		core.NotificationTypeApplicationRejected,
 		core.NotificationTypeHandoutPublished,
+		core.NotificationTypeCommonRoomPost,
 	}
 
 	for _, notifType := range highValueTypes {
@@ -82,13 +81,14 @@ func TestIsEnabledForUser_DefaultsForHighValueTypes(t *testing.T) {
 
 func TestIsEnabledForUser_DefaultsForHighVolumeTypes(t *testing.T) {
 	highVolumeTypes := []string{
-		core.NotificationTypeCommonRoomPost,
 		core.NotificationTypeCommentReply,
 		core.NotificationTypeCharacterMention,
 		core.NotificationTypeActionSubmitted,
 		core.NotificationTypePhaseCreated,
 		core.NotificationTypeGameStateChanged,
 		core.NotificationTypeApplicationSubmitted,
+		core.NotificationTypeCharacterRejected,
+		core.NotificationTypeApplicationRejected,
 	}
 
 	for _, notifType := range highVolumeTypes {

@@ -36,21 +36,9 @@ const DIRECT_EVENTS: NotificationTypeInfo[] = [
     defaultOn: true,
   },
   {
-    key: 'character_rejected',
-    label: 'Character Needs Revision',
-    description: 'When the GM asks you to revise your character',
-    defaultOn: true,
-  },
-  {
     key: 'application_approved',
     label: 'Application Approved',
     description: 'When your game application is approved',
-    defaultOn: true,
-  },
-  {
-    key: 'application_rejected',
-    label: 'Application Rejected',
-    description: 'When your game application is rejected',
     defaultOn: true,
   },
   {
@@ -59,15 +47,15 @@ const DIRECT_EVENTS: NotificationTypeInfo[] = [
     description: 'When the GM publishes a new handout',
     defaultOn: true,
   },
-];
-
-const GAME_ACTIVITY: NotificationTypeInfo[] = [
   {
     key: 'common_room_post',
     label: 'Common Room Posts',
-    description: 'When someone posts in the common room',
-    defaultOn: false,
+    description: 'When the GM posts in the common room (typically signals the start of a new phase)',
+    defaultOn: true,
   },
+];
+
+const GAME_ACTIVITY: NotificationTypeInfo[] = [
   {
     key: 'comment_reply',
     label: 'Comment Replies',
