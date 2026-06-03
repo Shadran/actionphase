@@ -30,8 +30,8 @@ export class SettingsPage {
     if (isMobile) {
       await mobileSelect.selectOption('account');
     } else {
-      await this.page.waitForSelector('button:has-text("Account Information")', { state: 'visible' });
-      await this.page.click('button:has-text("Account Information")');
+      await this.page.waitForSelector('a:has-text("Account Information")', { state: 'visible' });
+      await this.page.click('a:has-text("Account Information")');
     }
   }
 
@@ -117,7 +117,7 @@ export class SettingsPage {
     if (isMobile) {
       await mobileSelect.selectOption('reading');
     } else {
-      await this.page.click('button:has-text("Reading")');
+      await this.page.click('a:has-text("Reading")');
     }
     await this.page.waitForSelector('[data-testid="read-mode-auto"]', { state: 'visible' });
     // Wait for the preferences query to resolve so radio checked state reflects server data
