@@ -204,7 +204,11 @@ func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_discord_callback")()
 
-	frontendURL := fmt.Sprintf("%s/settings?discord=linked", h.discordFrontendURL())
+	frontendBaseURL := os.Getenv("FRONTEND_URL")
+	if frontendBaseURL == "" {
+		frontendBaseURL = "http://localhost:5173"
+	}
+	frontendURL := fmt.Sprintf("%s/settings?discord=linked", frontendBaseURL)
 
 	// 1. Validate state
 	state := r.URL.Query().Get("state")
@@ -287,18 +291,6 @@ func discordAPIBase() string {
 		return base
 	}
 	return "https://discord.com/api"
-}
-
-// discordFrontendURL returns the frontend base URL from config/env.
-func (h *Handler) discordFrontendURL() string {
-	// Try the Discord redirect URL to derive base URL, fall back to env
-	if h.App.Config.Discord.OAuthRedirectURL != "" {
-		u, err := url.Parse(h.App.Config.Discord.OAuthRedirectURL)
-		if err == nil {
-			return fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-		}
-	}
-	return "http://localhost:5173"
 }
 
 // exchangeDiscordCode exchanges an OAuth2 code for tokens.
