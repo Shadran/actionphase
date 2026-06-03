@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -279,6 +280,15 @@ func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, frontendURL, http.StatusFound)
 }
 
+// discordAPIBase returns the Discord API base URL. Overridable via DISCORD_API_BASE_URL
+// for testing; defaults to the real Discord API in production.
+func discordAPIBase() string {
+	if base := os.Getenv("DISCORD_API_BASE_URL"); base != "" {
+		return base
+	}
+	return "https://discord.com/api"
+}
+
 // discordFrontendURL returns the frontend base URL from config/env.
 func (h *Handler) discordFrontendURL() string {
 	// Try the Discord redirect URL to derive base URL, fall back to env
@@ -301,7 +311,7 @@ func (h *Handler) exchangeDiscordCode(r *http.Request, code string) (*discordTok
 	data.Set("redirect_uri", h.App.Config.Discord.OAuthRedirectURL)
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
-		"https://discord.com/api/oauth2/token", strings.NewReader(data.Encode()))
+		discordAPIBase()+"/oauth2/token", strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +339,7 @@ func (h *Handler) exchangeDiscordCode(r *http.Request, code string) (*discordTok
 // fetchDiscordUser retrieves the authenticated user's Discord profile.
 func (h *Handler) fetchDiscordUser(r *http.Request, accessToken string) (*discordUserResponse, error) {
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
-		"https://discord.com/api/users/@me", nil)
+		discordAPIBase()+"/users/@me", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -268,6 +268,125 @@ func TestDiscordDisconnect_RequiresAuth(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
+// TestDiscordCallback_TokenExchangeFails verifies the callback returns 500 when
+// Discord's token exchange endpoint returns an error.
+func TestDiscordCallback_TokenExchangeFails(t *testing.T) {
+	// Stub the Discord API to return an error on token exchange
+	discordStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth2/token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"error":"invalid_client","error_description":"Invalid OAuth2 credentials"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer discordStub.Close()
+	t.Setenv("DISCORD_API_BASE_URL", discordStub.URL)
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupDiscordTestRouter(app)
+
+	user := testDB.CreateTestUser(t, "cbfail", "cbfail@example.com")
+	handler := &Handler{App: app}
+	state := handler.buildDiscordState(int32(user.ID))
+
+	req := httptest.NewRequest("GET",
+		fmt.Sprintf("/api/v1/auth/discord/callback?code=badcode&state=%s", state), nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+// TestDiscordCallback_FetchUserFails verifies the callback returns 500 when
+// Discord's user info endpoint returns an error (e.g. invalid access token).
+func TestDiscordCallback_FetchUserFails(t *testing.T) {
+	discordStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth2/token" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"access_token":"tok","token_type":"Bearer","expires_in":604800}`)
+			return
+		}
+		if r.URL.Path == "/users/@me" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"message":"401: Unauthorized","code":0}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer discordStub.Close()
+	t.Setenv("DISCORD_API_BASE_URL", discordStub.URL)
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupDiscordTestRouter(app)
+
+	user := testDB.CreateTestUser(t, "userfail", "userfail@example.com")
+	handler := &Handler{App: app}
+	state := handler.buildDiscordState(int32(user.ID))
+
+	req := httptest.NewRequest("GET",
+		fmt.Sprintf("/api/v1/auth/discord/callback?code=validcode&state=%s", state), nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+// TestDiscordCallback_Success verifies the full happy path: valid state + code,
+// Discord stubs return success, account is upserted, and user is redirected.
+func TestDiscordCallback_Success(t *testing.T) {
+	discordStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/oauth2/token" {
+			fmt.Fprint(w, `{"access_token":"test-access-tok","token_type":"Bearer","expires_in":604800}`)
+			return
+		}
+		if r.URL.Path == "/users/@me" {
+			fmt.Fprint(w, `{"id":"999888777666555444","username":"DiscordUser#1234"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer discordStub.Close()
+	t.Setenv("DISCORD_API_BASE_URL", discordStub.URL)
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users", "user_discord_accounts")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupDiscordTestRouter(app)
+
+	user := testDB.CreateTestUser(t, "cbsuccess", "cbsuccess@example.com")
+	handler := &Handler{App: app}
+	state := handler.buildDiscordState(int32(user.ID))
+
+	req := httptest.NewRequest("GET",
+		fmt.Sprintf("/api/v1/auth/discord/callback?code=goodcode&state=%s", state), nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	// Should redirect (302) to the frontend settings page
+	assert.Equal(t, http.StatusFound, rec.Code)
+	assert.Contains(t, rec.Header().Get("Location"), "/settings?discord=linked")
+
+	// Discord account must be persisted in the DB
+	discordSvc := &dbsvc.DiscordAccountService{DB: testDB.Pool}
+	acct, err := discordSvc.GetDiscordAccount(context.Background(), int32(user.ID))
+	require.NoError(t, err)
+	require.NotNil(t, acct)
+	assert.Equal(t, "999888777666555444", acct.DiscordUserID)
+	assert.Equal(t, "DiscordUser#1234", acct.DiscordUsername)
+}
+
 // Ensure DiscordAccountService satisfies the interface (compile-time check).
 var _ core.DiscordAccountServiceInterface = (*dbsvc.DiscordAccountService)(nil)
 

@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -337,6 +338,77 @@ func TestMessageAPI_CreatePost(t *testing.T) {
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
+}
+
+// TestMessageAPI_CreatePost_NotifiesParticipants verifies that creating a GM post
+// fires a common_room_post notification for each participant except the GM.
+func TestMessageAPI_CreatePost_NotifiesParticipants(t *testing.T) {
+	t.Setenv("REQUIRE_EMAIL_VERIFICATION", "false")
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "messages", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupMessageAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm-notif", "gm-notif@example.com")
+	player1 := testDB.CreateTestUser(t, "player1-notif", "player1-notif@example.com")
+	player2 := testDB.CreateTestUser(t, "player2-notif", "player2-notif@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Notif Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player1.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player2.ID), "player")
+	require.NoError(t, err)
+
+	gmChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        int32Ptr(int32(gm.ID)),
+		Name:          "GM Char",
+		CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	body := CreatePostRequest{CharacterID: gmChar.ID, Content: "Phase one begins!"}
+	bodyJSON, _ := json.Marshal(body)
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/posts", game.ID), bytes.NewBuffer(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	// Give the fire-and-forget goroutine time to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Each participant except the GM should have a notification
+	ctx := context.Background()
+	for _, playerID := range []int{player1.ID, player2.ID} {
+		var count int
+		err := testDB.Pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND type = 'common_room_post' AND game_id = $2`,
+			playerID, game.ID,
+		).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count, "player %d should have a common_room_post notification", playerID)
+	}
+
+	// GM should NOT receive a notification for their own post
+	var gmCount int
+	err = testDB.Pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND type = 'common_room_post'`,
+		gm.ID,
+	).Scan(&gmCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, gmCount, "GM should not receive notification for their own post")
 }
 
 // TestMessageAPI_CreateComment tests POST /api/v1/games/{gameId}/posts/{postId}/comments
