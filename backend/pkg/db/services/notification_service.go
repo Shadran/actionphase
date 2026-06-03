@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
-	"actionphase/pkg/discord"
 	models "actionphase/pkg/db/models"
+	"actionphase/pkg/discord"
 	"actionphase/pkg/observability"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -252,13 +252,13 @@ func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notificatio
 // discordColorForType returns a left-border color (decimal) for a notification type.
 // Colors are chosen to give quick visual recognition in Discord.
 var discordColorForType = map[string]int{
-	core.NotificationTypePrivateMessage:       0x5865F2, // Discord blurple — direct messages
-	core.NotificationTypeCommentReply:         0x5865F2,
-	core.NotificationTypeCharacterMention:     0x5865F2,
-	core.NotificationTypeActionResult:         0xF0A500, // Gold — results/outcomes
-	core.NotificationTypeActionSubmitted:      0x57F287, // Green — GM action submitted
-	core.NotificationTypeCharacterApproved:    0x57F287,
-	core.NotificationTypeApplicationApproved:  0x57F287,
+	core.NotificationTypePrivateMessage:      0x5865F2, // Discord blurple — direct messages
+	core.NotificationTypeCommentReply:        0x5865F2,
+	core.NotificationTypeCharacterMention:    0x5865F2,
+	core.NotificationTypeActionResult:        0xF0A500, // Gold — results/outcomes
+	core.NotificationTypeActionSubmitted:     0x57F287, // Green — GM action submitted
+	core.NotificationTypeCharacterApproved:   0x57F287,
+	core.NotificationTypeApplicationApproved: 0x57F287,
 
 	core.NotificationTypeHandoutPublished:     0xEB459E, // Pink — new content
 	core.NotificationTypeCommonRoomPost:       0xEB459E,

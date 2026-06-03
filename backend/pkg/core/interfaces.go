@@ -1531,12 +1531,12 @@ type UserProfileServiceInterface interface {
 
 // DiscordEmbed is the payload for a Discord embed DM.
 type DiscordEmbed struct {
-	Title       string  // Displayed as the embed title (plain text, not a link)
-	URL         string  // Makes the title a clickable hyperlink
-	Description string  // Body text beneath the title (optional)
-	Color       int     // Left-border color as a decimal integer (e.g. 0x5865F2 = 5793266)
-	Footer      string  // Small footer text
-	Timestamp   string  // ISO 8601 timestamp shown in footer
+	Title       string // Displayed as the embed title (plain text, not a link)
+	URL         string // Makes the title a clickable hyperlink
+	Description string // Body text beneath the title (optional)
+	Color       int    // Left-border color as a decimal integer (e.g. 0x5865F2 = 5793266)
+	Footer      string // Small footer text
+	Timestamp   string // ISO 8601 timestamp shown in footer
 }
 
 // DiscordClientInterface defines the contract for sending Discord DMs.

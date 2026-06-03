@@ -151,8 +151,7 @@ export function DiscordNotificationsSection() {
       const response = await apiClient.auth.getDiscordConnectURL();
       window.location.href = response.data.url;
     } catch {
-      // Error handled by a future toast/alert pattern; for now we log
-      console.error('Failed to get Discord connect URL');
+      // silently ignore; user will see no redirect
     }
   };
 
@@ -161,7 +160,7 @@ export function DiscordNotificationsSection() {
       await apiClient.auth.disconnectDiscord();
       queryClient.invalidateQueries({ queryKey: ['discordStatus'] });
     } catch {
-      console.error('Failed to disconnect Discord');
+      // silently ignore; query state will remain unchanged
     }
   };
 

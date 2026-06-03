@@ -114,13 +114,13 @@ func (h *Handler) Start() {
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 			r.Get("/refresh", authHandler.V1Refresh)
-			r.Get("/preferences", authHandler.V1GetPreferences)                                                            // Get user preferences
-			r.Put("/preferences", authHandler.V1UpdatePreferences)                                                         // Update user preferences
-			r.Get("/users/search", authHandler.V1SearchUsers)                                                              // Search for users
+			r.Get("/preferences", authHandler.V1GetPreferences)    // Get user preferences
+			r.Put("/preferences", authHandler.V1UpdatePreferences) // Update user preferences
+			r.Get("/users/search", authHandler.V1SearchUsers)      // Search for users
 			// Discord OAuth routes (protected)
-			r.Get("/discord/connect", authHandler.V1DiscordConnect)       // Get Discord OAuth URL
-			r.Get("/discord/status", authHandler.V1DiscordStatus)         // Check Discord link status
-			r.Delete("/discord/disconnect", authHandler.V1DiscordDisconnect) // Unlink Discord account
+			r.Get("/discord/connect", authHandler.V1DiscordConnect)                                                        // Get Discord OAuth URL
+			r.Get("/discord/status", authHandler.V1DiscordStatus)                                                          // Check Discord link status
+			r.Delete("/discord/disconnect", authHandler.V1DiscordDisconnect)                                               // Unlink Discord account
 			r.Post("/change-password", authHandler.V1ChangePassword)                                                       // Change password (authenticated users)
 			r.With(ratelimitmw.StrictRateLimit(isDev)).Post("/resend-verification", authHandler.V1ResendVerificationEmail) // Resend email verification with rate limiting
 			r.Post("/change-username", authHandler.V1ChangeUsername)                                                       // Change username
