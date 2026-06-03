@@ -1469,7 +1469,6 @@ type VoterInfo struct {
 type UserProfile struct {
 	ID          int32     `json:"id"`
 	Username    string    `json:"username"`
-	Email       string    `json:"email"`
 	DisplayName *string   `json:"display_name"`
 	Bio         *string   `json:"bio"`
 	AvatarURL   *string   `json:"avatar_url"`

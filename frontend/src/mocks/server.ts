@@ -7,7 +7,6 @@ const mockUserProfile: UserProfileResponse = {
   user: {
     id: 1,
     username: 'testuser',
-    email: 'test@example.com',
     display_name: 'Test User',
     bio: 'This is a test bio',
     avatar_url: 'http://localhost:3000/uploads/avatars/users/1/test.jpg',

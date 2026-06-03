@@ -11,7 +11,6 @@
 export interface UserProfile {
   id: number;
   username: string;
-  email: string;
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
