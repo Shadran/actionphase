@@ -88,8 +88,7 @@ func TestIsEnabledForUser_DefaultsForHighVolumeTypes(t *testing.T) {
 		core.NotificationTypePhaseCreated,
 		core.NotificationTypeGameStateChanged,
 		core.NotificationTypeApplicationSubmitted,
-		core.NotificationTypeCharacterRejected,
-		core.NotificationTypeApplicationRejected,
+
 	}
 
 	for _, notifType := range highVolumeTypes {

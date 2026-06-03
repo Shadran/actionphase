@@ -22,9 +22,7 @@ export type NotificationTypePref =
   | 'phase_created'
   | 'application_submitted'
   | 'application_approved'
-  | 'application_rejected'
   | 'character_approved'
-  | 'character_rejected'
   | 'game_state_changed'
   | 'handout_published';
 

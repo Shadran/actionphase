@@ -259,8 +259,7 @@ var discordColorForType = map[string]int{
 	core.NotificationTypeActionSubmitted:      0x57F287, // Green — GM action submitted
 	core.NotificationTypeCharacterApproved:    0x57F287,
 	core.NotificationTypeApplicationApproved:  0x57F287,
-	core.NotificationTypeCharacterRejected:    0xED4245, // Red — rejections
-	core.NotificationTypeApplicationRejected:  0xED4245,
+
 	core.NotificationTypeHandoutPublished:     0xEB459E, // Pink — new content
 	core.NotificationTypeCommonRoomPost:       0xEB459E,
 	core.NotificationTypePhaseCreated:         0xFEE75C, // Yellow — game progression
@@ -600,24 +599,13 @@ func (s *NotificationService) NotifyPhaseCreated(ctx context.Context, gameID int
 	return nil
 }
 
-// NotifyApplicationStatusChange creates a notification when a game application is approved or rejected.
-func (s *NotificationService) NotifyApplicationStatusChange(ctx context.Context, playerUserID int32, gameID int32, gameTitle string, approved bool) error {
-	var notifType string
-	var title string
-
-	if approved {
-		notifType = core.NotificationTypeApplicationApproved
-		title = fmt.Sprintf("Application approved for %s", gameTitle)
-	} else {
-		notifType = core.NotificationTypeApplicationRejected
-		title = fmt.Sprintf("Application rejected for %s", gameTitle)
-	}
-
+// NotifyApplicationApproved creates a notification when a game application is approved.
+func (s *NotificationService) NotifyApplicationApproved(ctx context.Context, playerUserID int32, gameID int32, gameTitle string) error {
 	_, err := s.CreateNotification(ctx, &core.CreateNotificationRequest{
 		UserID:      playerUserID,
 		GameID:      &gameID,
-		Type:        notifType,
-		Title:       title,
+		Type:        core.NotificationTypeApplicationApproved,
+		Title:       fmt.Sprintf("Application approved for %s", gameTitle),
 		RelatedType: stringPtr("game"),
 		RelatedID:   &gameID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d", gameID)),
@@ -625,24 +613,13 @@ func (s *NotificationService) NotifyApplicationStatusChange(ctx context.Context,
 	return err
 }
 
-// NotifyCharacterStatusChange creates a notification when a character is approved or rejected.
-func (s *NotificationService) NotifyCharacterStatusChange(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string, approved bool) error {
-	var notifType string
-	var title string
-
-	if approved {
-		notifType = core.NotificationTypeCharacterApproved
-		title = fmt.Sprintf("Character approved: %s", characterName)
-	} else {
-		notifType = core.NotificationTypeCharacterRejected
-		title = fmt.Sprintf("Character needs revision: %s", characterName)
-	}
-
+// NotifyCharacterApproved creates a notification when a character is approved by the GM.
+func (s *NotificationService) NotifyCharacterApproved(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string) error {
 	_, err := s.CreateNotification(ctx, &core.CreateNotificationRequest{
 		UserID:      playerUserID,
 		GameID:      &gameID,
-		Type:        notifType,
-		Title:       title,
+		Type:        core.NotificationTypeCharacterApproved,
+		Title:       fmt.Sprintf("Character approved: %s", characterName),
 		RelatedType: stringPtr("character"),
 		RelatedID:   &characterID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=characters", gameID)),

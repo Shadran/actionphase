@@ -981,11 +981,11 @@ type NotificationServiceInterface interface {
 	// NotifyPhaseCreated creates notifications for all participants when phase created
 	NotifyPhaseCreated(ctx context.Context, gameID int32, phaseID int32, phaseTitle string, excludeUserID int32) error
 
-	// NotifyApplicationStatusChange creates notification for application approval/rejection
-	NotifyApplicationStatusChange(ctx context.Context, playerUserID int32, gameID int32, gameTitle string, approved bool) error
+	// NotifyApplicationApproved creates a notification when a game application is approved
+	NotifyApplicationApproved(ctx context.Context, playerUserID int32, gameID int32, gameTitle string) error
 
-	// NotifyCharacterStatusChange creates notification for character approval/rejection
-	NotifyCharacterStatusChange(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string, approved bool) error
+	// NotifyCharacterApproved creates a notification when a character is approved by the GM
+	NotifyCharacterApproved(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string) error
 }
 
 // StorageBackendInterface defines the contract for file storage operations.

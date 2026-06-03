@@ -277,7 +277,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 		// Do this only if we successfully retrieved the approved applications list
 		if approvedApps != nil && len(approvedApps) > 0 {
 			for _, app := range approvedApps {
-				if err := notificationService.NotifyApplicationStatusChange(ctx, app.UserID, int32(gameID), updatedGame.Title, true); err != nil {
+				if err := notificationService.NotifyApplicationApproved(ctx, app.UserID, int32(gameID), updatedGame.Title); err != nil {
 					h.App.ObsLogger.Warn(ctx, "Failed to create acceptance notification",
 						"error", err,
 						"game_id", gameID,
