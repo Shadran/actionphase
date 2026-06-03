@@ -62,7 +62,12 @@ marked.use({
     },
 
     listitem(token) {
-      const rendered = this.parser.parseInline(token.tokens);
+      const hasBlockContent = token.tokens.some(
+        (t) => t.type === 'list' || t.type === 'blockquote' || t.type === 'code' || t.type === 'paragraph'
+      );
+      const rendered = hasBlockContent
+        ? this.parser.parse(token.tokens)
+        : this.parser.parseInline(token.tokens);
       return `<li class="ml-4 !text-content-primary">${rendered}</li>\n`;
     },
 
