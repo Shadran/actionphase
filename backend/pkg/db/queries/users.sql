@@ -14,6 +14,16 @@ WHERE (
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListAllUsersAdmin :many
+SELECT u.*, da.discord_username
+FROM users u
+LEFT JOIN user_discord_accounts da ON da.user_id = u.id
+WHERE (
+    $1::text = '' OR u.username ILIKE '%' || $1 || '%' OR u.email ILIKE '%' || $1 || '%'
+)
+ORDER BY u.created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: CountAllUsers :one
 SELECT COUNT(*) FROM users
 WHERE (

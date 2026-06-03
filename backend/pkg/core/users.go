@@ -24,6 +24,7 @@ type User struct {
 	CreatedAt            *time.Time `json:"createdAt"`                                 // Account creation timestamp
 	PendingApproval      bool       `json:"pending_approval"`                          // Whether account is awaiting admin approval
 	PendingApprovalSince *time.Time `json:"pending_approval_since,omitempty"`          // When account was placed into pending state
+	DiscordUsername      *string    `json:"discord_username,omitempty"`                // Discord username if account is linked
 }
 
 // BannedUser represents a banned user with additional ban information.

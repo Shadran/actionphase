@@ -123,6 +123,10 @@ func (m *MockUserService) ListAllUsers(ctx context.Context, page, pageSize int, 
 	return nil, 0, nil
 }
 
+func (m *MockUserService) ListAllUsersAdmin(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error) {
+	return nil, 0, nil
+}
+
 func (m *MockUserService) ListPendingApprovalUsers(ctx context.Context) ([]*User, error) {
 	return nil, nil
 }

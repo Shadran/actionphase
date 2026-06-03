@@ -107,6 +107,7 @@ type UserServiceInterface interface {
 
 	// User listing and search (admin)
 	ListAllUsers(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error)
+	ListAllUsersAdmin(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error)
 
 	// Registration approval
 	ListPendingApprovalUsers(ctx context.Context) ([]*User, error)
