@@ -208,7 +208,7 @@ func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	if frontendBaseURL == "" {
 		frontendBaseURL = "http://localhost:5173"
 	}
-	frontendURL := fmt.Sprintf("%s/settings?discord=linked", frontendBaseURL)
+	frontendURL := fmt.Sprintf("%s/settings?tab=notifications&discord=linked", frontendBaseURL)
 
 	// 1. Validate state
 	state := r.URL.Query().Get("state")

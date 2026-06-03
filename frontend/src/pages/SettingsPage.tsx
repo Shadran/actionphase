@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProfileSection } from '../components/ProfileSection';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
@@ -12,27 +13,36 @@ import { useUserPreferences, useUpdateUserPreferences } from '../hooks/useUserPr
 import { useQueryClient } from '@tanstack/react-query';
 import type { CommentReadMode } from '../lib/api/auth';
 
+const VALID_TABS = ['profile', 'appearance', 'security', 'account', 'reading', 'notifications'] as const;
+type SettingsTab = typeof VALID_TABS[number];
+
+function isValidTab(tab: string | null): tab is SettingsTab {
+  return VALID_TABS.includes(tab as SettingsTab);
+}
+
 export function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [activeSection, setActiveSection] = useState('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdateUserPreferences();
   const queryClient = useQueryClient();
 
+  const rawTab = searchParams.get('tab');
+  const activeSection: SettingsTab = isValidTab(rawTab) ? rawTab : 'profile';
+
   // When the Discord OAuth callback redirects back with ?discord=linked,
-  // invalidate the Discord status query to reflect the new link immediately.
+  // invalidate the Discord status query and switch to notifications tab.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('discord') === 'linked') {
+    if (searchParams.get('discord') === 'linked') {
       queryClient.invalidateQueries({ queryKey: ['discordStatus'] });
-      // Switch to notifications tab so the user sees the linked state
-      setActiveSection('notifications');
-      // Clean up the query param without pushing a new history entry
-      const url = new URL(window.location.href);
-      url.searchParams.delete('discord');
-      window.history.replaceState({}, '', url.toString());
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('discord');
+        next.set('tab', 'notifications');
+        return next;
+      }, { replace: true });
     }
-  }, [queryClient]);
+  }, [queryClient, searchParams, setSearchParams]);
 
   const handleCommentReadModeChange = (mode: CommentReadMode) => {
     updatePreferences.mutate({
@@ -107,7 +117,6 @@ export function SettingsPage() {
         <SettingsSidebar
           sections={sections}
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
         />
 
         {/* Content Area */}

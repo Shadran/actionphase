@@ -1,3 +1,5 @@
+import { Link, useNavigate } from 'react-router-dom';
+
 interface SettingsSection {
   id: string;
   label: string;
@@ -7,10 +9,11 @@ interface SettingsSection {
 interface SettingsSidebarProps {
   sections: SettingsSection[];
   activeSection: string;
-  onSectionChange: (sectionId: string) => void;
 }
 
-export const SettingsSidebar = ({ sections, activeSection, onSectionChange }: SettingsSidebarProps) => {
+export const SettingsSidebar = ({ sections, activeSection }: SettingsSidebarProps) => {
+  const navigate = useNavigate();
+
   return (
     <>
       {/* Mobile: Dropdown Select */}
@@ -21,7 +24,7 @@ export const SettingsSidebar = ({ sections, activeSection, onSectionChange }: Se
         <select
           id="section-select"
           value={activeSection}
-          onChange={(e) => onSectionChange(e.target.value)}
+          onChange={(e) => navigate(`/settings?tab=${e.target.value}`, { replace: true })}
           className="block w-full py-3 pl-4 pr-10 text-base font-semibold surface-raised text-content-primary border border-border-primary rounded-lg shadow-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-interactive-primary focus:border-interactive-primary transition-all"
           style={{ backgroundImage: 'none' }}
         >
@@ -45,9 +48,10 @@ export const SettingsSidebar = ({ sections, activeSection, onSectionChange }: Se
           {sections.map((section) => {
             const isActive = activeSection === section.id;
             return (
-              <button
+              <Link
                 key={section.id}
-                onClick={() => onSectionChange(section.id)}
+                to={`/settings?tab=${section.id}`}
+                replace
                 className={`
                   w-full text-left py-3 px-4 rounded-lg font-medium text-sm flex items-center gap-3
                   transition-all duration-200
@@ -63,7 +67,7 @@ export const SettingsSidebar = ({ sections, activeSection, onSectionChange }: Se
                   </span>
                 )}
                 <span>{section.label}</span>
-              </button>
+              </Link>
             );
           })}
         </div>
