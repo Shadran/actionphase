@@ -80,5 +80,8 @@
   "overrides": {
     "prismjs": "1.30.0",
     "ws": "^8.21.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.60.2"
   }
 }
