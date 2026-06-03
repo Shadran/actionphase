@@ -299,6 +299,17 @@ export const Layout = ({ children }: LayoutProps) => {
           <p className="text-center text-sm text-content-secondary">
             &copy; 2025 ActionPhase. A collaborative role-playing platform.
           </p>
+          <p className="text-center text-xs text-content-secondary mt-1">
+            <a
+              href="https://www.flaticon.com/free-icons/roleplay"
+              title="roleplay icons"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              Favicon created by Three musketeers - Flaticon
+            </a>
+          </p>
         </div>
       </footer>
     </div>
