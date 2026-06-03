@@ -3,6 +3,7 @@ import { Button, Card, CardBody, CardHeader, Spinner, Alert } from '@/components
 import { useDiscordStatus } from '../hooks/useDiscordStatus';
 import { useUserPreferences, useUpdateUserPreferences } from '../hooks/useUserPreferences';
 import { apiClient } from '../lib/api';
+import { logger } from '@/services/LoggingService';
 import type { NotificationTypePref } from '../lib/api/auth';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ export function DiscordNotificationsSection() {
       const response = await apiClient.auth.getDiscordConnectURL();
       window.location.href = response.data.url;
     } catch {
-      // silently ignore; user will see no redirect
+      logger.error('Failed to get Discord connect URL');
     }
   };
 

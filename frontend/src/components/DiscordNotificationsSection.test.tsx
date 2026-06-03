@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { DiscordNotificationsSection } from './DiscordNotificationsSection';
 import { renderWithProviders } from '../test-utils/render';
 import { server } from '../mocks/server';
+import { logger } from '@/services/LoggingService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared mock responses
@@ -189,19 +190,17 @@ describe('DiscordNotificationsSection', () => {
       )
     );
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
     renderWithProviders(<DiscordNotificationsSection />);
 
     const connectButton = await screen.findByTestId('discord-connect-button');
     fireEvent.click(connectButton);
 
-    // No navigation should occur — verify by checking window.location.href is unchanged
-    // (a real navigation would fail the test in a controlled way)
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to get Discord connect URL');
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to get Discord connect URL');
     });
 
-    consoleSpy.mockRestore();
+    loggerSpy.mockRestore();
   });
 });
