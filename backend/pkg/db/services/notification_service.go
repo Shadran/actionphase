@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"actionphase/pkg/core"
@@ -239,7 +240,12 @@ func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notificatio
 	frontendURL := os.Getenv("FRONTEND_URL")
 	var msg string
 	if notification.LinkURL != nil && *notification.LinkURL != "" {
-		msg = fmt.Sprintf("[ActionPhase] %s — %s%s", notification.Title, frontendURL, *notification.LinkURL)
+		sep := "?"
+		if strings.Contains(*notification.LinkURL, "?") {
+			sep = "&"
+		}
+		linkWithID := fmt.Sprintf("%s%snotif=%d", *notification.LinkURL, sep, notification.ID)
+		msg = fmt.Sprintf("[ActionPhase] %s — %s%s", notification.Title, frontendURL, linkWithID)
 	} else {
 		msg = fmt.Sprintf("[ActionPhase] %s", notification.Title)
 	}

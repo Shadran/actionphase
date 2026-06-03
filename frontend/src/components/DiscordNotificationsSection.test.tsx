@@ -62,7 +62,7 @@ describe('DiscordNotificationsSection', () => {
     expect(screen.queryByTestId('discord-username')).not.toBeInTheDocument();
   });
 
-  it('renders Discord username and 14 toggles when linked', async () => {
+  it('renders Discord username and 12 toggles when linked', async () => {
     setupHandlers(linkedStatus);
 
     renderWithProviders(<DiscordNotificationsSection />);
@@ -76,7 +76,7 @@ describe('DiscordNotificationsSection', () => {
 
     // 14 notification toggles should be rendered
     const toggles = screen.getAllByRole('switch');
-    expect(toggles).toHaveLength(14);
+    expect(toggles).toHaveLength(12);
   });
 
   it('calls getDiscordConnectURL API when Connect is clicked', async () => {

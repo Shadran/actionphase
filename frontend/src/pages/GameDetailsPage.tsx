@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGameContext } from '../contexts/GameContext';
 import { useGameApplication } from '../hooks/useGameApplication';
 import { useGameStateManagement } from '../hooks/useGameStateManagement';
+import { useAutoMarkNotificationRead } from '../hooks/useNotifications';
 import { useGameTabs } from '../hooks/useGameTabs';
 import { usePollsByPhase } from '../hooks';
 import { GameHeader } from '../components/GameHeader';
@@ -33,6 +34,8 @@ interface GameDetailsPageProps {
 }
 
 export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
+  useAutoMarkNotificationRead();
+
   // Get data from contexts
   const { currentUser, isCheckingAuth } = useAuth();
   const {
