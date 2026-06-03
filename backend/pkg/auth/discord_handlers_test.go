@@ -376,7 +376,7 @@ func TestDiscordCallback_Success(t *testing.T) {
 
 	// Should redirect (302) to the frontend settings page
 	assert.Equal(t, http.StatusFound, rec.Code)
-	assert.Contains(t, rec.Header().Get("Location"), "/settings?discord=linked")
+	assert.Contains(t, rec.Header().Get("Location"), "/settings?tab=notifications&discord=linked")
 
 	// Discord account must be persisted in the DB
 	discordSvc := &dbsvc.DiscordAccountService{DB: testDB.Pool}

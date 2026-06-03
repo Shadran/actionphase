@@ -236,28 +236,67 @@ func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notificatio
 		return
 	}
 
-	// 3. Build message
-	frontendURL := os.Getenv("FRONTEND_URL")
-	var msg string
-	if notification.LinkURL != nil && *notification.LinkURL != "" {
-		sep := "?"
-		if strings.Contains(*notification.LinkURL, "?") {
-			sep = "&"
-		}
-		linkWithID := fmt.Sprintf("%s%snotif=%d", *notification.LinkURL, sep, notification.ID)
-		msg = fmt.Sprintf("[ActionPhase] %s — %s%s", notification.Title, frontendURL, linkWithID)
-	} else {
-		msg = fmt.Sprintf("[ActionPhase] %s", notification.Title)
-	}
+	// 3. Build embed
+	embed := buildDiscordEmbed(notification)
 
 	// 4. Send DM — log error but never propagate
-	if err := s.DiscordNotifier.SendDM(ctx, acct.DiscordUserID, msg); err != nil {
+	if err := s.DiscordNotifier.SendDM(ctx, acct.DiscordUserID, embed); err != nil {
 		s.Logger.LogError(ctx, err, "Discord dispatch: failed to send DM",
 			"user_id", notification.UserID,
 			"discord_user_id", acct.DiscordUserID,
 			"notification_type", notification.Type,
 		)
 	}
+}
+
+// discordColorForType returns a left-border color (decimal) for a notification type.
+// Colors are chosen to give quick visual recognition in Discord.
+var discordColorForType = map[string]int{
+	core.NotificationTypePrivateMessage:       0x5865F2, // Discord blurple — direct messages
+	core.NotificationTypeCommentReply:         0x5865F2,
+	core.NotificationTypeCharacterMention:     0x5865F2,
+	core.NotificationTypeActionResult:         0xF0A500, // Gold — results/outcomes
+	core.NotificationTypeActionSubmitted:      0x57F287, // Green — GM action submitted
+	core.NotificationTypeCharacterApproved:    0x57F287,
+	core.NotificationTypeApplicationApproved:  0x57F287,
+	core.NotificationTypeCharacterRejected:    0xED4245, // Red — rejections
+	core.NotificationTypeApplicationRejected:  0xED4245,
+	core.NotificationTypeHandoutPublished:     0xEB459E, // Pink — new content
+	core.NotificationTypeCommonRoomPost:       0xEB459E,
+	core.NotificationTypePhaseCreated:         0xFEE75C, // Yellow — game progression
+	core.NotificationTypeGameStateChanged:     0xFEE75C,
+	core.NotificationTypeApplicationSubmitted: 0x95A5A6, // Grey — GM inbox
+}
+
+// buildDiscordEmbed constructs a DiscordEmbed for the given notification.
+func buildDiscordEmbed(n *core.Notification) core.DiscordEmbed {
+	frontendURL := os.Getenv("FRONTEND_URL")
+
+	color, ok := discordColorForType[n.Type]
+	if !ok {
+		color = 0x5865F2
+	}
+
+	embed := core.DiscordEmbed{
+		Title:     n.Title,
+		Color:     color,
+		Footer:    "ActionPhase",
+		Timestamp: n.CreatedAt.UTC().Format(time.RFC3339),
+	}
+
+	if n.Content != nil && *n.Content != "" {
+		embed.Description = *n.Content
+	}
+
+	if n.LinkURL != nil && *n.LinkURL != "" {
+		sep := "?"
+		if strings.Contains(*n.LinkURL, "?") {
+			sep = "&"
+		}
+		embed.URL = fmt.Sprintf("%s%s%snotif=%d", frontendURL, *n.LinkURL, sep, n.ID)
+	}
+
+	return embed
 }
 
 // CreateBulkNotifications creates notifications for multiple users (fire-and-forget).

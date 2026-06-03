@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 
+	"actionphase/pkg/core"
 	"actionphase/pkg/observability"
 )
 
@@ -34,17 +35,14 @@ func (c *BotClient) getHTTPClient() *http.Client {
 	return http.DefaultClient
 }
 
-// SendDM sends a Discord DM to a user identified by their Discord user ID.
-// It first creates (or retrieves) a DM channel, then posts the message.
-func (c *BotClient) SendDM(ctx context.Context, discordUserID string, message string) error {
-	// Step 1: Create/get DM channel
+// SendDM sends a rich embed DM to a Discord user identified by their Discord user ID.
+// It first creates (or retrieves) a DM channel, then posts the embed.
+func (c *BotClient) SendDM(ctx context.Context, discordUserID string, embed core.DiscordEmbed) error {
 	channelID, err := c.openDMChannel(ctx, discordUserID)
 	if err != nil {
 		return fmt.Errorf("discord: open DM channel: %w", err)
 	}
-
-	// Step 2: Send message
-	return c.sendMessage(ctx, channelID, message)
+	return c.sendEmbed(ctx, channelID, embed)
 }
 
 func (c *BotClient) openDMChannel(ctx context.Context, recipientID string) (string, error) {
@@ -85,8 +83,36 @@ func (c *BotClient) openDMChannel(ctx context.Context, recipientID string) (stri
 	return channel.ID, nil
 }
 
-func (c *BotClient) sendMessage(ctx context.Context, channelID, content string) error {
-	body, err := json.Marshal(map[string]string{"content": content})
+func (c *BotClient) sendEmbed(ctx context.Context, channelID string, embed core.DiscordEmbed) error {
+	type embedFooter struct {
+		Text string `json:"text"`
+	}
+	type embedPayload struct {
+		Title       string      `json:"title"`
+		URL         string      `json:"url,omitempty"`
+		Description string      `json:"description,omitempty"`
+		Color       int         `json:"color"`
+		Footer      embedFooter `json:"footer"`
+		Timestamp   string      `json:"timestamp,omitempty"`
+	}
+	type messagePayload struct {
+		Embeds []embedPayload `json:"embeds"`
+	}
+
+	payload := messagePayload{
+		Embeds: []embedPayload{
+			{
+				Title:       embed.Title,
+				URL:         embed.URL,
+				Description: embed.Description,
+				Color:       embed.Color,
+				Footer:      embedFooter{Text: embed.Footer},
+				Timestamp:   embed.Timestamp,
+			},
+		},
+	}
+
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}

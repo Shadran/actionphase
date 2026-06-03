@@ -1529,10 +1529,20 @@ type UserProfileServiceInterface interface {
 	UpdateUserProfile(ctx context.Context, userID int32, displayName *string, bio *string) error
 }
 
+// DiscordEmbed is the payload for a Discord embed DM.
+type DiscordEmbed struct {
+	Title       string  // Displayed as the embed title (plain text, not a link)
+	URL         string  // Makes the title a clickable hyperlink
+	Description string  // Body text beneath the title (optional)
+	Color       int     // Left-border color as a decimal integer (e.g. 0x5865F2 = 5793266)
+	Footer      string  // Small footer text
+	Timestamp   string  // ISO 8601 timestamp shown in footer
+}
+
 // DiscordClientInterface defines the contract for sending Discord DMs.
 type DiscordClientInterface interface {
-	// SendDM sends a direct message to a Discord user by their Discord user ID
-	SendDM(ctx context.Context, discordUserID string, message string) error
+	// SendDM sends a rich embed DM to a Discord user by their Discord user ID.
+	SendDM(ctx context.Context, discordUserID string, embed DiscordEmbed) error
 }
 
 // DiscordAccount represents a linked Discord account for a user.

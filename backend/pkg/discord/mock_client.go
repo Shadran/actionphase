@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"actionphase/pkg/core"
 	"actionphase/pkg/observability"
 )
 
 // SentMessage records a DM that was dispatched via MockClient.
 type SentMessage struct {
 	DiscordUserID string
-	Message       string
+	Embed         core.DiscordEmbed
 }
 
 // MockClient implements core.DiscordClientInterface for testing and local development.
@@ -22,18 +23,18 @@ type MockClient struct {
 	Logger       *observability.Logger
 }
 
-// SendDM records the DM and logs it to stdout. Useful for local development
+// SendDM records the embed and logs it to stdout. Useful for local development
 // without a real Discord app configured.
-func (m *MockClient) SendDM(_ context.Context, discordUserID string, message string) error {
+func (m *MockClient) SendDM(_ context.Context, discordUserID string, embed core.DiscordEmbed) error {
 	if m.ShouldFail {
 		return fmt.Errorf("discord mock: forced failure")
 	}
 
 	m.SentMessages = append(m.SentMessages, SentMessage{
 		DiscordUserID: discordUserID,
-		Message:       message,
+		Embed:         embed,
 	})
 
-	fmt.Printf("[DISCORD MOCK] DM to %s: %s\n", discordUserID, message)
+	fmt.Printf("[DISCORD MOCK] DM to %s: %s — %s\n", discordUserID, embed.Title, embed.URL)
 	return nil
 }

@@ -19,20 +19,21 @@ func TestMockClient_RecordsDMs(t *testing.T) {
 	mock := &discord.MockClient{}
 	ctx := context.Background()
 
-	err := mock.SendDM(ctx, "123456789", "Hello, ActionPhase!")
+	embed := core.DiscordEmbed{Title: "Hello, ActionPhase!", Color: 0x5865F2, Footer: "ActionPhase"}
+	err := mock.SendDM(ctx, "123456789", embed)
 	require.NoError(t, err)
 
 	require.Len(t, mock.SentMessages, 1)
 	assert.Equal(t, "123456789", mock.SentMessages[0].DiscordUserID)
-	assert.Equal(t, "Hello, ActionPhase!", mock.SentMessages[0].Message)
+	assert.Equal(t, "Hello, ActionPhase!", mock.SentMessages[0].Embed.Title)
 }
 
 func TestMockClient_MultipleDMs(t *testing.T) {
 	mock := &discord.MockClient{}
 	ctx := context.Background()
 
-	_ = mock.SendDM(ctx, "111", "First message")
-	_ = mock.SendDM(ctx, "222", "Second message")
+	_ = mock.SendDM(ctx, "111", core.DiscordEmbed{Title: "First message"})
+	_ = mock.SendDM(ctx, "222", core.DiscordEmbed{Title: "Second message"})
 
 	assert.Len(t, mock.SentMessages, 2)
 	assert.Equal(t, "111", mock.SentMessages[0].DiscordUserID)
@@ -43,7 +44,7 @@ func TestMockClient_ShouldFail(t *testing.T) {
 	mock := &discord.MockClient{ShouldFail: true}
 	ctx := context.Background()
 
-	err := mock.SendDM(ctx, "123456789", "This should fail")
+	err := mock.SendDM(ctx, "123456789", core.DiscordEmbed{Title: "This should fail"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forced failure")
 

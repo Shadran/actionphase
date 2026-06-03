@@ -111,8 +111,8 @@ func TestNotificationService_DiscordDispatch_DisabledType(t *testing.T) {
 	assert.Empty(t, mock.SentMessages, "no DM should be sent when type is disabled in preferences")
 }
 
-// TestNotificationService_DiscordDispatch_MissingFrontendURL verifies the DM message
-// is well-formed even when FRONTEND_URL is not set — the link is relative but still
+// TestNotificationService_DiscordDispatch_MissingFrontendURL verifies the embed URL is
+// well-formed even when FRONTEND_URL is not set — the link is relative but still
 // contains the notif param and does not produce a malformed double-question-mark URL.
 func TestNotificationService_DiscordDispatch_MissingFrontendURL(t *testing.T) {
 	t.Setenv("FRONTEND_URL", "")
@@ -146,10 +146,10 @@ func TestNotificationService_DiscordDispatch_MissingFrontendURL(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, mock.SentMessages, 1)
-	msg := mock.SentMessages[0].Message
-	assert.Contains(t, msg, "test message")
-	assert.Contains(t, msg, fmt.Sprintf("notif=%d", notif.ID))
-	assert.NotContains(t, msg, "??", "malformed double question mark in URL")
+	embed := mock.SentMessages[0].Embed
+	assert.Equal(t, "test message", embed.Title)
+	assert.Contains(t, embed.URL, fmt.Sprintf("notif=%d", notif.ID))
+	assert.NotContains(t, embed.URL, "??", "malformed double question mark in URL")
 }
 
 // TestNotificationService_DiscordDispatch_NotifParamSeparator verifies the notif param
@@ -192,14 +192,14 @@ func TestNotificationService_DiscordDispatch_NotifParamSeparator(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		require.Len(t, mock.SentMessages, 1)
-		msg := mock.SentMessages[0].Message
-		assert.Contains(t, msg, fmt.Sprintf("%s%d", tc.wantSep, notif.ID), "link: %s, msg: %s", tc.linkURL, msg)
-		assert.NotContains(t, msg, "??")
+		embedURL := mock.SentMessages[0].Embed.URL
+		assert.Contains(t, embedURL, fmt.Sprintf("%s%d", tc.wantSep, notif.ID), "link: %s, url: %s", tc.linkURL, embedURL)
+		assert.NotContains(t, embedURL, "??")
 	}
 }
 
 // TestNotificationService_DiscordDispatch_Dispatches verifies a DM is sent when
-// Discord is linked and the notification type is enabled.
+// Discord is linked and the notification type is enabled, and the embed is well-formed.
 func TestNotificationService_DiscordDispatch_Dispatches(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
@@ -237,7 +237,49 @@ func TestNotificationService_DiscordDispatch_Dispatches(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, mock.SentMessages, 1, "exactly one DM should be dispatched")
-	assert.Equal(t, "discord-777", mock.SentMessages[0].DiscordUserID)
-	assert.Contains(t, mock.SentMessages[0].Message, "You have a new message")
-	assert.Contains(t, mock.SentMessages[0].Message, "[ActionPhase]")
+	sent := mock.SentMessages[0]
+	assert.Equal(t, "discord-777", sent.DiscordUserID)
+	assert.Equal(t, "You have a new message", sent.Embed.Title)
+	assert.Equal(t, "ActionPhase", sent.Embed.Footer)
+	assert.NotZero(t, sent.Embed.Color)
+	assert.Contains(t, sent.Embed.URL, "/games/1")
+}
+
+// TestNotificationService_DiscordDispatch_EmbedContent verifies that the Content field
+// is surfaced as the embed description when present.
+func TestNotificationService_DiscordDispatch_EmbedContent(t *testing.T) {
+	t.Setenv("FRONTEND_URL", "http://localhost:5173")
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "users", "user_discord_accounts", "notifications")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+
+	mock := &discord.MockClient{}
+	svc := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger, DiscordNotifier: mock}
+
+	user := testDB.CreateTestUser(t, "userF", "userF@example.com")
+	discordSvc := &DiscordAccountService{DB: testDB.Pool}
+	_, err := discordSvc.UpsertDiscordAccount(ctx, &core.UpsertDiscordAccountRequest{
+		UserID: int32(user.ID), DiscordUserID: "discord-888", DiscordUsername: "contentuser", AccessToken: "tok",
+	})
+	require.NoError(t, err)
+
+	content := "New message from Detective Marcus Kane"
+	_, err = svc.CreateNotification(ctx, &core.CreateNotificationRequest{
+		UserID:  int32(user.ID),
+		Type:    core.NotificationTypePrivateMessage,
+		Title:   "You have a new message",
+		Content: &content,
+	})
+	require.NoError(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	require.Len(t, mock.SentMessages, 1)
+	embed := mock.SentMessages[0].Embed
+	assert.Equal(t, "You have a new message", embed.Title)
+	assert.Equal(t, "New message from Detective Marcus Kane", embed.Description)
 }
