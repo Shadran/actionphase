@@ -34,7 +34,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	users, total, err := userService.ListAllUsers(ctx, page, pageSize, search)
+	users, total, err := userService.ListAllUsersAdmin(ctx, page, pageSize, search)
 	if err != nil {
 		render.Render(w, r, core.ErrInternalError(err))
 		return

@@ -42,7 +42,7 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 
 	// Check if user can submit actions
 	canSubmit, err := phaseService.CanUserSubmitActions(ctx, int32(gameID), int32(authUser.ID))
@@ -111,7 +111,7 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 			content := fmt.Sprintf("%s has submitted an action for the current phase", characterName)
 			linkURL := fmt.Sprintf("/games/%d?tab=actions", gameID)
 			relatedType := "action_submission"
-			notificationService := &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+			notificationService := gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 			_, notifErr := notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
 				UserID:      game.GmUserID,
 				GameID:      &action.GameID,
@@ -171,7 +171,7 @@ func (h *Handler) GetUserActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	actions, err := actionService.GetUserActions(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get user actions", "error", err)
@@ -243,7 +243,7 @@ func (h *Handler) GetGameActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	actions, err := actionService.GetGameActions(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get game actions", "error", err)

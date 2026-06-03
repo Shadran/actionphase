@@ -397,7 +397,7 @@ func (s *ConversationService) AddParticipant(ctx context.Context, conversationID
 // This runs in a goroutine and should not fail the parent operation
 func (s *ConversationService) notifyPrivateMessage(ctx context.Context, conversationID, senderUserID, senderCharacterID int32, messageID int32) {
 	logger := observability.NewLogger("conversations", "info")
-	notificationService := &NotificationService{DB: s.DB, Logger: logger}
+	notificationService := NewNotificationService(s.DB, logger)
 
 	// Get conversation details to find game_id
 	conv, err := s.Queries.GetConversation(ctx, conversationID)

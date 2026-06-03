@@ -101,6 +101,9 @@ func (h *Handler) Start() {
 		// Probe endpoint: returns current user if authenticated, null if not (no 401)
 		r.With(jwtauth.Verifier(h.getTokenAuth())).Get("/me", authHandler.V1Me)
 
+		// Discord OAuth callback (public — Discord redirects here after authorization)
+		r.Get("/discord/callback", authHandler.V1DiscordCallback)
+
 		// Protected routes (require authentication)
 		r.Group(func(r chi.Router) {
 			// Seek, verify and validate JWT tokens
@@ -111,9 +114,13 @@ func (h *Handler) Start() {
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 			r.Get("/refresh", authHandler.V1Refresh)
-			r.Get("/preferences", authHandler.V1GetPreferences)                                                            // Get user preferences
-			r.Put("/preferences", authHandler.V1UpdatePreferences)                                                         // Update user preferences
-			r.Get("/users/search", authHandler.V1SearchUsers)                                                              // Search for users
+			r.Get("/preferences", authHandler.V1GetPreferences)    // Get user preferences
+			r.Put("/preferences", authHandler.V1UpdatePreferences) // Update user preferences
+			r.Get("/users/search", authHandler.V1SearchUsers)      // Search for users
+			// Discord OAuth routes (protected)
+			r.Get("/discord/connect", authHandler.V1DiscordConnect)                                                        // Get Discord OAuth URL
+			r.Get("/discord/status", authHandler.V1DiscordStatus)                                                          // Check Discord link status
+			r.Delete("/discord/disconnect", authHandler.V1DiscordDisconnect)                                               // Unlink Discord account
 			r.Post("/change-password", authHandler.V1ChangePassword)                                                       // Change password (authenticated users)
 			r.With(ratelimitmw.StrictRateLimit(isDev)).Post("/resend-verification", authHandler.V1ResendVerificationEmail) // Resend email verification with rate limiting
 			r.Post("/change-username", authHandler.V1ChangeUsername)                                                       // Change username
@@ -564,7 +571,7 @@ func (h *Handler) Start() {
 
 	// Background job: delete notifications older than 30 days, runs once per day
 	go func() {
-		notificationService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {

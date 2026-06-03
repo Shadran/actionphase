@@ -49,6 +49,11 @@ type App struct {
 
 	// Storage provides file storage backend (local filesystem or S3)
 	Storage StorageBackendInterface
+
+	// DiscordNotifier dispatches Discord DMs for notifications.
+	// When nil, no Discord notifications are sent.
+	// When DISCORD_BOT_TOKEN is not set, a MockClient is injected for local testing.
+	DiscordNotifier DiscordClientInterface
 }
 
 // Logger interface for dependency injection in middleware and services.

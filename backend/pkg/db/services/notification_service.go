@@ -3,10 +3,13 @@ package db
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+	"actionphase/pkg/discord"
 	"actionphase/pkg/observability"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,8 +18,31 @@ import (
 
 // NotificationService implements core.NotificationServiceInterface.
 type NotificationService struct {
-	DB     *pgxpool.Pool
-	Logger *observability.Logger
+	DB              *pgxpool.Pool
+	Logger          *observability.Logger
+	DiscordNotifier core.DiscordClientInterface // optional; nil means no Discord dispatch
+}
+
+// appDiscordNotifier is a package-level Discord notifier set by main at startup.
+// This enables service-internal usages (conversations, messages, phases) that
+// don't have access to h.App to still dispatch Discord DMs.
+// Only set once during application initialization; never mutated after that.
+var appDiscordNotifier core.DiscordClientInterface
+
+// SetAppDiscordNotifier registers the application-wide Discord notifier.
+// Call this once from main.go after the notifier is initialized.
+func SetAppDiscordNotifier(n core.DiscordClientInterface) {
+	appDiscordNotifier = n
+}
+
+// NewNotificationService creates a NotificationService wired with the application-wide
+// Discord notifier. Use this in handlers/services that don't hold an App reference.
+func NewNotificationService(db *pgxpool.Pool, logger *observability.Logger) *NotificationService {
+	return &NotificationService{
+		DB:              db,
+		Logger:          logger,
+		DiscordNotifier: appDiscordNotifier,
+	}
 }
 
 // Compile-time verification that NotificationService implements the interface
@@ -167,7 +193,109 @@ func (s *NotificationService) CreateNotification(ctx context.Context, req *core.
 		"type", req.Type,
 	)
 
-	return convertDbNotificationToCore(dbNotif), nil
+	notification := convertDbNotificationToCore(dbNotif)
+
+	// Fire-and-forget Discord DM dispatch (does not block the API response)
+	if s.DiscordNotifier != nil {
+		go s.dispatchDiscordDM(context.Background(), notification)
+	}
+
+	return notification, nil
+}
+
+// dispatchDiscordDM sends a Discord DM for a notification if:
+//   - The recipient has a linked Discord account
+//   - The notification type is enabled in their preferences
+//
+// Errors are logged but never propagated — Discord dispatch is best-effort.
+func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notification *core.Notification) {
+	discordSvc := &DiscordAccountService{DB: s.DB}
+	prefsSvc := NewUserPreferencesService(s.DB)
+
+	// 1. Get Discord account for user
+	acct, err := discordSvc.GetDiscordAccount(ctx, notification.UserID)
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to get discord account",
+			"user_id", notification.UserID)
+		return
+	}
+	if acct == nil {
+		// No Discord account linked — skip silently
+		return
+	}
+
+	// 2. Check user preferences
+	prefs, err := prefsSvc.GetUserPreferences(ctx, notification.UserID)
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to get user preferences",
+			"user_id", notification.UserID)
+		return
+	}
+
+	if !discord.IsEnabledForUser(prefs.DiscordNotifications, notification.Type) {
+		return
+	}
+
+	// 3. Build embed
+	embed := buildDiscordEmbed(notification)
+
+	// 4. Send DM — log error but never propagate
+	if err := s.DiscordNotifier.SendDM(ctx, acct.DiscordUserID, embed); err != nil {
+		s.Logger.LogError(ctx, err, "Discord dispatch: failed to send DM",
+			"user_id", notification.UserID,
+			"discord_user_id", acct.DiscordUserID,
+			"notification_type", notification.Type,
+		)
+	}
+}
+
+// discordColorForType returns a left-border color (decimal) for a notification type.
+// Colors are chosen to give quick visual recognition in Discord.
+var discordColorForType = map[string]int{
+	core.NotificationTypePrivateMessage:      0x5865F2, // Discord blurple — direct messages
+	core.NotificationTypeCommentReply:        0x5865F2,
+	core.NotificationTypeCharacterMention:    0x5865F2,
+	core.NotificationTypeActionResult:        0xF0A500, // Gold — results/outcomes
+	core.NotificationTypeActionSubmitted:     0x57F287, // Green — GM action submitted
+	core.NotificationTypeCharacterApproved:   0x57F287,
+	core.NotificationTypeApplicationApproved: 0x57F287,
+
+	core.NotificationTypeHandoutPublished:     0xEB459E, // Pink — new content
+	core.NotificationTypeCommonRoomPost:       0xEB459E,
+	core.NotificationTypePhaseCreated:         0xFEE75C, // Yellow — game progression
+	core.NotificationTypeGameStateChanged:     0xFEE75C,
+	core.NotificationTypeApplicationSubmitted: 0x95A5A6, // Grey — GM inbox
+}
+
+// buildDiscordEmbed constructs a DiscordEmbed for the given notification.
+func buildDiscordEmbed(n *core.Notification) core.DiscordEmbed {
+	frontendURL := os.Getenv("FRONTEND_URL")
+
+	color, ok := discordColorForType[n.Type]
+	if !ok {
+		color = 0x5865F2
+	}
+
+	embed := core.DiscordEmbed{
+		Title:     n.Title,
+		Color:     color,
+		Footer:    "ActionPhase",
+		Timestamp: n.CreatedAt.UTC().Format(time.RFC3339),
+	}
+
+	if n.Content != nil && *n.Content != "" {
+		embed.Description = *n.Content
+	}
+
+	if n.LinkURL != nil && *n.LinkURL != "" {
+		sep := "?"
+		if strings.Contains(*n.LinkURL, "?") {
+			sep = "&"
+		}
+		embed.URL = fmt.Sprintf("%s%s%snotif=%d", frontendURL, *n.LinkURL, sep, n.ID)
+	}
+
+	return embed
 }
 
 // CreateBulkNotifications creates notifications for multiple users (fire-and-forget).
@@ -471,24 +599,13 @@ func (s *NotificationService) NotifyPhaseCreated(ctx context.Context, gameID int
 	return nil
 }
 
-// NotifyApplicationStatusChange creates a notification when a game application is approved or rejected.
-func (s *NotificationService) NotifyApplicationStatusChange(ctx context.Context, playerUserID int32, gameID int32, gameTitle string, approved bool) error {
-	var notifType string
-	var title string
-
-	if approved {
-		notifType = core.NotificationTypeApplicationApproved
-		title = fmt.Sprintf("Application approved for %s", gameTitle)
-	} else {
-		notifType = core.NotificationTypeApplicationRejected
-		title = fmt.Sprintf("Application rejected for %s", gameTitle)
-	}
-
+// NotifyApplicationApproved creates a notification when a game application is approved.
+func (s *NotificationService) NotifyApplicationApproved(ctx context.Context, playerUserID int32, gameID int32, gameTitle string) error {
 	_, err := s.CreateNotification(ctx, &core.CreateNotificationRequest{
 		UserID:      playerUserID,
 		GameID:      &gameID,
-		Type:        notifType,
-		Title:       title,
+		Type:        core.NotificationTypeApplicationApproved,
+		Title:       fmt.Sprintf("Application approved for %s", gameTitle),
 		RelatedType: stringPtr("game"),
 		RelatedID:   &gameID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d", gameID)),
@@ -496,24 +613,13 @@ func (s *NotificationService) NotifyApplicationStatusChange(ctx context.Context,
 	return err
 }
 
-// NotifyCharacterStatusChange creates a notification when a character is approved or rejected.
-func (s *NotificationService) NotifyCharacterStatusChange(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string, approved bool) error {
-	var notifType string
-	var title string
-
-	if approved {
-		notifType = core.NotificationTypeCharacterApproved
-		title = fmt.Sprintf("Character approved: %s", characterName)
-	} else {
-		notifType = core.NotificationTypeCharacterRejected
-		title = fmt.Sprintf("Character needs revision: %s", characterName)
-	}
-
+// NotifyCharacterApproved creates a notification when a character is approved by the GM.
+func (s *NotificationService) NotifyCharacterApproved(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string) error {
 	_, err := s.CreateNotification(ctx, &core.CreateNotificationRequest{
 		UserID:      playerUserID,
 		GameID:      &gameID,
-		Type:        notifType,
-		Title:       title,
+		Type:        core.NotificationTypeCharacterApproved,
+		Title:       fmt.Sprintf("Character approved: %s", characterName),
 		RelatedType: stringPtr("character"),
 		RelatedID:   &characterID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=characters", gameID)),

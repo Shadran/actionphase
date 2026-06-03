@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+// DiscordConfig contains Discord OAuth2 and bot configuration.
+type DiscordConfig struct {
+	// BotToken is the Discord bot token for sending DMs.
+	// When empty, a MockClient is used (dev/test mode).
+	BotToken string
+
+	// OAuthClientID is the Discord application client ID for OAuth2 login.
+	OAuthClientID string
+
+	// OAuthClientSecret is the Discord application client secret.
+	OAuthClientSecret string
+
+	// OAuthRedirectURL is the callback URL Discord redirects to after authorization.
+	OAuthRedirectURL string
+}
+
 // Config holds all application configuration values.
 // It provides a centralized location for environment-based configuration
 // with sensible defaults and validation.
@@ -26,6 +42,7 @@ type Config struct {
 	Server   ServerConfig   `env:"SERVER"`
 	App      AppConfig      `env:"APP"`
 	Storage  StorageConfig  `env:"STORAGE"`
+	Discord  DiscordConfig  `env:"DISCORD"`
 }
 
 // DatabaseConfig contains database connection and behavior settings.
@@ -213,6 +230,12 @@ func LoadConfig() (*Config, error) {
 			S3Bucket:   getEnvString("STORAGE_S3_BUCKET", ""),
 			S3Region:   getEnvString("STORAGE_S3_REGION", "us-east-1"),
 			S3Endpoint: getEnvString("STORAGE_S3_ENDPOINT", ""),
+		},
+		Discord: DiscordConfig{
+			BotToken:          getEnvString("DISCORD_BOT_TOKEN", ""),
+			OAuthClientID:     getEnvString("DISCORD_CLIENT_ID", ""),
+			OAuthClientSecret: getEnvString("DISCORD_CLIENT_SECRET", ""),
+			OAuthRedirectURL:  getEnvString("DISCORD_REDIRECT_URL", "http://localhost:3000/api/v1/auth/discord/callback"),
 		},
 	}
 

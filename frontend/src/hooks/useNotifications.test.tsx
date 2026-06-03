@@ -9,6 +9,7 @@ import {
   useMarkNotificationAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
+  useAutoMarkNotificationRead,
 } from './useNotifications';
 import type { Notification } from '../types/notifications';
 import { AuthProvider } from '../contexts/AuthContext'
@@ -405,6 +406,76 @@ describe('useNotifications hooks', () => {
       expect(queries.length).toBeGreaterThanOrEqual(2);
       const keys = queries.map(q => JSON.stringify(q.queryKey));
       expect(new Set(keys).size).toBe(keys.length);
+    });
+  });
+
+  describe('useAutoMarkNotificationRead', () => {
+    const makeWrapper = (initialUrl: string) => {
+      const qc = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      });
+      return ({ children }: { children: React.ReactNode }) => (
+        <MemoryRouter initialEntries={[initialUrl]}>
+          <QueryClientProvider client={qc}>
+            <ToastProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </ToastProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      );
+    };
+
+    it('calls mark-as-read when ?notif param is present', async () => {
+      let markedId: number | null = null;
+      server.use(
+        http.put('/api/v1/notifications/:id/mark-read', ({ params }) => {
+          markedId = parseInt(params.id as string, 10);
+          return HttpResponse.json({ success: true });
+        })
+      );
+
+      renderHook(() => useAutoMarkNotificationRead(), {
+        wrapper: makeWrapper('/games/1?tab=messages&notif=42'),
+      });
+
+      await waitFor(() => {
+        expect(markedId).toBe(42);
+      });
+    });
+
+    it('does not call mark-as-read when ?notif param is absent', async () => {
+      let markCalled = false;
+      server.use(
+        http.put('/api/v1/notifications/:id/mark-read', () => {
+          markCalled = true;
+          return HttpResponse.json({ success: true });
+        })
+      );
+
+      renderHook(() => useAutoMarkNotificationRead(), {
+        wrapper: makeWrapper('/games/1?tab=messages'),
+      });
+
+      // Give hooks time to settle — no call expected
+      await new Promise(r => setTimeout(r, 50));
+      expect(markCalled).toBe(false);
+    });
+
+    it('ignores non-numeric notif param', async () => {
+      let markCalled = false;
+      server.use(
+        http.put('/api/v1/notifications/:id/mark-read', () => {
+          markCalled = true;
+          return HttpResponse.json({ success: true });
+        })
+      );
+
+      renderHook(() => useAutoMarkNotificationRead(), {
+        wrapper: makeWrapper('/games/1?notif=abc'),
+      });
+
+      await new Promise(r => setTimeout(r, 50));
+      expect(markCalled).toBe(false);
     });
   });
 });

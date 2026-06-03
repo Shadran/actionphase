@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -75,6 +77,25 @@ export function useMarkAllAsRead() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
+}
+
+export function useAutoMarkNotificationRead() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const markAsRead = useMarkNotificationAsRead();
+
+  useEffect(() => {
+    const notifId = searchParams.get('notif');
+    if (!notifId) return;
+
+    const id = parseInt(notifId, 10);
+    if (!isNaN(id)) {
+      markAsRead.mutate(id);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('notif');
+    setSearchParams(next, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 export function useDeleteNotification() {

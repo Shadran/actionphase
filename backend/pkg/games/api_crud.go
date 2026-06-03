@@ -230,7 +230,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Info(ctx, "Transitioning out of recruitment, converting approved applications", "game_id", gameID)
 
 		applicationService := &db.GameApplicationService{DB: h.App.Pool}
-		notificationService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 
 		// Get approved applications before conversion (for notifications)
 		approvedApps, err := applicationService.GetApprovedApplicationsForGame(ctx, int32(gameID))
@@ -277,7 +277,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 		// Do this only if we successfully retrieved the approved applications list
 		if approvedApps != nil && len(approvedApps) > 0 {
 			for _, app := range approvedApps {
-				if err := notificationService.NotifyApplicationStatusChange(ctx, app.UserID, int32(gameID), updatedGame.Title, true); err != nil {
+				if err := notificationService.NotifyApplicationApproved(ctx, app.UserID, int32(gameID), updatedGame.Title); err != nil {
 					h.App.ObsLogger.Warn(ctx, "Failed to create acceptance notification",
 						"error", err,
 						"game_id", gameID,

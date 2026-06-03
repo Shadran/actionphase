@@ -57,7 +57,7 @@ func (h *Handler) validateGMAccessAndResult(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Verify the action result exists and belongs to this game
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	result, err := actionService.GetActionResult(r.Context(), int32(resultID))
 	if err != nil {
 		h.App.ObsLogger.Error(r.Context(), "Failed to get action result", "error", err)

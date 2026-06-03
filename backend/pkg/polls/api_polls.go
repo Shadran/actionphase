@@ -288,7 +288,7 @@ func (h *Handler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if len(userIDs) > 0 {
-			notificationService := &dbservices.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+			notificationService := dbservices.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 			gameIDInt32 := int32(gameID)
 			linkURL := fmt.Sprintf("/games/%d?tab=polls", gameID)
 

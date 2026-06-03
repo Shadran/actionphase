@@ -49,7 +49,7 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
     await navigateToGameTab(page, 'People');
     await page.getByRole('button', { name: /Game Participants/ }).click();
 
-    await expect(page.getByRole('heading', { name: /Players/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Players/ }).first()).toBeVisible();
 
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
@@ -116,7 +116,7 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
     await navigateToGameTab(page, 'People');
     await page.getByRole('button', { name: /Game Participants/ }).click();
 
-    await expect(page.getByRole('heading', { name: /Players/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Players/ }).first()).toBeVisible();
 
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
@@ -191,7 +191,7 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
     await page.getByRole('button', { name: /Game Participants/ }).click();
 
     // TestPlayer3 must still appear as a participant card and must NOT be in Former Players
-    await expect(page.getByRole('heading', { name: /Players/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Players/ }).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('participant-card').filter({ hasText: player3Username })).toBeVisible();
 
     const formerPlayersHeading = page.locator('h3', { hasText: /Former Players/ });

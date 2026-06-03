@@ -634,3 +634,18 @@ CREATE TABLE user_comment_reads (
 CREATE INDEX idx_user_comment_reads_user_game ON user_comment_reads(user_id, game_id);
 CREATE INDEX idx_user_comment_reads_user_post ON user_comment_reads(user_id, post_id);
 CREATE INDEX idx_user_comment_reads_comment   ON user_comment_reads(comment_id);
+
+-- Discord OAuth account linking
+CREATE TABLE user_discord_accounts (
+  id               SERIAL PRIMARY KEY,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  discord_user_id  TEXT NOT NULL,
+  discord_username TEXT NOT NULL,
+  access_token     TEXT NOT NULL,
+  refresh_token    TEXT,
+  token_expires_at TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id),
+  UNIQUE(discord_user_id)
+);

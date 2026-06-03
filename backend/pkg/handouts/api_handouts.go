@@ -441,7 +441,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 		linkURL := fmt.Sprintf("/games/%d?tab=handouts", handout.GameID)
 
 		// Create notification request
-		notifService := &db.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		notifService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 		notifReq := &core.CreateNotificationRequest{
 			GameID:      &handout.GameID,
 			Type:        core.NotificationTypeHandoutPublished,

@@ -136,7 +136,7 @@ func (h *Handler) PublishAllPhaseResults(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Publish all unpublished results for the phase
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	err = actionService.PublishAllPhaseResults(ctx, int32(phaseID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to publish all phase results", "error", err)
@@ -192,7 +192,7 @@ func (h *Handler) GetUnpublishedResultsCount(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get count of unpublished results
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: &gamesvc.NotificationService{DB: h.App.Pool, Logger: h.App.ObsLogger}}
+	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	count, err := actionService.GetUnpublishedResultsCount(ctx, int32(phaseID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get unpublished results count", "error", err)

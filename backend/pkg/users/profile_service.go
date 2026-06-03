@@ -75,7 +75,6 @@ func (s *UserProfileService) GetUserProfile(ctx context.Context, userID int32, p
 		User: core.UserProfile{
 			ID:          user.ID,
 			Username:    user.Username,
-			Email:       user.Email,
 			DisplayName: nullTextToPtr(user.DisplayName),
 			Bio:         nullTextToPtr(user.Bio),
 			AvatarURL:   nullTextToPtr(user.AvatarUrl),

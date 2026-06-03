@@ -28,6 +28,7 @@ export interface User {
   email_verified: boolean;
   createdAt: string;
   created_at?: string;
+  discord_username?: string;
 }
 
 export interface UserListResponse {

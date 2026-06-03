@@ -107,6 +107,7 @@ type UserServiceInterface interface {
 
 	// User listing and search (admin)
 	ListAllUsers(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error)
+	ListAllUsersAdmin(ctx context.Context, page, pageSize int, search string) ([]*User, int64, error)
 
 	// Registration approval
 	ListPendingApprovalUsers(ctx context.Context) ([]*User, error)
@@ -980,11 +981,11 @@ type NotificationServiceInterface interface {
 	// NotifyPhaseCreated creates notifications for all participants when phase created
 	NotifyPhaseCreated(ctx context.Context, gameID int32, phaseID int32, phaseTitle string, excludeUserID int32) error
 
-	// NotifyApplicationStatusChange creates notification for application approval/rejection
-	NotifyApplicationStatusChange(ctx context.Context, playerUserID int32, gameID int32, gameTitle string, approved bool) error
+	// NotifyApplicationApproved creates a notification when a game application is approved
+	NotifyApplicationApproved(ctx context.Context, playerUserID int32, gameID int32, gameTitle string) error
 
-	// NotifyCharacterStatusChange creates notification for character approval/rejection
-	NotifyCharacterStatusChange(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string, approved bool) error
+	// NotifyCharacterApproved creates a notification when a character is approved by the GM
+	NotifyCharacterApproved(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string) error
 }
 
 // StorageBackendInterface defines the contract for file storage operations.
@@ -1468,7 +1469,6 @@ type VoterInfo struct {
 type UserProfile struct {
 	ID          int32     `json:"id"`
 	Username    string    `json:"username"`
-	Email       string    `json:"email"`
 	DisplayName *string   `json:"display_name"`
 	Bio         *string   `json:"bio"`
 	AvatarURL   *string   `json:"avatar_url"`
@@ -1527,6 +1527,58 @@ type UserProfileServiceInterface interface {
 	// UpdateUserProfile updates a user's display name and/or bio.
 	// Nil values are ignored.
 	UpdateUserProfile(ctx context.Context, userID int32, displayName *string, bio *string) error
+}
+
+// DiscordEmbed is the payload for a Discord embed DM.
+type DiscordEmbed struct {
+	Title       string // Displayed as the embed title (plain text, not a link)
+	URL         string // Makes the title a clickable hyperlink
+	Description string // Body text beneath the title (optional)
+	Color       int    // Left-border color as a decimal integer (e.g. 0x5865F2 = 5793266)
+	Footer      string // Small footer text
+	Timestamp   string // ISO 8601 timestamp shown in footer
+}
+
+// DiscordClientInterface defines the contract for sending Discord DMs.
+type DiscordClientInterface interface {
+	// SendDM sends a rich embed DM to a Discord user by their Discord user ID.
+	SendDM(ctx context.Context, discordUserID string, embed DiscordEmbed) error
+}
+
+// DiscordAccount represents a linked Discord account for a user.
+type DiscordAccount struct {
+	ID              int32      `json:"id"`
+	UserID          int32      `json:"user_id"`
+	DiscordUserID   string     `json:"discord_user_id"`
+	DiscordUsername string     `json:"discord_username"`
+	AccessToken     string     `json:"-"` // Never expose tokens in JSON
+	RefreshToken    *string    `json:"-"`
+	TokenExpiresAt  *time.Time `json:"-"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+// UpsertDiscordAccountRequest contains the data needed to link/update a Discord account.
+type UpsertDiscordAccountRequest struct {
+	UserID          int32
+	DiscordUserID   string
+	DiscordUsername string
+	AccessToken     string
+	RefreshToken    *string
+	TokenExpiresAt  *time.Time
+}
+
+// DiscordAccountServiceInterface defines the contract for Discord account management.
+type DiscordAccountServiceInterface interface {
+	// GetDiscordAccount retrieves a user's linked Discord account
+	// Returns nil, nil if no Discord account is linked
+	GetDiscordAccount(ctx context.Context, userID int32) (*DiscordAccount, error)
+
+	// UpsertDiscordAccount creates or updates a user's Discord account link
+	UpsertDiscordAccount(ctx context.Context, req *UpsertDiscordAccountRequest) (*DiscordAccount, error)
+
+	// DeleteDiscordAccount removes a user's Discord account link
+	DeleteDiscordAccount(ctx context.Context, userID int32) error
 }
 
 // UserAvatarServiceInterface defines the contract for user avatar operations.

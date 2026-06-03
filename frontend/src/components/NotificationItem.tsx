@@ -52,12 +52,8 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
         return '📊';
       case 'application_approved':
         return '✅';
-      case 'application_rejected':
-        return '❌';
       case 'character_approved':
         return '✅';
-      case 'character_rejected':
-        return '⚠️';
       case 'game_state_changed':
         return '🎮';
       default:

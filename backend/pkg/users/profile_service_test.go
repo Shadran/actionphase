@@ -34,7 +34,6 @@ func TestGetUserProfile(t *testing.T) {
 			checkResponse: func(t *testing.T, resp *core.UserProfileResponse) {
 				core.AssertNotEqual(t, int32(0), resp.User.ID, "User ID should be set")
 				core.AssertEqual(t, fixtures.TestUser.Username, resp.User.Username, "Username should match")
-				core.AssertEqual(t, fixtures.TestUser.Email, resp.User.Email, "Email should match")
 				core.AssertNotEqual(t, 0, len(resp.Games), "Should have games")
 				core.AssertEqual(t, 1, resp.Metadata.Page, "Page should be 1")
 				core.AssertEqual(t, 12, resp.Metadata.PageSize, "Page size should be 12")

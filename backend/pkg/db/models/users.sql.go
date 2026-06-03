@@ -493,6 +493,95 @@ func (q *Queries) ListAllUsers(ctx context.Context, arg ListAllUsersParams) ([]U
 	return items, nil
 }
 
+const listAllUsersAdmin = `-- name: ListAllUsersAdmin :many
+SELECT u.id, u.username, u.email, u.password, u.is_admin, u.created_at, u.display_name, u.bio, u.avatar_url, u.timezone, u.email_notifications, u.high_contrast, u.is_banned, u.banned_at, u.banned_by_user_id, u.email_verified, u.email_change_pending, u.password_changed_at, u.username_changed_at, u.deleted_at, u.deletion_scheduled_for, u.pending_approval, u.pending_approval_since, da.discord_username
+FROM users u
+LEFT JOIN user_discord_accounts da ON da.user_id = u.id
+WHERE (
+    $1::text = '' OR u.username ILIKE '%' || $1 || '%' OR u.email ILIKE '%' || $1 || '%'
+)
+ORDER BY u.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAllUsersAdminParams struct {
+	Column1 string `json:"column_1"`
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+}
+
+type ListAllUsersAdminRow struct {
+	ID                   int32              `json:"id"`
+	Username             string             `json:"username"`
+	Email                string             `json:"email"`
+	Password             string             `json:"password"`
+	IsAdmin              pgtype.Bool        `json:"is_admin"`
+	CreatedAt            pgtype.Timestamp   `json:"created_at"`
+	DisplayName          pgtype.Text        `json:"display_name"`
+	Bio                  pgtype.Text        `json:"bio"`
+	AvatarUrl            pgtype.Text        `json:"avatar_url"`
+	Timezone             pgtype.Text        `json:"timezone"`
+	EmailNotifications   pgtype.Bool        `json:"email_notifications"`
+	HighContrast         pgtype.Bool        `json:"high_contrast"`
+	IsBanned             bool               `json:"is_banned"`
+	BannedAt             pgtype.Timestamp   `json:"banned_at"`
+	BannedByUserID       pgtype.Int4        `json:"banned_by_user_id"`
+	EmailVerified        bool               `json:"email_verified"`
+	EmailChangePending   pgtype.Text        `json:"email_change_pending"`
+	PasswordChangedAt    pgtype.Timestamptz `json:"password_changed_at"`
+	UsernameChangedAt    pgtype.Timestamptz `json:"username_changed_at"`
+	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
+	DeletionScheduledFor pgtype.Timestamptz `json:"deletion_scheduled_for"`
+	PendingApproval      bool               `json:"pending_approval"`
+	PendingApprovalSince pgtype.Timestamptz `json:"pending_approval_since"`
+	DiscordUsername      pgtype.Text        `json:"discord_username"`
+}
+
+func (q *Queries) ListAllUsersAdmin(ctx context.Context, arg ListAllUsersAdminParams) ([]ListAllUsersAdminRow, error) {
+	rows, err := q.db.Query(ctx, listAllUsersAdmin, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllUsersAdminRow
+	for rows.Next() {
+		var i ListAllUsersAdminRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Password,
+			&i.IsAdmin,
+			&i.CreatedAt,
+			&i.DisplayName,
+			&i.Bio,
+			&i.AvatarUrl,
+			&i.Timezone,
+			&i.EmailNotifications,
+			&i.HighContrast,
+			&i.IsBanned,
+			&i.BannedAt,
+			&i.BannedByUserID,
+			&i.EmailVerified,
+			&i.EmailChangePending,
+			&i.PasswordChangedAt,
+			&i.UsernameChangedAt,
+			&i.DeletedAt,
+			&i.DeletionScheduledFor,
+			&i.PendingApproval,
+			&i.PendingApprovalSince,
+			&i.DiscordUsername,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBannedUsers = `-- name: ListBannedUsers :many
 SELECT u.id, u.username, u.email, u.banned_at, u.banned_by_user_id, u.created_at,
        admin.username as banned_by_username

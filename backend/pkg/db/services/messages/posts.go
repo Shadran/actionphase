@@ -6,6 +6,7 @@ import (
 
 	core "actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+	db "actionphase/pkg/db/services"
 	"actionphase/pkg/validation"
 )
 
@@ -60,7 +61,24 @@ func (s *MessageService) CreatePost(ctx context.Context, req core.CreatePostRequ
 		go s.notifyCharacterMentions(context.Background(), mentionedIDs, req.CharacterID, req.AuthorID, req.GameID, message.ID)
 	}
 
+	// Notify all game participants about the new GM post (fire-and-forget)
+	go func() {
+		notifSvc := db.NewNotificationService(s.DB, s.Logger)
+		if err := notifSvc.NotifyCommonRoomPost(context.Background(), req.GameID, message.ID, truncatePostTitle(req.Content), req.AuthorID); err != nil {
+			s.Logger.LogError(context.Background(), err, "Failed to notify common room post", "game_id", req.GameID, "post_id", message.ID)
+		}
+	}()
+
 	return &message, nil
+}
+
+// truncatePostTitle returns the first 60 characters of a post for use as a notification title.
+func truncatePostTitle(content string) string {
+	const maxLen = 60
+	if len(content) <= maxLen {
+		return content
+	}
+	return content[:maxLen] + "…"
 }
 
 // GetPost retrieves a specific post by ID with metadata

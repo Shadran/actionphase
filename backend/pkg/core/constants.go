@@ -252,14 +252,8 @@ const (
 	// NotificationTypeApplicationApproved - Game application was approved
 	NotificationTypeApplicationApproved = "application_approved"
 
-	// NotificationTypeApplicationRejected - Game application was rejected
-	NotificationTypeApplicationRejected = "application_rejected"
-
 	// NotificationTypeCharacterApproved - Character was approved by GM
 	NotificationTypeCharacterApproved = "character_approved"
-
-	// NotificationTypeCharacterRejected - Character was rejected by GM
-	NotificationTypeCharacterRejected = "character_rejected"
 
 	// NotificationTypeGameStateChanged - Game state changed (paused, resumed, etc.)
 	NotificationTypeGameStateChanged = "game_state_changed"
@@ -279,9 +273,7 @@ var ValidNotificationTypes = []string{
 	NotificationTypePhaseCreated,
 	NotificationTypeApplicationSubmitted,
 	NotificationTypeApplicationApproved,
-	NotificationTypeApplicationRejected,
 	NotificationTypeCharacterApproved,
-	NotificationTypeCharacterRejected,
 	NotificationTypeGameStateChanged,
 	NotificationTypeHandoutPublished,
 }

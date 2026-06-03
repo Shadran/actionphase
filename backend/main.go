@@ -18,6 +18,7 @@ import (
 	"actionphase/pkg/core"
 	dbsvc "actionphase/pkg/db/services"
 	phasesvc "actionphase/pkg/db/services/phases"
+	"actionphase/pkg/discord"
 	"actionphase/pkg/http"
 	"actionphase/pkg/observability"
 	"actionphase/pkg/scheduler"
@@ -139,15 +140,35 @@ func main() {
 		}
 	}
 
+	// Initialize Discord notifier
+	// When DISCORD_BOT_TOKEN is set, use the real bot client.
+	// Otherwise use the mock client (logs to stdout for local development).
+	var discordNotifier core.DiscordClientInterface
+	if config.Discord.BotToken != "" {
+		discordNotifier = &discord.BotClient{
+			BotToken: config.Discord.BotToken,
+			Logger:   obs.Logger,
+		}
+		logger.Info("Discord notifier: using bot client")
+	} else {
+		discordNotifier = &discord.MockClient{Logger: obs.Logger}
+		logger.Info("Discord notifier: using mock client (DISCORD_BOT_TOKEN not set)")
+	}
+
+	// Register the Discord notifier as the application-wide notifier so that
+	// service-internal NotificationService instantiations also dispatch DMs.
+	dbsvc.SetAppDiscordNotifier(discordNotifier)
+
 	// Initialize application context with observability
 	app := &core.App{
-		Logger:        *logger,
-		ObsLogger:     obs.Logger,
-		Pool:          pool,
-		DB:            pool, // Alias for compatibility
-		Config:        config,
-		Observability: obs,
-		Storage:       storageBackend,
+		Logger:          *logger,
+		ObsLogger:       obs.Logger,
+		Pool:            pool,
+		DB:              pool, // Alias for compatibility
+		Config:          config,
+		Observability:   obs,
+		Storage:         storageBackend,
+		DiscordNotifier: discordNotifier,
 	}
 
 	// Run database migrations if configured

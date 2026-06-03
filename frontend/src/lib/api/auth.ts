@@ -12,9 +12,33 @@ import type {
 export type Theme = 'light' | 'dark' | 'auto';
 export type CommentReadMode = 'auto' | 'manual';
 
+export type NotificationTypePref =
+  | 'private_message'
+  | 'comment_reply'
+  | 'character_mention'
+  | 'action_submitted'
+  | 'action_result'
+  | 'common_room_post'
+  | 'phase_created'
+  | 'application_submitted'
+  | 'application_approved'
+  | 'character_approved'
+  | 'game_state_changed'
+  | 'handout_published';
+
 export interface UserPreferences {
   theme: Theme;
   comment_read_mode: CommentReadMode;
+  discord_notifications?: Partial<Record<NotificationTypePref, boolean>>;
+}
+
+export interface DiscordStatus {
+  linked: boolean;
+  discord_username?: string;
+}
+
+export interface DiscordConnectURL {
+  url: string;
 }
 
 interface PreferencesResponse {
@@ -114,5 +138,17 @@ export class AuthApi extends BaseApiClient {
 
   async verifyEmail(token: string) {
     return this.client.post<{ message: string }>('/api/v1/auth/verify-email', { token });
+  }
+
+  async getDiscordStatus() {
+    return this.client.get<DiscordStatus>('/api/v1/auth/discord/status');
+  }
+
+  async getDiscordConnectURL() {
+    return this.client.get<DiscordConnectURL>('/api/v1/auth/discord/connect');
+  }
+
+  async disconnectDiscord() {
+    return this.client.delete('/api/v1/auth/discord/disconnect');
   }
 }
