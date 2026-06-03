@@ -23,10 +23,20 @@ Click **View all notifications** in the dropdown, or go to **Notifications** in 
 | New private message | Recipients of the conversation |
 | Reply to your comment | You |
 | Character @mentioned in a comment | Player(s) whose character was mentioned |
+| Action result published | Player who submitted the action |
+| GM post in common room | All participants |
 | Phase activated | All participants |
-| New poll created | All participants |
 | New handout published | All participants |
 | Application approved | Applicant |
+| Character approved | Player whose character was approved |
+
+## Discord Notifications
+
+You can receive notifications as Discord DMs by connecting your Discord account in [Settings → Notifications](./user-settings#notifications).
+
+Once connected, you can choose which event types trigger a Discord DM. Each type can be toggled on or off independently. Default settings are tuned to send DMs for high-value direct events (messages, action results, approvals, common room posts) and leave high-volume activity (comment replies, character mentions) off by default.
+
+> **Note:** Your Discord account must share a server with the ActionPhase bot for DMs to work. If you receive an error after connecting, make sure the bot has been added to your server.
 
 ## Read Tracking
 
