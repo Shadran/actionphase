@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { CountdownTimer } from './CountdownTimer';
 import { PhaseCard } from './PhaseCard';
 import { CreatePhaseModal } from './CreatePhaseModal';
+import type { DraftPostData } from './CreatePhaseModal';
 import { EditPhaseModal } from './EditPhaseModal';
 import { usePhaseManagement } from '../hooks/usePhaseManagement';
+import { apiClient } from '../lib/api';
 import { Button } from './ui';
 import { PHASE_TYPE_LABELS } from '../types/phases';
-import type { GamePhase } from '../types/phases';
+import type { GamePhase, CreatePhaseRequest } from '../types/phases';
 import { localDateTimeToUTC } from '../utils/timezone';
 
 interface PhaseManagementProps {
@@ -128,8 +130,19 @@ export function PhaseManagement({ gameId, className = '' }: PhaseManagementProps
       {isCreatingPhase && (
         <CreatePhaseModal
           onClose={() => setIsCreatingPhase(false)}
-          onSubmit={(data) => {
-            createPhaseMutation.mutate(data);
+          onSubmit={async (data: CreatePhaseRequest, draftPost?: DraftPostData) => {
+            const response = await createPhaseMutation.mutateAsync(data);
+            if (draftPost && response?.data?.id) {
+              try {
+                await apiClient.messages.createDraftPost(
+                  response.data.id,
+                  draftPost.characterId,
+                  draftPost.content
+                );
+              } catch {
+                // Draft creation failure is non-fatal — phase was created successfully
+              }
+            }
             setIsCreatingPhase(false);
           }}
           isSubmitting={createPhaseMutation.isPending}

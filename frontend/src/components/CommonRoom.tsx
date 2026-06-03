@@ -14,7 +14,7 @@ import { MarkdownPreview } from './MarkdownPreview';
 import { RecentResultsSection } from './RecentResultsSection';
 import { usePreviousPhaseResults } from '../hooks/usePreviousPhaseResults';
 import { getRootPostId } from '../utils/commentUtils';
-import { usePollsByPhase } from '../hooks';
+import { usePollsByPhase, useDraftPost } from '../hooks';
 import { useCommentReadMode } from '../hooks/useUserPreferences';
 import { useToggleCommentRead } from '../hooks/useReadTracking';
 import { logger } from '@/services/LoggingService';
@@ -75,6 +75,10 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
 
   // Fetch previous phase results (if applicable)
   const previousPhaseResults = usePreviousPhaseResults(gameId, currentPhase, isGM);
+
+  // Fetch draft post for GM preview on pending phases
+  const isPendingPhase = isGM && phaseId && currentPhase && !currentPhase.is_active;
+  const { data: draftPost } = useDraftPost(isPendingPhase ? phaseId : undefined);
 
   // Sync activeTab state with URL parameter
   useEffect(() => {
@@ -412,6 +416,18 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
       {/* Tab Content */}
       {activeTab === 'posts' ? (
         <>
+          {/* Draft Post Preview — GM only, pending phase only */}
+          {isPendingPhase && draftPost && (
+            <div className="border border-dashed border-border-default rounded-lg p-4 mb-4 bg-bg-secondary" data-testid="draft-post-preview">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-content-tertiary bg-bg-tertiary px-2 py-0.5 rounded">
+                  DRAFT — not visible to players
+                </span>
+              </div>
+              <MarkdownPreview content={draftPost.content} />
+            </div>
+          )}
+
           {/* Create Post Form - only show for current phase and GM */}
           {isCurrentPhase && isGM && (
             <CreatePostForm

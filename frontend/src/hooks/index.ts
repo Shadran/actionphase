@@ -41,6 +41,14 @@ export {
   useDeleteDraftCharacterUpdate,
 } from './useDraftCharacterUpdates';
 
+// Draft post hooks
+export {
+  useDraftPost,
+  useCreateDraftPost,
+  useUpdateDraftPost,
+  useDeleteDraftPost,
+} from './useDraftPost';
+
 // Poll hooks
 export {
   usePolls,

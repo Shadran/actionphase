@@ -17,6 +17,7 @@ export interface Message {
   reply_count?: number;
   is_edited: boolean;
   is_deleted: boolean;
+  is_draft: boolean;
   created_at: string;
   updated_at: string;
   mentioned_character_ids?: number[];

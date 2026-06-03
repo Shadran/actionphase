@@ -5,26 +5,55 @@ import { Button, Select, Input, DateTimeInput } from './ui';
 import { Modal } from './Modal';
 import { CommentEditor } from './CommentEditor';
 import { localDateTimeToUTC } from '../utils/timezone';
+import { useOptionalGameContext } from '../contexts/GameContext';
+
+export interface DraftPostData {
+  characterId: number;
+  content: string;
+}
 
 interface CreatePhaseModalProps {
   onClose: () => void;
-  onSubmit: (data: CreatePhaseRequest) => void;
+  onSubmit: (data: CreatePhaseRequest, draftPost?: DraftPostData) => void;
   isSubmitting: boolean;
 }
 
 export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhaseModalProps) {
+  const gameContext = useOptionalGameContext();
+  const userCharacters = gameContext?.userCharacters ?? [];
+
   const [formData, setFormData] = useState<CreatePhaseRequest>({
     phase_type: 'common_room',
     deadline: undefined
   });
 
+  const [showDraftSection, setShowDraftSection] = useState(false);
+  const [draftCharacterId, setDraftCharacterId] = useState<number | ''>('');
+  const [draftContent, setDraftContent] = useState('');
+
+  const handlePhaseTypeChange = (value: CreatePhaseRequest['phase_type']) => {
+    setFormData(prev => ({ ...prev, phase_type: value }));
+    if (value !== 'common_room') {
+      setShowDraftSection(false);
+      setDraftCharacterId('');
+      setDraftContent('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    const phaseData = {
       ...formData,
       start_time: formData.start_time ? localDateTimeToUTC(formData.start_time) : undefined,
       deadline: formData.deadline ? localDateTimeToUTC(formData.deadline) : undefined
-    });
+    };
+
+    const hasDraft = showDraftSection && draftCharacterId !== '' && draftContent.trim();
+    const draftPost: DraftPostData | undefined = hasDraft
+      ? { characterId: draftCharacterId as number, content: draftContent.trim() }
+      : undefined;
+
+    onSubmit(phaseData, draftPost);
   };
 
   return (
@@ -36,10 +65,7 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
                 id="phase-type"
                 label="Phase Type"
                 value={formData.phase_type}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  phase_type: e.target.value as CreatePhaseRequest['phase_type']
-                }))}
+                onChange={(e) => handlePhaseTypeChange(e.target.value as CreatePhaseRequest['phase_type'])}
                 required
                 helperText={PHASE_TYPE_DESCRIPTIONS[formData.phase_type]}
               >
@@ -105,6 +131,58 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
                 helperText="Set a deadline to create urgency for this phase"
               />
             </div>
+
+            {/* Draft opening post section — only for Common Room phases */}
+            {formData.phase_type === 'common_room' && (
+              <div className="border border-border-default rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-content-primary surface-raised hover:surface-sunken transition-colors"
+                  onClick={() => setShowDraftSection(prev => !prev)}
+                  data-testid="draft-post-toggle"
+                >
+                  <span>Draft Opening Post (Optional)</span>
+                  <span className="text-content-tertiary">{showDraftSection ? '▲' : '▼'}</span>
+                </button>
+
+                {showDraftSection && (
+                  <div className="px-4 py-3 space-y-3 surface-base">
+                    <p className="text-xs text-content-tertiary">
+                      Write your opening post now. It will be published automatically when this phase activates.
+                    </p>
+
+                    {userCharacters.length > 0 && (
+                      <Select
+                        id="draft-character"
+                        label="Post as"
+                        value={draftCharacterId}
+                        onChange={(e) => setDraftCharacterId(e.target.value === '' ? '' : Number(e.target.value))}
+                        required={showDraftSection}
+                        data-testid="draft-character-select"
+                      >
+                        <option value="">Select a character</option>
+                        {userCharacters.map(char => (
+                          <option key={char.id} value={char.id}>{char.name}</option>
+                        ))}
+                      </Select>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-content-primary mb-1">Post Content</label>
+                      <CommentEditor
+                        value={draftContent}
+                        onChange={setDraftContent}
+                        placeholder="Write your opening post here. Supports markdown and character mentions."
+                        rows={8}
+                        maxLength={50000}
+                        showCharacterCount
+                        textareaTestId="draft-post-content"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         <div className="flex justify-end space-x-3 mt-6">

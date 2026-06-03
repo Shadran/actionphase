@@ -347,6 +347,13 @@ func (h *Handler) Start() {
 			r.Put("/{id}/deadline", phaseHandler.UpdatePhaseDeadline)
 			r.Put("/{id}", phaseHandler.UpdatePhase)
 			r.Delete("/{id}", phaseHandler.DeletePhase)
+
+			// Draft post management (GM only)
+			messageHandler := messages.Handler{App: h.App}
+			r.Get("/{id}/draft-post", messageHandler.GetDraftPost)
+			r.Post("/{id}/draft-post", messageHandler.CreateDraftPost)
+			r.Put("/{id}/draft-post", messageHandler.UpdateDraftPost)
+			r.Delete("/{id}/draft-post", messageHandler.DeleteDraftPost)
 		})
 	})
 	apiV1Router.Mount("/phases", phasesRouter)

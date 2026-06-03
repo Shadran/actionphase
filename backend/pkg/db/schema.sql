@@ -390,6 +390,7 @@ CREATE TABLE messages (
     mentioned_character_ids INTEGER[] NOT NULL DEFAULT '{}',
     is_edited BOOLEAN NOT NULL DEFAULT false,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
+    is_draft BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP,
     deleted_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -418,6 +419,7 @@ CREATE TABLE message_reactions (
 
 CREATE INDEX idx_messages_game_id ON messages(game_id);
 CREATE INDEX idx_messages_phase_id ON messages(phase_id);
+CREATE INDEX idx_messages_is_draft ON messages(game_id, is_draft) WHERE is_draft = true;
 CREATE INDEX idx_messages_author_id ON messages(author_id);
 CREATE INDEX idx_messages_parent_id ON messages(parent_id);
 CREATE INDEX idx_messages_created_at ON messages(created_at DESC);

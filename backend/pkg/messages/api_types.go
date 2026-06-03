@@ -52,6 +52,23 @@ func (r *UpdatePostRequest) Bind(req *http.Request) error {
 	return nil
 }
 
+type CreateDraftPostRequest struct {
+	CharacterID int32  `json:"character_id" validate:"required"`
+	Content     string `json:"content" validate:"required,min=1"`
+}
+
+func (r *CreateDraftPostRequest) Bind(req *http.Request) error {
+	return nil
+}
+
+type UpdateDraftPostRequest struct {
+	Content string `json:"content" validate:"required,min=1"`
+}
+
+func (r *UpdateDraftPostRequest) Bind(req *http.Request) error {
+	return nil
+}
+
 // ManualReadCommentIDsResponse represents the manual read comment IDs for a post
 type ManualReadCommentIDsResponse struct {
 	PostID         int32   `json:"post_id"`
@@ -77,6 +94,7 @@ type MessageResponse struct {
 	ReplyCount            int64      `json:"reply_count,omitempty"`
 	IsEdited              bool       `json:"is_edited"`
 	IsDeleted             bool       `json:"is_deleted"`
+	IsDraft               bool       `json:"is_draft"`
 	MentionedCharacterIds []int32    `json:"mentioned_character_ids,omitempty"`
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
@@ -115,6 +133,7 @@ func messageWithDetailsToResponse(msg *core.MessageWithDetails) *MessageResponse
 		CharacterAvatarUrl:    msg.CharacterAvatarUrl,
 		IsEdited:              msg.IsEdited,
 		IsDeleted:             msg.IsDeleted,
+		IsDraft:               msg.IsDraft,
 		MentionedCharacterIds: msg.MentionedCharacterIds,
 		CreatedAt:             msg.CreatedAt.Time,
 		EditCount:             msg.EditCount,

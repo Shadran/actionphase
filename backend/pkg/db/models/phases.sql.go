@@ -160,10 +160,11 @@ const countMessagesByPhase = `-- name: CountMessagesByPhase :one
 SELECT COUNT(*)
 FROM messages
 WHERE phase_id = $1
+  AND is_draft = false
 `
 
-// Count messages for a specific phase
-// Used to check if phase can be deleted
+// Count non-draft messages for a specific phase
+// Used to check if phase can be deleted; draft posts are excluded (they're cleaned up separately)
 func (q *Queries) CountMessagesByPhase(ctx context.Context, phaseID pgtype.Int4) (int64, error) {
 	row := q.db.QueryRow(ctx, countMessagesByPhase, phaseID)
 	var count int64

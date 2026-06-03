@@ -4,6 +4,19 @@ import { renderWithProviders } from '../test-utils/render';
 import { CreatePhaseModal } from './CreatePhaseModal';
 import * as timezoneUtils from '../utils/timezone';
 
+vi.mock('../contexts/GameContext', async () => {
+  const actual = await vi.importActual<typeof import('../contexts/GameContext')>('../contexts/GameContext');
+  return {
+    ...actual,
+    useOptionalGameContext: vi.fn(() => ({
+      userCharacters: [
+        { id: 1, name: 'Narrator' },
+        { id: 2, name: 'The Wanderer' },
+      ],
+    })),
+  };
+});
+
 // Mock the timezone utilities to verify they're called correctly
 vi.mock('../utils/timezone', async () => {
   const actual = await vi.importActual<typeof import('../utils/timezone')>('../utils/timezone');
@@ -167,7 +180,8 @@ describe('CreatePhaseModal', () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           phase_type: 'action',
-        })
+        }),
+        undefined
       );
     });
 
@@ -189,7 +203,8 @@ describe('CreatePhaseModal', () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Test Phase Title',
-        })
+        }),
+        undefined
       );
     });
 
@@ -211,7 +226,8 @@ describe('CreatePhaseModal', () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'Test description',
-        })
+        }),
+        undefined
       );
     });
 
@@ -432,6 +448,115 @@ describe('CreatePhaseModal', () => {
 
       const phaseTypeSelect = screen.getByLabelText(/Phase Type/i) as HTMLSelectElement;
       expect(phaseTypeSelect.value).toBe('common_room');
+    });
+  });
+
+  describe('Draft Opening Post', () => {
+    it('shows draft toggle only for common_room phase type', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      expect(screen.getByTestId('draft-post-toggle')).toBeInTheDocument();
+    });
+
+    it('hides draft toggle when phase type is action', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
+      fireEvent.change(phaseTypeSelect, { target: { value: 'action' } });
+
+      expect(screen.queryByTestId('draft-post-toggle')).not.toBeInTheDocument();
+    });
+
+    it('expands draft section when toggle is clicked', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      expect(screen.queryByTestId('draft-character-select')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('draft-post-toggle'));
+
+      expect(screen.getByTestId('draft-character-select')).toBeInTheDocument();
+      expect(screen.getByTestId('draft-post-content')).toBeInTheDocument();
+    });
+
+    it('includes draft post data in onSubmit when filled in', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('draft-post-toggle'));
+
+      fireEvent.change(screen.getByTestId('draft-character-select'), { target: { value: '1' } });
+      fireEvent.change(screen.getByTestId('draft-post-content'), { target: { value: 'The fog parts...' } });
+
+      const form = screen.getByRole('button', { name: /Create Phase/i }).closest('form');
+      fireEvent.submit(form!);
+
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ phase_type: 'common_room' }),
+        { characterId: 1, content: 'The fog parts...' }
+      );
+    });
+
+    it('passes undefined draft when section is not expanded', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      const form = screen.getByRole('button', { name: /Create Phase/i }).closest('form');
+      fireEvent.submit(form!);
+
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ phase_type: 'common_room' }),
+        undefined
+      );
+    });
+
+    it('clears draft data when phase type changes from common_room', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('draft-post-toggle'));
+      fireEvent.change(screen.getByTestId('draft-post-content'), { target: { value: 'Some content' } });
+
+      // Switch to action
+      const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
+      fireEvent.change(phaseTypeSelect, { target: { value: 'action' } });
+
+      // Switch back to common_room — draft section should be collapsed/reset
+      fireEvent.change(phaseTypeSelect, { target: { value: 'common_room' } });
+
+      expect(screen.queryByTestId('draft-post-content')).not.toBeInTheDocument();
     });
   });
 });

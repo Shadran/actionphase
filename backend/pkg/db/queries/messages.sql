@@ -139,6 +139,7 @@ LEFT JOIN characters c ON m.character_id = c.id
 WHERE m.game_id = $1
   AND m.message_type = 'post'
   AND m.is_deleted = false
+  AND m.is_draft = false
   AND (CASE WHEN $2 = 0 THEN TRUE ELSE m.phase_id = $2 END)
 ORDER BY m.created_at DESC
 LIMIT $3 OFFSET $4;
@@ -155,6 +156,7 @@ LEFT JOIN characters c ON m.character_id = c.id
 WHERE m.phase_id = $1
   AND m.message_type = 'post'
   AND m.is_deleted = false
+  AND m.is_draft = false
 ORDER BY m.created_at DESC;
 
 -- name: UpdatePost :one
@@ -185,6 +187,77 @@ SET is_deleted = true
 WHERE id = $1
   AND message_type = 'post'
 RETURNING *;
+
+-- ============================================================================
+-- DRAFT POST MANAGEMENT (GM-authored posts stored before phase activation)
+-- ============================================================================
+
+-- name: CreateDraftPost :one
+INSERT INTO messages (
+    game_id,
+    phase_id,
+    author_id,
+    character_id,
+    content,
+    message_type,
+    visibility,
+    mentioned_character_ids,
+    is_draft
+) VALUES (
+    $1, $2, $3, $4, $5, 'post', $6, $7, true
+)
+RETURNING *;
+
+-- name: GetDraftPostForPhase :one
+-- Returns the single draft post for a phase (GM only). Returns no rows if none exists.
+SELECT m.*,
+       u.username as author_username,
+       c.name as character_name,
+       c.avatar_url as character_avatar_url,
+       0::bigint as comment_count
+FROM messages m
+JOIN users u ON m.author_id = u.id
+LEFT JOIN characters c ON m.character_id = c.id
+WHERE m.phase_id = $1
+  AND m.message_type = 'post'
+  AND m.is_draft = true
+  AND m.is_deleted = false
+LIMIT 1;
+
+-- name: UpdateDraftPost :one
+UPDATE messages
+SET content = $2,
+    mentioned_character_ids = $3
+WHERE id = $1
+  AND message_type = 'post'
+  AND is_draft = true
+  AND is_deleted = false
+RETURNING *;
+
+-- name: PublishDraftPostsForPhase :exec
+-- Called atomically during phase activation. Clears is_draft flag.
+UPDATE messages
+SET is_draft = false
+WHERE phase_id = $1
+  AND message_type = 'post'
+  AND is_draft = true
+  AND is_deleted = false;
+
+-- name: DeleteDraftPostsForPhase :exec
+-- Hard delete draft posts when a phase is deleted.
+DELETE FROM messages
+WHERE phase_id = $1
+  AND message_type = 'post'
+  AND is_draft = true;
+
+-- name: CountDraftPostsByPhase :one
+-- Count draft posts for a phase (used to enforce one-draft-per-phase constraint).
+SELECT COUNT(*)
+FROM messages
+WHERE phase_id = $1
+  AND message_type = 'post'
+  AND is_draft = true
+  AND is_deleted = false;
 
 -- ============================================================================
 -- COMMENT MANAGEMENT (Threaded replies)
@@ -292,6 +365,7 @@ FROM messages
 WHERE game_id = $1
   AND message_type = 'post'
   AND is_deleted = false
+  AND is_draft = false
   AND (CASE WHEN $2 = 0 THEN TRUE ELSE phase_id = $2 END);
 
 -- name: GetPostCommentCount :one
@@ -407,6 +481,7 @@ LEFT JOIN messages c ON c.parent_id = m.id AND c.is_deleted = false
 WHERE m.game_id = $1
   AND m.message_type = 'post'
   AND m.is_deleted = false
+  AND m.is_draft = false
 GROUP BY m.id, m.created_at
 ORDER BY m.created_at DESC;
 
@@ -443,7 +518,7 @@ WITH RECURSIVE comment_threads AS (
     FROM messages c
     WHERE c.parent_id IN (
         SELECT id FROM messages
-        WHERE game_id = $2 AND message_type = 'post' AND is_deleted = false
+        WHERE game_id = $2 AND message_type = 'post' AND is_deleted = false AND is_draft = false
     )
     AND c.is_deleted = false
 

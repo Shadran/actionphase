@@ -166,6 +166,11 @@ func (ps *PhaseService) DeletePhase(ctx context.Context, phaseID int32) error {
 
 	queries := models.New(ps.DB)
 
+	// Remove draft posts first (they are not counted by CanDeletePhase and must be cleaned up)
+	if err := queries.DeleteDraftPostsForPhase(ctx, pgtype.Int4{Int32: phaseID, Valid: true}); err != nil {
+		return fmt.Errorf("failed to delete draft posts for phase: %w", err)
+	}
+
 	// Delete the phase
 	if err := queries.DeletePhase(ctx, phaseID); err != nil {
 		return fmt.Errorf("failed to delete phase: %w", err)

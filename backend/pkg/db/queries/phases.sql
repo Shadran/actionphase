@@ -339,8 +339,9 @@ FROM threads
 WHERE phase_id = $1;
 
 -- name: CountMessagesByPhase :one
--- Count messages for a specific phase
--- Used to check if phase can be deleted
+-- Count non-draft messages for a specific phase
+-- Used to check if phase can be deleted; draft posts are excluded (they're cleaned up separately)
 SELECT COUNT(*)
 FROM messages
-WHERE phase_id = $1;
+WHERE phase_id = $1
+  AND is_draft = false;

@@ -661,6 +661,26 @@ type MessageServiceInterface interface {
 
 	// DeleteManualCommentReadsForGame removes all manual comment read records for a game (e.g. on game reset)
 	DeleteManualCommentReadsForGame(ctx context.Context, gameID int32) error
+
+	// Draft Post methods — posts stored before phase activation, visible to GM only
+
+	// GetDraftPostForPhase retrieves the draft post for a pending phase (returns nil if none exists)
+	GetDraftPostForPhase(ctx context.Context, phaseID int32) (*MessageWithDetails, error)
+
+	// CreateDraftPost creates a draft post for a pending phase (max one per phase)
+	CreateDraftPost(ctx context.Context, req CreatePostRequest) (*MessageWithDetails, error)
+
+	// UpdateDraftPost replaces the content of an existing draft post
+	UpdateDraftPost(ctx context.Context, postID int32, content string) (*MessageWithDetails, error)
+
+	// DeleteDraftPost hard-deletes a draft post
+	DeleteDraftPost(ctx context.Context, postID int32) error
+
+	// PublishDraftPostsForPhase clears is_draft on all draft posts for the phase (called at activation)
+	PublishDraftPostsForPhase(ctx context.Context, phaseID int32) error
+
+	// DeleteDraftPostsForPhase hard-deletes all draft posts for a phase (called when phase is deleted)
+	DeleteDraftPostsForPhase(ctx context.Context, phaseID int32) error
 }
 
 // CreatePhaseRequest represents the parameters needed to create a new game phase

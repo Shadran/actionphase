@@ -348,6 +348,7 @@ type Message struct {
 	MentionedCharacterIds []int32            `json:"mentioned_character_ids"`
 	IsEdited              bool               `json:"is_edited"`
 	IsDeleted             bool               `json:"is_deleted"`
+	IsDraft               bool               `json:"is_draft"`
 	CreatedAt             pgtype.Timestamp   `json:"created_at"`
 	DeletedAt             pgtype.Timestamp   `json:"deleted_at"`
 	DeletedByUserID       pgtype.Int4        `json:"deleted_by_user_id"`

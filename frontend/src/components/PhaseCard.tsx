@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SimpleCountdown } from './CountdownTimer';
 import { PhaseActivationDialog } from './PhaseActivationDialog';
 import { DeletePhaseDialog } from './DeletePhaseDialog';
+import { DraftPostSection } from './DraftPostSection';
 import { usePhaseActivation } from '../hooks/usePhaseActivation';
 import { MarkdownPreview } from './MarkdownPreview';
 import { Button, DateTimeInput } from './ui';
@@ -318,6 +319,11 @@ export function PhaseCard({
           <div className="w-2 h-2 bg-interactive-primary rounded-full mr-2"></div>
           Currently Active
         </div>
+      )}
+
+      {/* Draft Post Section — shown for pending common_room phases only */}
+      {!isActive && phase.phase_type === 'common_room' && (
+        <DraftPostSection phaseId={phase.id} onCreateDraft={() => {}} />
       )}
 
       {/* Phase Activation Confirmation Dialog */}

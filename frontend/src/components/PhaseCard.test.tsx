@@ -11,6 +11,11 @@ vi.mock('../hooks/usePhaseActivation', () => ({
   }),
 }));
 
+// Mock DraftPostSection to avoid needing QueryClientProvider in these tests
+vi.mock('./DraftPostSection', () => ({
+  DraftPostSection: () => null,
+}));
+
 const basePhase: GamePhase = {
   id: 1,
   game_id: 100,

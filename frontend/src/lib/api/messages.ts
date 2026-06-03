@@ -143,4 +143,25 @@ export class MessagesApi extends BaseApiClient {
     const response = await this.client.get<{ total: number }>(`/api/v1/games/${gameId}/comments/count`);
     return response.data.total;
   }
+
+  // Draft post endpoints (GM only, phase-scoped)
+
+  async getDraftPost(phaseId: number) {
+    return this.client.get<Message>(`/api/v1/phases/${phaseId}/draft-post`);
+  }
+
+  async createDraftPost(phaseId: number, characterId: number, content: string) {
+    return this.client.post<Message>(`/api/v1/phases/${phaseId}/draft-post`, {
+      character_id: characterId,
+      content,
+    });
+  }
+
+  async updateDraftPost(phaseId: number, content: string) {
+    return this.client.put<Message>(`/api/v1/phases/${phaseId}/draft-post`, { content });
+  }
+
+  async deleteDraftPost(phaseId: number) {
+    return this.client.delete<{ message: string }>(`/api/v1/phases/${phaseId}/draft-post`);
+  }
 }

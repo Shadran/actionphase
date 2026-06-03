@@ -254,6 +254,14 @@ func (ps *PhaseService) activatePhaseInternal(ctx context.Context, phaseID int32
 		return nil, fmt.Errorf("failed to activate phase: %w", err)
 	}
 
+	// Publish any draft posts for this phase atomically with activation
+	if err := txQueries.PublishDraftPostsForPhase(ctx, pgtype.Int4{Int32: phaseID, Valid: true}); err != nil {
+		ps.Logger.LogError(ctx, err, "Failed to publish draft posts during phase activation",
+			"phase_id", phaseID,
+		)
+		return nil, fmt.Errorf("failed to publish draft posts: %w", err)
+	}
+
 	ps.Logger.Debug(ctx, "Committing phase activation transaction",
 		"phase_id", phaseID,
 		"game_id", phase.GameID,
