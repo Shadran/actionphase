@@ -4,6 +4,8 @@ import {
   type Faro,
 } from '@grafana/faro-web-sdk';
 import { TracingInstrumentation } from '@grafana/faro-web-tracing';
+import { ReactIntegration, createReactRouterV6DataOptions } from '@grafana/faro-react';
+import { matchRoutes, useLocation, useNavigationType, createRoutesFromChildren } from 'react-router-dom';
 
 let faroInstance: Faro | null = null;
 
@@ -27,6 +29,14 @@ export function initFaro(): void {
         captureConsole: true,
       }),
       new TracingInstrumentation(),
+      new ReactIntegration({
+        router: createReactRouterV6DataOptions({
+          matchRoutes,
+          useLocation,
+          useNavigationType,
+          createRoutesFromChildren,
+        }),
+      }),
     ],
   });
 }

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { logger, setCorrelationId } from '@/services/LoggingService';
+import { getFaro } from '@/lib/faro';
 
 const API_BASE_URL = ''; // Use proxy in development
 
@@ -45,6 +46,19 @@ export class BaseApiClient {
       const adminModeEnabled = localStorage.getItem('admin_mode_enabled');
       if (adminModeEnabled === 'true') {
         config.headers['X-Admin-Mode'] = 'true';
+      }
+
+      // Inject W3C trace context so backend spans are linked to the frontend trace.
+      // Faro's TracingInstrumentation only patches fetch/XHR, not axios.
+      const faro = getFaro();
+      if (faro) {
+        const traceContext = faro.api.getOTEL()?.context;
+        const propagator = faro.api.getOTEL()?.propagation;
+        if (traceContext && propagator) {
+          const carrier: Record<string, string> = {};
+          propagator.inject(traceContext.active(), carrier);
+          Object.assign(config.headers, carrier);
+        }
       }
 
       // Log API request

@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -42,7 +43,7 @@ func InitTracer(cfg TracerConfig) (shutdown func(), err error) {
 	}
 
 	exporter, err := otlptracehttp.New(context.Background(),
-		otlptracehttp.WithEndpointURL(cfg.Endpoint),
+		otlptracehttp.WithEndpointURL(strings.TrimRight(cfg.Endpoint, "/")+"/v1/traces"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)

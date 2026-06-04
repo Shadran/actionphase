@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -67,7 +68,7 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 	// OTLP push exporter: ships metrics to Grafana Cloud Prometheus when enabled.
 	if cfg.Enabled && cfg.OTELEndpoint != "" {
 		otlpExp, err := otlpmetrichttp.New(context.Background(),
-			otlpmetrichttp.WithEndpointURL(cfg.OTELEndpoint),
+			otlpmetrichttp.WithEndpointURL(strings.TrimRight(cfg.OTELEndpoint, "/")+"/v1/metrics"),
 		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create OTLP metrics exporter: %w", err)

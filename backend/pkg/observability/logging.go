@@ -133,6 +133,11 @@ func (l *Logger) extractContextAttributes(ctx context.Context) []any {
 		attrs = append(attrs, "operation", operation)
 	}
 
+	// Include trace_id so Grafana can correlate logs to Tempo traces.
+	if traceID := TraceIDFromContext(ctx); traceID != "" {
+		attrs = append(attrs, "trace_id", traceID)
+	}
+
 	return attrs
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
@@ -50,7 +51,7 @@ func InitLogProvider(cfg LogConfig, obsLogger *Logger) (shutdown func(), err err
 	}
 
 	exporter, err := otlploghttp.New(context.Background(),
-		otlploghttp.WithEndpointURL(cfg.OTELEndpoint),
+		otlploghttp.WithEndpointURL(strings.TrimRight(cfg.OTELEndpoint, "/")+"/v1/logs"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP log exporter: %w", err)

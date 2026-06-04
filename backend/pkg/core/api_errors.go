@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/render"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ErrResponse represents a structured API error response that follows ActionPhase error handling conventions.
@@ -37,6 +39,17 @@ type ErrResponse struct {
 // It sets the HTTP status code and allows the JSON marshaling to handle the response body.
 func (e *ErrResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, e.HTTPStatusCode)
+
+	// Mark the active span as an error for 5xx responses so Tempo shows them
+	// as failed spans. 4xx errors are client mistakes, not service errors.
+	if e.HTTPStatusCode >= 500 {
+		span := trace.SpanFromContext(r.Context())
+		span.SetStatus(codes.Error, e.ErrorText)
+		if e.Err != nil {
+			span.RecordError(e.Err)
+		}
+	}
+
 	return nil
 }
 

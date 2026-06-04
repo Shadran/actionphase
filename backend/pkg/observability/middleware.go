@@ -63,19 +63,21 @@ func RequestTracingMiddleware(logger *Logger) func(next http.Handler) http.Handl
 			// Process request
 			next.ServeHTTP(ww, r)
 
-			// Log request completion
+			// Only log requests that resulted in an error — successful requests
+			// are already fully captured by metrics and traces.
 			duration := time.Since(start)
-
-			logger.LogHTTPRequest(
-				ctx,
-				r.Method,
-				routePattern(r),
-				ww.Status(),
-				duration,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.UserAgent(),
-				"content_length", r.ContentLength,
-			)
+			if ww.Status() >= 400 {
+				logger.LogHTTPRequest(
+					ctx,
+					r.Method,
+					routePattern(r),
+					ww.Status(),
+					duration,
+					"remote_addr", r.RemoteAddr,
+					"user_agent", r.UserAgent(),
+					"content_length", r.ContentLength,
+				)
+			}
 		})
 	}
 }
