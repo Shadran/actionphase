@@ -60,7 +60,7 @@ func TestNotificationService_DiscordDispatch_NoAccount(t *testing.T) {
 	// Give the goroutine time to run
 	time.Sleep(50 * time.Millisecond)
 
-	assert.Empty(t, mock.SentMessages, "no DM should be sent when user has no Discord account")
+	assert.Empty(t, mock.Messages(), "no DM should be sent when user has no Discord account")
 }
 
 // TestNotificationService_DiscordDispatch_DisabledType verifies no DM is sent when
@@ -108,7 +108,7 @@ func TestNotificationService_DiscordDispatch_DisabledType(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	assert.Empty(t, mock.SentMessages, "no DM should be sent when type is disabled in preferences")
+	assert.Empty(t, mock.Messages(), "no DM should be sent when type is disabled in preferences")
 }
 
 // TestNotificationService_DiscordDispatch_MissingFrontendURL verifies the embed URL is
@@ -145,8 +145,9 @@ func TestNotificationService_DiscordDispatch_MissingFrontendURL(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	require.Len(t, mock.SentMessages, 1)
-	embed := mock.SentMessages[0].Embed
+	msgs := mock.Messages()
+	require.Len(t, msgs, 1)
+	embed := msgs[0].Embed
 	assert.Equal(t, "test message", embed.Title)
 	assert.Contains(t, embed.URL, fmt.Sprintf("notif=%d", notif.ID))
 	assert.NotContains(t, embed.URL, "??", "malformed double question mark in URL")
@@ -191,8 +192,9 @@ func TestNotificationService_DiscordDispatch_NotifParamSeparator(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		require.Len(t, mock.SentMessages, 1)
-		embedURL := mock.SentMessages[0].Embed.URL
+		msgs := mock.Messages()
+		require.Len(t, msgs, 1)
+		embedURL := msgs[0].Embed.URL
 		assert.Contains(t, embedURL, fmt.Sprintf("%s%d", tc.wantSep, notif.ID), "link: %s, url: %s", tc.linkURL, embedURL)
 		assert.NotContains(t, embedURL, "??")
 	}
@@ -236,8 +238,9 @@ func TestNotificationService_DiscordDispatch_Dispatches(t *testing.T) {
 	// Give the goroutine time to run (short sleep is acceptable in dispatch tests)
 	time.Sleep(100 * time.Millisecond)
 
-	require.Len(t, mock.SentMessages, 1, "exactly one DM should be dispatched")
-	sent := mock.SentMessages[0]
+	msgs := mock.Messages()
+	require.Len(t, msgs, 1, "exactly one DM should be dispatched")
+	sent := msgs[0]
 	assert.Equal(t, "discord-777", sent.DiscordUserID)
 	assert.Equal(t, "You have a new message", sent.Embed.Title)
 	assert.Equal(t, "ActionPhase", sent.Embed.Footer)
@@ -278,8 +281,9 @@ func TestNotificationService_DiscordDispatch_EmbedContent(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	require.Len(t, mock.SentMessages, 1)
-	embed := mock.SentMessages[0].Embed
+	msgs := mock.Messages()
+	require.Len(t, msgs, 1)
+	embed := msgs[0].Embed
 	assert.Equal(t, "You have a new message", embed.Title)
 	assert.Equal(t, "New message from Detective Marcus Kane", embed.Description)
 }

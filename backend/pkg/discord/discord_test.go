@@ -23,9 +23,10 @@ func TestMockClient_RecordsDMs(t *testing.T) {
 	err := mock.SendDM(ctx, "123456789", embed)
 	require.NoError(t, err)
 
-	require.Len(t, mock.SentMessages, 1)
-	assert.Equal(t, "123456789", mock.SentMessages[0].DiscordUserID)
-	assert.Equal(t, "Hello, ActionPhase!", mock.SentMessages[0].Embed.Title)
+	msgs := mock.Messages()
+	require.Len(t, msgs, 1)
+	assert.Equal(t, "123456789", msgs[0].DiscordUserID)
+	assert.Equal(t, "Hello, ActionPhase!", msgs[0].Embed.Title)
 }
 
 func TestMockClient_MultipleDMs(t *testing.T) {
@@ -35,9 +36,10 @@ func TestMockClient_MultipleDMs(t *testing.T) {
 	_ = mock.SendDM(ctx, "111", core.DiscordEmbed{Title: "First message"})
 	_ = mock.SendDM(ctx, "222", core.DiscordEmbed{Title: "Second message"})
 
-	assert.Len(t, mock.SentMessages, 2)
-	assert.Equal(t, "111", mock.SentMessages[0].DiscordUserID)
-	assert.Equal(t, "222", mock.SentMessages[1].DiscordUserID)
+	msgs := mock.Messages()
+	assert.Len(t, msgs, 2)
+	assert.Equal(t, "111", msgs[0].DiscordUserID)
+	assert.Equal(t, "222", msgs[1].DiscordUserID)
 }
 
 func TestMockClient_ShouldFail(t *testing.T) {
@@ -49,7 +51,7 @@ func TestMockClient_ShouldFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced failure")
 
 	// No messages should have been recorded
-	assert.Empty(t, mock.SentMessages)
+	assert.Empty(t, mock.Messages())
 }
 
 // Compile-time assertion: MockClient implements the interface.
