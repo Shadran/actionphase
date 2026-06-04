@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { context, trace, SpanStatusCode } from '@opentelemetry/api';
+import { context, trace, propagation, SpanStatusCode } from '@opentelemetry/api';
 import { logger, setCorrelationId } from '@/services/LoggingService';
 import { getFaro } from '@/lib/faro';
 
@@ -54,13 +54,12 @@ export class BaseApiClient {
       // active span already being open (which isn't the case for login, background
       // refetches, etc.). Faro's TracingInstrumentation only patches fetch/XHR.
       const faro = getFaro();
-      const otel = faro?.api.getOTEL();
-      if (otel) {
-        const tracer = otel.trace.getTracer('axios');
+      if (faro) {
+        const tracer = trace.getTracer('axios');
         const span = tracer.startSpan(`${config.method?.toUpperCase()} ${config.url}`);
-        const ctx = otel.trace.setSpan(otel.context.active(), span);
+        const ctx = trace.setSpan(context.active(), span);
         const carrier: Record<string, string> = {};
-        otel.propagation.inject(ctx, carrier);
+        propagation.inject(ctx, carrier);
         Object.assign(config.headers, carrier);
         // Store span on config so the response interceptor can end it
         (config as any).__otelSpan = span;

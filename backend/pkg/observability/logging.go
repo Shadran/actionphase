@@ -143,21 +143,33 @@ func (l *Logger) extractContextAttributes(ctx context.Context) []any {
 
 // Debug logs a debug-level message with context
 func (l *Logger) Debug(ctx context.Context, msg string, args ...any) {
+	if l == nil {
+		return
+	}
 	l.WithContext(ctx).logger.Debug(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Info logs an info-level message with context
 func (l *Logger) Info(ctx context.Context, msg string, args ...any) {
+	if l == nil {
+		return
+	}
 	l.WithContext(ctx).logger.Info(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Warn logs a warn-level message with context
 func (l *Logger) Warn(ctx context.Context, msg string, args ...any) {
+	if l == nil {
+		return
+	}
 	l.WithContext(ctx).logger.Warn(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Error logs an error-level message with context
 func (l *Logger) Error(ctx context.Context, msg string, args ...any) {
+	if l == nil {
+		return
+	}
 	l.WithContext(ctx).logger.Error(msg, append([]any{"source", "app"}, args...)...)
 }
 
@@ -170,6 +182,9 @@ func (l *Logger) Error(ctx context.Context, msg string, args ...any) {
 //
 // This will log both the start and completion of the operation with timing.
 func (l *Logger) LogOperation(ctx context.Context, operation string, args ...any) func() {
+	if l == nil {
+		return func() {}
+	}
 	start := time.Now()
 
 	// Create operation context
