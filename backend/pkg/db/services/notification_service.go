@@ -209,7 +209,7 @@ func (s *NotificationService) CreateNotification(ctx context.Context, req *core.
 //
 // Errors are logged but never propagated — Discord dispatch is best-effort.
 func (s *NotificationService) dispatchDiscordDM(ctx context.Context, notification *core.Notification) {
-	discordSvc := &DiscordAccountService{DB: s.DB}
+	discordSvc := &DiscordAccountService{DB: s.DB, Logger: s.Logger}
 	prefsSvc := NewUserPreferencesService(s.DB)
 
 	// 1. Get Discord account for user

@@ -45,7 +45,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := int32(authUser.ID)
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 	// Create the application
 	application, err := applicationService.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
@@ -210,7 +210,7 @@ func (h *Handler) GetGameApplications(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get applications for the game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	applications, err := applicationService.GetGameApplications(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get game applications", "error", err, "game_id", gameID)
@@ -308,7 +308,7 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify application belongs to this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	application, err := applicationService.GetGameApplication(ctx, int32(applicationID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get game application", "error", err, "application_id", applicationID)
@@ -389,7 +389,7 @@ func (h *Handler) GetMyGameApplication(w http.ResponseWriter, r *http.Request) {
 	userID := int32(authUser.ID)
 
 	// Find user's application for this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	application, err := applicationService.GetGameApplicationByUserAndGame(ctx, int32(gameID), userID)
 	if err != nil {
 		// User has no application - return 404
@@ -462,7 +462,7 @@ func (h *Handler) GetPublicGameApplicants(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get public applicants list
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	applicants, err := applicationService.GetPublicGameApplicants(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get public game applicants", "error", err, "game_id", gameID)
@@ -513,7 +513,7 @@ func (h *Handler) WithdrawGameApplication(w http.ResponseWriter, r *http.Request
 	userID := int32(authUser.ID)
 
 	// Find user's application for this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	application, err := applicationService.GetGameApplicationByUserAndGame(ctx, int32(gameID), userID)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get user's application", "error", err, "game_id", gameID, "user_id", userID)

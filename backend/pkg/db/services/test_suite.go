@@ -199,7 +199,7 @@ func (sf *ServiceFactory) GameService() *GameService {
 
 // GameApplicationService creates a new GameApplicationService
 func (sf *ServiceFactory) GameApplicationService() *GameApplicationService {
-	return &GameApplicationService{DB: sf.pool}
+	return &GameApplicationService{DB: sf.pool, Logger: sf.logger}
 }
 
 // CharacterService creates a new CharacterService

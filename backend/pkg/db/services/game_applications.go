@@ -3,6 +3,7 @@ package db
 import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+	"actionphase/pkg/observability"
 	"context"
 	"fmt"
 
@@ -12,7 +13,8 @@ import (
 
 // GameApplicationService implements the GameApplicationServiceInterface for database operations
 type GameApplicationService struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Logger *observability.Logger
 }
 
 // CreateGameApplication creates a new application to join a game
@@ -192,6 +194,13 @@ func (gas *GameApplicationService) ApproveGameApplication(ctx context.Context, a
 	// is created when transitioning out of recruitment. This allows the GM to
 	// approve applications without immediately adding them as participants.
 
+	gas.Logger.Info(ctx, "Game application approved",
+		"application_id", applicationID,
+		"game_id", application.GameID,
+		"user_id", application.UserID,
+		"role", application.Role,
+	)
+
 	return nil
 }
 
@@ -207,6 +216,11 @@ func (gas *GameApplicationService) RejectGameApplication(ctx context.Context, ap
 	if err != nil {
 		return fmt.Errorf("failed to reject game application: %w", err)
 	}
+
+	gas.Logger.Info(ctx, "Game application rejected",
+		"application_id", applicationID,
+		"reviewer_id", reviewerID,
+	)
 
 	return nil
 }
@@ -272,6 +286,8 @@ func (gas *GameApplicationService) CountPendingApplicationsForGame(ctx context.C
 func (gas *GameApplicationService) BulkApproveApplications(ctx context.Context, gameID, reviewerID int32) error {
 	queries := models.New(gas.DB)
 
+	count, _ := queries.CountPendingApplicationsForGame(ctx, gameID)
+
 	err := queries.BulkApproveApplications(ctx, models.BulkApproveApplicationsParams{
 		GameID:           gameID,
 		ReviewedByUserID: pgtype.Int4{Int32: reviewerID, Valid: true},
@@ -280,12 +296,19 @@ func (gas *GameApplicationService) BulkApproveApplications(ctx context.Context, 
 		return fmt.Errorf("failed to bulk approve applications: %w", err)
 	}
 
+	gas.Logger.Info(ctx, "Bulk game applications approved",
+		"game_id", gameID,
+		"count", count,
+	)
+
 	return nil
 }
 
 // BulkRejectApplications rejects all pending applications for a game
 func (gas *GameApplicationService) BulkRejectApplications(ctx context.Context, gameID, reviewerID int32) error {
 	queries := models.New(gas.DB)
+
+	count, _ := queries.CountPendingApplicationsForGame(ctx, gameID)
 
 	err := queries.BulkRejectApplications(ctx, models.BulkRejectApplicationsParams{
 		GameID:           gameID,
@@ -294,6 +317,11 @@ func (gas *GameApplicationService) BulkRejectApplications(ctx context.Context, g
 	if err != nil {
 		return fmt.Errorf("failed to bulk reject applications: %w", err)
 	}
+
+	gas.Logger.Info(ctx, "Bulk game applications rejected",
+		"game_id", gameID,
+		"count", count,
+	)
 
 	return nil
 }
@@ -386,6 +414,11 @@ func (gas *GameApplicationService) ConvertApprovedApplicationsToParticipants(ctx
 			return fmt.Errorf("failed to delete application %d after creating participant: %w", app.ID, err)
 		}
 	}
+
+	gas.Logger.Info(ctx, "Approved applications converted to participants",
+		"game_id", gameID,
+		"count", len(approvedApplications),
+	)
 
 	return nil
 }

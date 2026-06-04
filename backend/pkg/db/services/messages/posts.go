@@ -69,6 +69,12 @@ func (s *MessageService) CreatePost(ctx context.Context, req core.CreatePostRequ
 		}
 	}()
 
+	s.Logger.Info(ctx, "Post created",
+		"post_id", message.ID,
+		"game_id", message.GameID,
+		"phase_id", message.PhaseID,
+	)
+
 	return &message, nil
 }
 
@@ -274,10 +280,15 @@ func (s *MessageService) UpdatePost(ctx context.Context, postID int32, content s
 func (s *MessageService) DeletePost(ctx context.Context, postID int32) error {
 	queries := models.New(s.DB)
 
-	_, err := queries.DeletePost(ctx, postID)
+	deleted, err := queries.DeletePost(ctx, postID)
 	if err != nil {
 		return fmt.Errorf("failed to delete post: %w", err)
 	}
+
+	s.Logger.Info(ctx, "Post deleted",
+		"post_id", deleted.ID,
+		"game_id", deleted.GameID,
+	)
 
 	return nil
 }

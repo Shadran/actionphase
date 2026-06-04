@@ -59,6 +59,12 @@ func (as *ActionSubmissionService) CreateActionResult(ctx context.Context, req c
 		return nil, fmt.Errorf("failed to create action result: %w", err)
 	}
 
+	as.Logger.Info(ctx, "Action result created",
+		"result_id", result.ID,
+		"submission_id", result.ActionSubmissionID,
+		"game_id", result.GameID,
+	)
+
 	return &result, nil
 }
 
@@ -181,17 +187,28 @@ func (as *ActionSubmissionService) publishSingleResultWithDrafts(ctx context.Con
 // This includes publishing any draft character updates associated with the result.
 // All operations are performed in a transaction to ensure atomicity.
 func (as *ActionSubmissionService) PublishActionResult(ctx context.Context, resultID, userID int32) error {
-	return pgx.BeginFunc(ctx, as.DB, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, as.DB, func(tx pgx.Tx) error {
 		queries := models.New(tx)
 		return as.publishSingleResultWithDrafts(ctx, queries, resultID)
 	})
+	if err != nil {
+		return err
+	}
+
+	as.Logger.Info(ctx, "Action result published",
+		"result_id", resultID,
+		"user_id", userID,
+	)
+
+	return nil
 }
 
 // PublishAllPhaseResults publishes all unpublished results for a phase.
 // This includes publishing draft character updates for each result.
 // All operations are performed in a single transaction to ensure atomicity.
 func (as *ActionSubmissionService) PublishAllPhaseResults(ctx context.Context, phaseID int32) error {
-	return pgx.BeginFunc(ctx, as.DB, func(tx pgx.Tx) error {
+	var count int
+	err := pgx.BeginFunc(ctx, as.DB, func(tx pgx.Tx) error {
 		queries := models.New(tx)
 
 		// Get all unpublished result IDs for this phase
@@ -207,8 +224,19 @@ func (as *ActionSubmissionService) PublishAllPhaseResults(ctx context.Context, p
 			}
 		}
 
+		count = len(resultIDs)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	as.Logger.Info(ctx, "All phase results published",
+		"phase_id", phaseID,
+		"count", count,
+	)
+
+	return nil
 }
 
 // GetUnpublishedResultsCount retrieves the count of unpublished results for a phase

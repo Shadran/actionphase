@@ -12,11 +12,13 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+	"actionphase/pkg/observability"
 )
 
 // DiscordAccountService implements core.DiscordAccountServiceInterface.
 type DiscordAccountService struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Logger *observability.Logger
 }
 
 // Compile-time verification that DiscordAccountService implements the interface.
@@ -62,6 +64,11 @@ func (s *DiscordAccountService) UpsertDiscordAccount(ctx context.Context, req *c
 		return nil, fmt.Errorf("upsert discord account: %w", err)
 	}
 
+	s.Logger.Info(ctx, "Discord account linked",
+		"user_id", req.UserID,
+		"discord_id", req.DiscordUserID,
+	)
+
 	return rowToDiscordAccount(row), nil
 }
 
@@ -72,6 +79,10 @@ func (s *DiscordAccountService) DeleteDiscordAccount(ctx context.Context, userID
 	if err := queries.DeleteUserDiscordAccount(ctx, userID); err != nil {
 		return fmt.Errorf("delete discord account: %w", err)
 	}
+
+	s.Logger.Info(ctx, "Discord account unlinked",
+		"user_id", userID,
+	)
 
 	return nil
 }

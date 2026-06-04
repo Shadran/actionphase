@@ -179,7 +179,7 @@ func (gs *GameService) UpdateGameState(ctx context.Context, gameID int32, newSta
 
 	// When a game is cancelled, automatically reject all pending applications
 	if newState == core.GameStateCancelled {
-		appService := &GameApplicationService{DB: gs.DB}
+		appService := &GameApplicationService{DB: gs.DB, Logger: gs.Logger}
 		// Use the GM's ID as the reviewer (since they're cancelling the game)
 		if err := appService.BulkRejectApplications(ctx, gameID, game.GmUserID); err != nil {
 			// Log the error but don't fail the state change

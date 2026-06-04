@@ -143,7 +143,7 @@ func (h *Handler) V1DiscordStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	acct, err := discordSvc.GetDiscordAccount(ctx, userID)
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get Discord account", "user_id", userID)
@@ -172,7 +172,7 @@ func (h *Handler) V1DiscordDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	if err := discordSvc.DeleteDiscordAccount(ctx, userID); err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to delete Discord account", "user_id", userID)
 		render.Render(w, r, core.ErrInternalError(err))
@@ -260,7 +260,7 @@ func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
 		expiresAt = &t
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool}
+	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	_, err = discordSvc.UpsertDiscordAccount(ctx, &core.UpsertDiscordAccountRequest{
 		UserID:          userID,
 		DiscordUserID:   discordUser.ID,

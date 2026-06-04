@@ -34,7 +34,7 @@ func (h *Handler) LeaveGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	applicationService := &db.GameApplicationService{DB: h.App.Pool}
+	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 	// First, try to remove user from game participants (if they are a participant)
 	// Use RemovePlayer which handles both participant removal and character deactivation

@@ -229,7 +229,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 	if game.State.String == core.GameStateRecruitment && data.State != core.GameStateRecruitment {
 		h.App.ObsLogger.Info(ctx, "Transitioning out of recruitment, converting approved applications", "game_id", gameID)
 
-		applicationService := &db.GameApplicationService{DB: h.App.Pool}
+		applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 
 		// Get approved applications before conversion (for notifications)
