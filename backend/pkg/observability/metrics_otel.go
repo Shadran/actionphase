@@ -10,8 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel/attribute"
-	promexporter "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	promexporter "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -103,15 +103,15 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 	}
 
 	return &OTELMetrics{
-		meter:             meter,
-		requestCounter:    reqCounter,
-		requestLatency:    reqLatency,
-		PrometheusHandler: promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}),
-	}, func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = mp.Shutdown(ctx)
-	}, nil
+			meter:             meter,
+			requestCounter:    reqCounter,
+			requestLatency:    reqLatency,
+			PrometheusHandler: promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}),
+		}, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = mp.Shutdown(ctx)
+		}, nil
 }
 
 // RecordRequest records an HTTP request metric with method, route, and status labels.

@@ -10,8 +10,8 @@ import (
 // and request tracing into a cohesive observability system.
 type Observability struct {
 	Logger      *Logger
-	Metrics     *Metrics      // Legacy in-memory metrics (retained for health checks)
-	OTELMetrics *OTELMetrics  // OTEL metrics (active when OTEL_ENABLED=true)
+	Metrics     *Metrics     // Legacy in-memory metrics (retained for health checks)
+	OTELMetrics *OTELMetrics // OTEL metrics (active when OTEL_ENABLED=true)
 }
 
 // New creates a new observability system with logging and metrics.
@@ -28,12 +28,12 @@ func New(environment, logLevel string) *Observability {
 // This includes request tracing, metrics collection, error recovery, and CORS.
 func (o *Observability) MiddlewareStack() []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
-		CORSMiddleware(),                              // Handle CORS first
-		HealthCheckMiddleware("/health"),              // Health check bypass
-		ErrorRecoveryMiddleware(o.Logger),             // Panic recovery
-		RequestTracingMiddleware(o.Logger),            // Request tracing and correlation IDs
-		MetricsMiddleware(o.Metrics, o.OTELMetrics),  // Metrics collection
-		RouteTagMiddleware,                            // Backfill OTEL span name with chi route pattern
+		CORSMiddleware(),                            // Handle CORS first
+		HealthCheckMiddleware("/health"),            // Health check bypass
+		ErrorRecoveryMiddleware(o.Logger),           // Panic recovery
+		RequestTracingMiddleware(o.Logger),          // Request tracing and correlation IDs
+		MetricsMiddleware(o.Metrics, o.OTELMetrics), // Metrics collection
+		RouteTagMiddleware,                          // Backfill OTEL span name with chi route pattern
 	}
 }
 
