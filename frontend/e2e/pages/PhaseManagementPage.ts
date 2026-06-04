@@ -309,6 +309,49 @@ export class PhaseManagementPage {
   }
 
   /**
+   * Add a draft post to a pending phase via the DraftPostSection
+   */
+  async addDraftPost(phaseTitle: string, options: { content: string; characterName?: string }): Promise<void> {
+    const phaseCard = this.getPhaseCard(phaseTitle);
+    const addBtn = phaseCard.getByTestId('add-draft-post-btn');
+    await addBtn.scrollIntoViewIfNeeded();
+    await addBtn.click();
+
+    await this.page.locator('h2, h3').filter({ hasText: 'Write Draft Opening Post' }).waitFor({ state: 'visible', timeout: 5000 });
+
+    if (options.characterName) {
+      await this.page.locator('#create-draft-character').selectOption({ label: options.characterName });
+    }
+
+    await this.page.getByTestId('create-draft-content').fill(options.content);
+    await this.page.locator('button:has-text("Save Draft")').click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /**
+   * Edit an existing draft post on a pending phase
+   */
+  async editDraftPost(phaseTitle: string, newContent: string): Promise<void> {
+    const phaseCard = this.getPhaseCard(phaseTitle);
+    const editBtn = phaseCard.getByTestId('edit-draft-btn');
+    await editBtn.scrollIntoViewIfNeeded();
+    await editBtn.click();
+
+    await this.page.locator('h2, h3').filter({ hasText: 'Edit Draft Opening Post' }).waitFor({ state: 'visible', timeout: 5000 });
+
+    await this.page.getByTestId('edit-draft-content').fill(newContent);
+    await this.page.locator('button:has-text("Save Changes")').click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /**
+   * Get the draft post preview element on a phase card (the truncated italic preview text)
+   */
+  getDraftPostPreview(phaseTitle: string): Locator {
+    return this.getPhaseCard(phaseTitle).locator('.line-clamp-2');
+  }
+
+  /**
    * Open delete phase dialog
    * @param phaseTitle - Title of the phase
    */
