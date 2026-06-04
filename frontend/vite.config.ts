@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
+import faroUploader from '@grafana/faro-rollup-plugin'
 import { fileURLToPath, URL } from 'node:url'
 
 // https://vite.dev/config/
@@ -10,6 +11,18 @@ export default defineConfig({
     legacy({
       targets: ['ios >= 13', 'chrome >= 64', 'safari >= 13'],
     }),
+    // Upload source maps to Grafana Faro at build time so stack traces in the
+    // Frontend Observability UI are deobfuscated. Only runs when credentials
+    // are present (i.e. production builds). Get values from Grafana Cloud →
+    // Frontend Observability → your app → Settings → Source Maps.
+    ...(process.env.GRAFANA_FARO_API_KEY ? [faroUploader({
+      appName: process.env.VITE_FARO_APP_NAME ?? 'actionphase',
+      endpoint: process.env.GRAFANA_FARO_SOURCEMAP_ENDPOINT ?? '',
+      apiKey: process.env.GRAFANA_FARO_API_KEY,
+      appId: process.env.GRAFANA_FARO_APP_ID ?? '',
+      stackId: process.env.GRAFANA_FARO_STACK_ID ?? '',
+      gzipContents: true,
+    })] : []),
   ],
   resolve: {
     alias: {

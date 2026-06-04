@@ -23,6 +23,27 @@ type DiscordConfig struct {
 	OAuthRedirectURL string
 }
 
+// TelemetryConfig contains Grafana Cloud / OpenTelemetry configuration.
+// All telemetry is disabled by default; set OTEL_ENABLED=true to ship data.
+//
+// Authentication: the OTEL Go SDK automatically reads OTEL_EXPORTER_OTLP_HEADERS
+// from the environment (format: "key=value,key2=value2"). Set it to e.g.
+// "Authorization=Basic <base64(instanceID:apikey)>" for Grafana Cloud auth.
+// No explicit header config field is needed — the SDK handles it transparently.
+type TelemetryConfig struct {
+	// OTELEnabled gates all telemetry shipping (traces, metrics, logs).
+	// When false, no-op providers are used — zero performance cost.
+	OTELEnabled bool
+
+	// OTELEndpoint is the OTLP HTTP endpoint for traces, metrics, and logs.
+	// For Grafana Cloud: https://otlp-gateway-prod-XX.grafana.net/otlp
+	OTELEndpoint string
+
+	// PrometheusURL is the Grafana Cloud Prometheus remote_write endpoint (unused by OTLP push).
+	// Kept for reference; OTLP push auth uses OTEL_EXPORTER_OTLP_METRICS_HEADERS env var.
+	PrometheusURL string
+}
+
 // Config holds all application configuration values.
 // It provides a centralized location for environment-based configuration
 // with sensible defaults and validation.
@@ -37,12 +58,13 @@ type DiscordConfig struct {
 //	// Use configuration values
 //	pool, err := pgxpool.New(ctx, config.Database.URL)
 type Config struct {
-	Database DatabaseConfig `env:"DATABASE"`
-	JWT      JWTConfig      `env:"JWT"`
-	Server   ServerConfig   `env:"SERVER"`
-	App      AppConfig      `env:"APP"`
-	Storage  StorageConfig  `env:"STORAGE"`
-	Discord  DiscordConfig  `env:"DISCORD"`
+	Database  DatabaseConfig  `env:"DATABASE"`
+	JWT       JWTConfig       `env:"JWT"`
+	Server    ServerConfig    `env:"SERVER"`
+	App       AppConfig       `env:"APP"`
+	Storage   StorageConfig   `env:"STORAGE"`
+	Discord   DiscordConfig   `env:"DISCORD"`
+	Telemetry TelemetryConfig `env:"TELEMETRY"`
 }
 
 // DatabaseConfig contains database connection and behavior settings.
@@ -236,6 +258,11 @@ func LoadConfig() (*Config, error) {
 			OAuthClientID:     getEnvString("DISCORD_CLIENT_ID", ""),
 			OAuthClientSecret: getEnvString("DISCORD_CLIENT_SECRET", ""),
 			OAuthRedirectURL:  getEnvString("DISCORD_REDIRECT_URL", "http://localhost:3000/api/v1/auth/discord/callback"),
+		},
+		Telemetry: TelemetryConfig{
+			OTELEnabled:   getEnvBool("OTEL_ENABLED", false),
+			OTELEndpoint:  getEnvString("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+			PrometheusURL: getEnvString("GRAFANA_PROMETHEUS_URL", ""),
 		},
 	}
 

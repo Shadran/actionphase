@@ -9,11 +9,14 @@ import (
 // It combines structured logging with context awareness, metrics collection,
 // and request tracing into a cohesive observability system.
 type Observability struct {
-	Logger  *Logger
-	Metrics *Metrics
+	Logger      *Logger
+	Metrics     *Metrics      // Legacy in-memory metrics (retained for health checks)
+	OTELMetrics *OTELMetrics  // OTEL metrics (active when OTEL_ENABLED=true)
 }
 
-// New creates a new observability system with logging and metrics
+// New creates a new observability system with logging and metrics.
+// OTEL metrics must be initialized separately via InitMeterProvider and attached
+// to OTELMetrics after construction (main.go wires this after config is loaded).
 func New(environment, logLevel string) *Observability {
 	return &Observability{
 		Logger:  NewLogger(environment, logLevel),
@@ -25,18 +28,25 @@ func New(environment, logLevel string) *Observability {
 // This includes request tracing, metrics collection, error recovery, and CORS.
 func (o *Observability) MiddlewareStack() []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
-		CORSMiddleware(),                   // Handle CORS first
-		HealthCheckMiddleware("/health"),   // Health check bypass
-		ErrorRecoveryMiddleware(o.Logger),  // Panic recovery
-		RequestTracingMiddleware(o.Logger), // Request tracing and correlation IDs
-		MetricsMiddleware(o.Metrics),       // Metrics collection
+		CORSMiddleware(),                              // Handle CORS first
+		HealthCheckMiddleware("/health"),              // Health check bypass
+		ErrorRecoveryMiddleware(o.Logger),             // Panic recovery
+		RequestTracingMiddleware(o.Logger),            // Request tracing and correlation IDs
+		MetricsMiddleware(o.Metrics, o.OTELMetrics),  // Metrics collection
+		RouteTagMiddleware,                            // Backfill OTEL span name with chi route pattern
 	}
 }
 
-// MetricsHandler returns an HTTP handler that exposes metrics in JSON format.
-// This endpoint can be used by monitoring systems to scrape metrics.
+// MetricsHandler returns an HTTP handler that exposes metrics.
+// When OTELMetrics is configured, serves Prometheus text format for scraping.
+// Falls back to JSON format if OTEL metrics are not enabled.
 func (o *Observability) MetricsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if o.OTELMetrics != nil && o.OTELMetrics.PrometheusHandler != nil {
+			o.OTELMetrics.PrometheusHandler.ServeHTTP(w, r)
+			return
+		}
+
 		metrics := o.Metrics.GetMetrics()
 
 		w.Header().Set("Content-Type", "application/json")

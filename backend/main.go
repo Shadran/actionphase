@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -38,8 +39,54 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize OpenTelemetry tracing. When OTEL_ENABLED=false a no-op provider
+	// is installed so the rest of the code is unaffected.
+	tracerShutdown, err := observability.InitTracer(observability.TracerConfig{
+		Enabled:     config.Telemetry.OTELEnabled,
+		Endpoint:    config.Telemetry.OTELEndpoint,
+		Environment: config.App.Environment,
+		ServiceName: "actionphase-backend",
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: Failed to initialize tracer: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize OpenTelemetry metrics. When OTEL_ENABLED=false a no-op provider
+	// is installed so the Prometheus /metrics endpoint still works locally.
+	otelMetrics, meterShutdown, err := observability.InitMeterProvider(observability.MeterConfig{
+		Enabled:      config.Telemetry.OTELEnabled,
+		OTELEndpoint: config.Telemetry.OTELEndpoint,
+		Environment:  config.App.Environment,
+		ServiceName:  "actionphase-backend",
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: Failed to initialize meter provider: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Setup observability system with structured logging and metrics
 	obs := observability.New(config.App.Environment, config.App.LogLevel)
+	obs.OTELMetrics = otelMetrics
+
+	// Initialize OTEL log shipping. When enabled, obs.Logger fans out to both
+	// the local console and Grafana Cloud Loki via the OTLP pipeline.
+	logShutdown, logErr := observability.InitLogProvider(observability.LogConfig{
+		Enabled:      config.Telemetry.OTELEnabled,
+		OTELEndpoint: config.Telemetry.OTELEndpoint,
+		Environment:  config.App.Environment,
+		ServiceName:  "actionphase-backend",
+	}, obs.Logger)
+	if logErr != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: Failed to initialize log provider: %v\n", logErr)
+		os.Exit(1)
+	}
+
+	// Shutdown order (defers run LIFO): tracer first, then meter, then log last.
+	// Log must shut down last so any records emitted during trace/metric flush are shipped.
+	defer logShutdown()
+	defer meterShutdown()
+	defer tracerShutdown()
 
 	// Keep backward compatibility with existing slog.Logger
 	logLevel := slog.LevelInfo
@@ -75,6 +122,10 @@ func main() {
 	poolConfig.MaxConnLifetime = config.Database.MaxConnLifetime
 	poolConfig.MaxConnIdleTime = config.Database.MaxIdleTime
 	poolConfig.HealthCheckPeriod = config.Database.HealthCheckPeriod
+
+	// Instrument all database queries with OpenTelemetry spans.
+	// When OTEL_ENABLED=false the global tracer is a no-op so this is free.
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

@@ -31,6 +31,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type Handler struct {
@@ -562,10 +563,17 @@ func (h *Handler) Start() {
 		})
 	}
 
+	// Wrap the router with OpenTelemetry HTTP instrumentation.
+	// This creates spans for every request when OTEL_ENABLED=true.
+	// When OTEL is disabled, the global provider is a no-op so this is zero cost.
+	// Span names are set to the chi route template (e.g. "GET /api/v1/games/{id}")
+	// by RouteTagMiddleware, which runs after chi has matched the route.
+	otelHandler := otelhttp.NewHandler(r, "actionphase-http")
+
 	// Create HTTP server with configuration
 	server := &http.Server{
 		Addr:         h.App.Config.GetServerAddress(),
-		Handler:      r,
+		Handler:      otelHandler,
 		ReadTimeout:  h.App.Config.Server.ReadTimeout,
 		WriteTimeout: h.App.Config.Server.WriteTimeout,
 		IdleTimeout:  h.App.Config.Server.IdleTimeout,

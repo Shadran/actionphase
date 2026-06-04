@@ -4,6 +4,7 @@ import type { AppError } from '../types/errors';
 import { ErrorType, ErrorSeverity } from '../types/errors';
 import { createAppError, logError, getErrorMessage, getRecoveryActions } from '../lib/errors';
 import { Button } from './ui';
+import { pushError } from '../lib/faro';
 
 interface Props {
   children: React.ReactNode;
@@ -73,6 +74,12 @@ export class ErrorBoundary extends Component<Props, State> {
     logError(appError, {
       componentStack: errorInfo.componentStack,
       errorBoundary: this.constructor.name,
+    });
+
+    // Ship error to Grafana Faro for RUM tracking
+    pushError(error, {
+      errorBoundary: this.constructor.name,
+      errorId: this.state.errorId ?? '',
     });
 
     // Call custom error handler if provided

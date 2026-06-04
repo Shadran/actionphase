@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.opentelemetry.io/otel/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.36.0"
 )
 
 // RequestTracingMiddleware adds correlation IDs and request tracing to HTTP requests.
@@ -39,6 +42,13 @@ func RequestTracingMiddleware(logger *Logger) func(next http.Handler) http.Handl
 			ctx = WithCorrelationID(ctx, correlationID)
 			ctx = WithRequestID(ctx, requestID)
 
+			// Expose the OTEL trace ID so clients can link requests to Grafana Tempo traces.
+			// This is set after otelhttp has already created the span (otelhttp runs before
+			// our middleware in the handler chain, so the trace ID is available here).
+			if traceID := TraceIDFromContext(ctx); traceID != "" {
+				w.Header().Set("X-Trace-ID", traceID)
+			}
+
 			// Add user ID to context if available from JWT
 			if userID := extractUserIDFromRequest(r); userID != "" {
 				ctx = WithUserID(ctx, userID)
@@ -59,7 +69,7 @@ func RequestTracingMiddleware(logger *Logger) func(next http.Handler) http.Handl
 			logger.LogHTTPRequest(
 				ctx,
 				r.Method,
-				r.URL.Path,
+				routePattern(r),
 				ww.Status(),
 				duration,
 				"remote_addr", r.RemoteAddr,
@@ -70,24 +80,25 @@ func RequestTracingMiddleware(logger *Logger) func(next http.Handler) http.Handl
 	}
 }
 
-// MetricsMiddleware collects basic HTTP metrics for monitoring and alerting.
-// It tracks request counts, response times, and error rates by endpoint.
-func MetricsMiddleware(metrics *Metrics) func(next http.Handler) http.Handler {
+// MetricsMiddleware collects HTTP metrics for monitoring and alerting.
+// Records into both the legacy in-memory store and OTEL metrics (when non-nil).
+func MetricsMiddleware(metrics *Metrics, otelMetrics *OTELMetrics) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			// Wrap response writer to capture status
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-
-			// Process request
 			next.ServeHTTP(ww, r)
 
-			// Record metrics
 			duration := time.Since(start)
 			status := ww.Status()
 
-			metrics.RecordHTTPRequest(r.Method, r.URL.Path, status, duration)
+			route := routePattern(r)
+			metrics.RecordHTTPRequest(r.Method, route, status, duration)
+
+			if otelMetrics != nil {
+				otelMetrics.RecordRequest(r.Context(), r.Method, route, status, duration)
+			}
 		})
 	}
 }
@@ -100,6 +111,12 @@ func ErrorRecoveryMiddleware(logger *Logger) func(next http.Handler) http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
+					// http.ErrAbortHandler is a sentinel used by net/http to abort a
+					// connection cleanly — re-raise it so the runtime handles it correctly.
+					if err == http.ErrAbortHandler {
+						panic(err)
+					}
+
 					ctx := r.Context()
 
 					// Capture stack trace
@@ -156,7 +173,7 @@ func extractUserIDFromRequest(r *http.Request) string {
 					return id
 				}
 				if id, ok := userID.(float64); ok {
-					return string(rune(int(id)))
+					return strconv.Itoa(int(id))
 				}
 			}
 		}
@@ -190,7 +207,7 @@ func CORSMiddleware() func(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Correlation-ID")
-			w.Header().Set("Access-Control-Expose-Headers", "X-Correlation-ID, X-Request-ID")
+			w.Header().Set("Access-Control-Expose-Headers", "X-Correlation-ID, X-Request-ID, X-Trace-ID")
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -200,4 +217,32 @@ func CORSMiddleware() func(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// RouteTagMiddleware backfills the active OTEL span with the matched chi route
+// pattern after routing completes. otelhttp creates spans at the router entry
+// point before chi has matched the route, so without this the span name is the
+// raw URL path (high-cardinality). This middleware runs inside chi, where the
+// route pattern is already resolved.
+func RouteTagMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		if span := trace.SpanFromContext(r.Context()); span.IsRecording() {
+			if chiCtx := chi.RouteContext(r.Context()); chiCtx != nil && chiCtx.RoutePattern() != "" {
+				pattern := chiCtx.RoutePattern()
+				span.SetName(r.Method + " " + pattern)
+				span.SetAttributes(semconv.HTTPRoute(pattern))
+			}
+		}
+	})
+}
+
+// routePattern returns the chi route template (e.g. "/api/v1/games/{id}") for a
+// request, falling back to r.URL.Path when no chi context is present.
+// Using the template prevents high-cardinality metric labels from parameterized routes.
+func routePattern(r *http.Request) string {
+	if chiCtx := chi.RouteContext(r.Context()); chiCtx != nil && chiCtx.RoutePattern() != "" {
+		return chiCtx.RoutePattern()
+	}
+	return r.URL.Path
 }

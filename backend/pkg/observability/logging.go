@@ -230,6 +230,12 @@ func (l *Logger) Underlying() *slog.Logger {
 	return l.logger
 }
 
+// ReplaceHandler replaces the underlying slog handler.
+// Used to bridge to the OTEL log provider after initialization.
+func (l *Logger) ReplaceHandler(h slog.Handler) {
+	l.logger = slog.New(h)
+}
+
 // ContextHelpers provides utility functions for working with context values
 
 // WithCorrelationID adds a correlation ID to the context
