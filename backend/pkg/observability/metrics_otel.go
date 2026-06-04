@@ -129,6 +129,21 @@ func httpMetricAttrs(method, route string, statusCode int) metric.MeasurementOpt
 	return metric.WithAttributes(
 		attribute.String("http.request.method", method),
 		attribute.String("http.route", route),
-		attribute.Int("http.response.status_code", statusCode),
+		attribute.String("http.response.status_class", statusClass(statusCode)),
 	)
+}
+
+// statusClass converts a status code to a class string (2xx, 3xx, 4xx, 5xx).
+// This reduces label cardinality vs recording the exact status code.
+func statusClass(code int) string {
+	switch {
+	case code < 300:
+		return "2xx"
+	case code < 400:
+		return "3xx"
+	case code < 500:
+		return "4xx"
+	default:
+		return "5xx"
+	}
 }

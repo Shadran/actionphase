@@ -5,6 +5,12 @@ import { getFaro } from '@/lib/faro';
 
 const API_BASE_URL = ''; // Use proxy in development
 
+// Replace numeric path segments with {id} so span names stay low-cardinality.
+// e.g. /api/v1/games/5/characters/12 → /api/v1/games/{id}/characters/{id}
+function normalizeUrl(url: string): string {
+  return url.replace(/\/\d+/g, '/{id}');
+}
+
 /**
  * Base API client with authentication and token refresh interceptors
  */
@@ -56,7 +62,8 @@ export class BaseApiClient {
       const faro = getFaro();
       if (faro) {
         const tracer = trace.getTracer('axios');
-        const span = tracer.startSpan(`${config.method?.toUpperCase()} ${config.url}`);
+        const spanName = `${config.method?.toUpperCase()} ${normalizeUrl(config.url ?? '')}`;
+        const span = tracer.startSpan(spanName);
         const ctx = trace.setSpan(context.active(), span);
         const carrier: Record<string, string> = {};
         propagation.inject(ctx, carrier);

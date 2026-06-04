@@ -27,6 +27,7 @@ export function initFaro(): void {
     instrumentations: [
       ...getWebInstrumentations({
         captureConsole: true,
+        performanceInstrumentation: { enabled: false },
       }),
       new TracingInstrumentation(),
       new ReactIntegration({
