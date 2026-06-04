@@ -1,7 +1,12 @@
-import axios from 'axios';
-import { context, trace, propagation, SpanStatusCode } from '@opentelemetry/api';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { context, trace, propagation, SpanStatusCode, type Span, type Context } from '@opentelemetry/api';
 import { logger, setCorrelationId } from '@/services/LoggingService';
 import { getFaro } from '@/lib/faro';
+
+interface OtelAxiosRequestConfig extends InternalAxiosRequestConfig {
+  __otelSpan?: Span;
+  __otelCtx?: Context;
+}
 
 const API_BASE_URL = ''; // Use proxy in development
 
@@ -69,8 +74,8 @@ export class BaseApiClient {
         propagation.inject(ctx, carrier);
         Object.assign(config.headers, carrier);
         // Store span on config so the response interceptor can end it
-        (config as any).__otelSpan = span;
-        (config as any).__otelCtx = ctx;
+        (config as OtelAxiosRequestConfig).__otelSpan = span;
+        (config as OtelAxiosRequestConfig).__otelCtx = ctx;
       }
 
       // Log API request
@@ -88,7 +93,7 @@ export class BaseApiClient {
     this.client.interceptors.response.use(
       (response) => {
         // End the OTEL span started in the request interceptor
-        const span = (response.config as any).__otelSpan;
+        const span = (response.config as OtelAxiosRequestConfig).__otelSpan;
         if (span) {
           span.setAttribute('http.status_code', response.status);
           span.end();
@@ -116,7 +121,7 @@ export class BaseApiClient {
       },
       async (error) => {
         // End the OTEL span started in the request interceptor, marking it as failed
-        const span = (error.config as any)?.__otelSpan;
+        const span = (error.config as OtelAxiosRequestConfig | undefined)?.__otelSpan;
         if (span) {
           span.setAttribute('http.status_code', error.response?.status ?? 0);
           span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
