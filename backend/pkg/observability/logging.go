@@ -143,22 +143,22 @@ func (l *Logger) extractContextAttributes(ctx context.Context) []any {
 
 // Debug logs a debug-level message with context
 func (l *Logger) Debug(ctx context.Context, msg string, args ...any) {
-	l.WithContext(ctx).logger.Debug(msg, args...)
+	l.WithContext(ctx).logger.Debug(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Info logs an info-level message with context
 func (l *Logger) Info(ctx context.Context, msg string, args ...any) {
-	l.WithContext(ctx).logger.Info(msg, args...)
+	l.WithContext(ctx).logger.Info(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Warn logs a warn-level message with context
 func (l *Logger) Warn(ctx context.Context, msg string, args ...any) {
-	l.WithContext(ctx).logger.Warn(msg, args...)
+	l.WithContext(ctx).logger.Warn(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // Error logs an error-level message with context
 func (l *Logger) Error(ctx context.Context, msg string, args ...any) {
-	l.WithContext(ctx).logger.Error(msg, args...)
+	l.WithContext(ctx).logger.Error(msg, append([]any{"source", "app"}, args...)...)
 }
 
 // LogOperation logs the start and completion of an operation with timing information.
@@ -220,6 +220,7 @@ func (l *Logger) LogHTTPRequest(ctx context.Context, method, path string, status
 	}
 
 	httpArgs := append([]any{
+		"source", "http",
 		"http_method", method,
 		"http_path", path,
 		"http_status", statusCode,

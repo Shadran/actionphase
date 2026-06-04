@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { context, trace, SpanStatusCode } from '@opentelemetry/api';
 import { logger, setCorrelationId } from '@/services/LoggingService';
 import { getFaro } from '@/lib/faro';
 
@@ -49,16 +50,21 @@ export class BaseApiClient {
       }
 
       // Inject W3C trace context so backend spans are linked to the frontend trace.
-      // Faro's TracingInstrumentation only patches fetch/XHR, not axios.
+      // We create an explicit span for every request rather than relying on an
+      // active span already being open (which isn't the case for login, background
+      // refetches, etc.). Faro's TracingInstrumentation only patches fetch/XHR.
       const faro = getFaro();
-      if (faro) {
-        const traceContext = faro.api.getOTEL()?.context;
-        const propagator = faro.api.getOTEL()?.propagation;
-        if (traceContext && propagator) {
-          const carrier: Record<string, string> = {};
-          propagator.inject(traceContext.active(), carrier);
-          Object.assign(config.headers, carrier);
-        }
+      const otel = faro?.api.getOTEL();
+      if (otel) {
+        const tracer = otel.trace.getTracer('axios');
+        const span = tracer.startSpan(`${config.method?.toUpperCase()} ${config.url}`);
+        const ctx = otel.trace.setSpan(otel.context.active(), span);
+        const carrier: Record<string, string> = {};
+        otel.propagation.inject(ctx, carrier);
+        Object.assign(config.headers, carrier);
+        // Store span on config so the response interceptor can end it
+        (config as any).__otelSpan = span;
+        (config as any).__otelCtx = ctx;
       }
 
       // Log API request
@@ -75,6 +81,13 @@ export class BaseApiClient {
     // Add response interceptor to handle token refresh
     this.client.interceptors.response.use(
       (response) => {
+        // End the OTEL span started in the request interceptor
+        const span = (response.config as any).__otelSpan;
+        if (span) {
+          span.setAttribute('http.status_code', response.status);
+          span.end();
+        }
+
         // Extract and store correlation ID from response headers
         const correlationId =
           response.headers['x-correlation-id'] ||
@@ -96,6 +109,14 @@ export class BaseApiClient {
         return response;
       },
       async (error) => {
+        // End the OTEL span started in the request interceptor, marking it as failed
+        const span = (error.config as any)?.__otelSpan;
+        if (span) {
+          span.setAttribute('http.status_code', error.response?.status ?? 0);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+          span.end();
+        }
+
         const originalRequest = error.config;
 
         // Downgrade expected non-errors to debug:
