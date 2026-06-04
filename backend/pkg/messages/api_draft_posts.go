@@ -3,10 +3,10 @@ package messages
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -88,14 +88,14 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameID, err := getGameIDForPhase(ctx, h.App, phaseID)
-	if err != nil {
-		render.Render(w, r, core.ErrNotFound("phase not found"))
+	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
+		render.Render(w, r, err)
 		return
 	}
 
-	if err := requireGMOrCoGM(ctx, h.App, gameID, userID); err != nil {
-		render.Render(w, r, err)
+	gameID, err := getGameIDForPhase(ctx, h.App, phaseID)
+	if err != nil {
+		render.Render(w, r, core.ErrNotFound("phase not found"))
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		Visibility:  "game",
 	})
 	if err != nil {
-		if strings.Contains(err.Error(), "draft post already exists") {
+		if errors.Is(err, core.ErrDraftPostExists) {
 			render.Render(w, r, core.ErrConflict("a draft post already exists for this phase"))
 			return
 		}
@@ -146,11 +146,6 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.TrimSpace(data.Content) == "" {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("content cannot be empty")))
-		return
-	}
-
 	if err := validation.ValidatePost(data.Content); err != nil {
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
@@ -162,13 +157,7 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameID, err := getGameIDForPhase(ctx, h.App, phaseID)
-	if err != nil {
-		render.Render(w, r, core.ErrNotFound("phase not found"))
-		return
-	}
-
-	if err := requireGMOrCoGM(ctx, h.App, gameID, userID); err != nil {
+	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
 		render.Render(w, r, err)
 		return
 	}
@@ -216,13 +205,7 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameID, err := getGameIDForPhase(ctx, h.App, phaseID)
-	if err != nil {
-		render.Render(w, r, core.ErrNotFound("phase not found"))
-		return
-	}
-
-	if err := requireGMOrCoGM(ctx, h.App, gameID, userID); err != nil {
+	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
 		render.Render(w, r, err)
 		return
 	}

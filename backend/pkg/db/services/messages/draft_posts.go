@@ -77,6 +77,15 @@ func (s *MessageService) CreateDraftPost(ctx context.Context, req core.CreatePos
 		return nil, err
 	}
 
+	// Validate the phase is not already active — drafts only make sense for pending phases
+	phase, err := queries.GetPhase(ctx, *req.PhaseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get phase: %w", err)
+	}
+	if phase.IsActive.Bool {
+		return nil, fmt.Errorf("cannot create a draft post for an already-active phase")
+	}
+
 	// Validate character ownership
 	if err := s.ValidateCharacterOwnership(ctx, req.CharacterID, req.AuthorID, req.GameID); err != nil {
 		return nil, fmt.Errorf("character validation failed: %w", err)
@@ -93,7 +102,7 @@ func (s *MessageService) CreateDraftPost(ctx context.Context, req core.CreatePos
 		return nil, fmt.Errorf("failed to check existing draft: %w", err)
 	}
 	if existingCount > 0 {
-		return nil, fmt.Errorf("a draft post already exists for this phase")
+		return nil, core.ErrDraftPostExists
 	}
 
 	// Extract character mentions
@@ -176,8 +185,7 @@ func (s *MessageService) DeleteDraftPost(ctx context.Context, postID int32) erro
 		return fmt.Errorf("post is not a draft")
 	}
 
-	_, err = s.DB.Exec(ctx, "DELETE FROM messages WHERE id = $1 AND is_draft = true", postID)
-	if err != nil {
+	if err := queries.DeleteDraftPost(ctx, postID); err != nil {
 		return fmt.Errorf("failed to delete draft post: %w", err)
 	}
 

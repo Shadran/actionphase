@@ -9,7 +9,7 @@ const draftPostKey = (phaseId: number) => ['draftPost', phaseId];
  */
 export function useDraftPost(phaseId: number | undefined) {
   return useQuery({
-    queryKey: draftPostKey(phaseId ?? 0),
+    queryKey: draftPostKey(phaseId!),
     queryFn: async () => {
       try {
         const response = await apiClient.messages.getDraftPost(phaseId!);

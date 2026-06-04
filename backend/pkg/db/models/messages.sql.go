@@ -355,6 +355,18 @@ func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) er
 	return err
 }
 
+const deleteDraftPost = `-- name: DeleteDraftPost :exec
+DELETE FROM messages
+WHERE id = $1
+  AND is_draft = true
+`
+
+// Hard delete a single draft post by ID.
+func (q *Queries) DeleteDraftPost(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteDraftPost, id)
+	return err
+}
+
 const deleteDraftPostsForPhase = `-- name: DeleteDraftPostsForPhase :exec
 DELETE FROM messages
 WHERE phase_id = $1
@@ -1653,6 +1665,7 @@ WHERE m.game_id = $1
   AND m.author_id = $2
   AND m.message_type = 'post'
   AND m.is_deleted = false
+  AND m.is_draft = false
 ORDER BY m.created_at DESC
 `
 

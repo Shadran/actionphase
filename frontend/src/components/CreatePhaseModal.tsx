@@ -135,15 +135,15 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
             {/* Draft opening post section — only for Common Room phases */}
             {formData.phase_type === 'common_room' && (
               <div className="border border-border-default rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-content-primary surface-raised hover:surface-sunken transition-colors"
+                <Button
+                  variant="ghost"
                   onClick={() => setShowDraftSection(prev => !prev)}
                   data-testid="draft-post-toggle"
+                  className="w-full flex items-center justify-between px-4 py-3"
                 >
                   <span>Draft Opening Post (Optional)</span>
                   <span className="text-content-tertiary">{showDraftSection ? '▲' : '▼'}</span>
-                </button>
+                </Button>
 
                 {showDraftSection && (
                   <div className="px-4 py-3 space-y-3 surface-base">

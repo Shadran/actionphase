@@ -77,7 +77,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   const previousPhaseResults = usePreviousPhaseResults(gameId, currentPhase, isGM);
 
   // Fetch draft post for GM preview on pending phases
-  const isPendingPhase = isGM && phaseId && currentPhase && !currentPhase.is_active;
+  const isPendingPhase = isGM && phaseId && currentPhase && !currentPhase.is_active && currentPhase.phase_type === 'common_room';
   const { data: draftPost } = useDraftPost(isPendingPhase ? phaseId : undefined);
 
   // Sync activeTab state with URL parameter

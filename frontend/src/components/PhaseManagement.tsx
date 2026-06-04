@@ -10,6 +10,7 @@ import { Button } from './ui';
 import { PHASE_TYPE_LABELS } from '../types/phases';
 import type { GamePhase, CreatePhaseRequest } from '../types/phases';
 import { localDateTimeToUTC } from '../utils/timezone';
+import { useToast } from '../contexts/ToastContext';
 
 interface PhaseManagementProps {
   gameId: number;
@@ -17,6 +18,7 @@ interface PhaseManagementProps {
 }
 
 export function PhaseManagement({ gameId, className = '' }: PhaseManagementProps) {
+  const { showWarning } = useToast();
   const [isCreatingPhase, setIsCreatingPhase] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [isEditingDeadline, setIsEditingDeadline] = useState<number | null>(null);
@@ -140,7 +142,7 @@ export function PhaseManagement({ gameId, className = '' }: PhaseManagementProps
                   draftPost.content
                 );
               } catch {
-                // Draft creation failure is non-fatal — phase was created successfully
+                showWarning('Phase created, but the draft post could not be saved. You can add it from the phase panel.');
               }
             }
             setIsCreatingPhase(false);

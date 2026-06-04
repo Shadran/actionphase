@@ -14,9 +14,11 @@ interface DraftPostSectionProps {
 function CreateDraftModal({
   phaseId,
   onClose,
+  onSuccess,
 }: {
   phaseId: number;
   onClose: () => void;
+  onSuccess: () => void;
 }) {
   const gameContext = useOptionalGameContext();
   const userCharacters = gameContext?.userCharacters ?? [];
@@ -31,7 +33,7 @@ function CreateDraftModal({
     e.preventDefault();
     if (!characterId || !content.trim()) return;
     await createMutation.mutateAsync({ characterId: characterId as number, content: content.trim() });
-    onClose();
+    onSuccess();
   };
 
   return (
@@ -163,7 +165,7 @@ export function DraftPostSection({ phaseId, onCreateDraft }: DraftPostSectionPro
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const handleCreateClose = () => {
+  const handleCreateSuccess = () => {
     setShowCreateModal(false);
     onCreateDraft();
   };
@@ -184,63 +186,57 @@ export function DraftPostSection({ phaseId, onCreateDraft }: DraftPostSectionPro
       {draft === null || draft === undefined ? (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-content-tertiary">No draft post</span>
-          <button
-            type="button"
-            className="text-interactive-primary hover:underline text-sm"
+          <Button
+            variant="ghost"
             onClick={() => setShowCreateModal(true)}
             data-testid="add-draft-post-btn"
           >
             + Add Draft Post
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-content-secondary uppercase tracking-wide">Draft Post</span>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="text-xs text-interactive-primary hover:underline"
+              <Button
+                variant="ghost"
                 onClick={() => setShowPreviewModal(true)}
                 data-testid="preview-draft-btn"
               >
                 Preview
-              </button>
-              <button
-                type="button"
-                className="text-xs text-interactive-primary hover:underline"
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => setShowEditModal(true)}
                 data-testid="edit-draft-btn"
               >
                 Edit
-              </button>
+              </Button>
               {confirmDelete ? (
                 <span className="flex items-center gap-1 text-xs">
                   <span className="text-content-secondary">Delete?</span>
-                  <button
-                    type="button"
-                    className="text-semantic-danger hover:underline"
+                  <Button
+                    variant="danger"
                     onClick={() => { deleteMutation.mutate(); setConfirmDelete(false); }}
                   >
                     Yes
-                  </button>
-                  <button
-                    type="button"
-                    className="text-content-tertiary hover:underline"
+                  </Button>
+                  <Button
+                    variant="ghost"
                     onClick={() => setConfirmDelete(false)}
                   >
                     No
-                  </button>
+                  </Button>
                 </span>
               ) : (
-                <button
-                  type="button"
-                  className="text-xs text-semantic-danger hover:underline"
+                <Button
+                  variant="danger"
                   onClick={() => setConfirmDelete(true)}
                   data-testid="delete-draft-btn"
                 >
                   Delete
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -255,7 +251,7 @@ export function DraftPostSection({ phaseId, onCreateDraft }: DraftPostSectionPro
       )}
 
       {showCreateModal && (
-        <CreateDraftModal phaseId={phaseId} onClose={handleCreateClose} />
+        <CreateDraftModal phaseId={phaseId} onClose={() => setShowCreateModal(false)} onSuccess={handleCreateSuccess} />
       )}
       {showEditModal && draft && (
         <EditDraftModal phaseId={phaseId} initialContent={draft.content} onClose={() => setShowEditModal(false)} />

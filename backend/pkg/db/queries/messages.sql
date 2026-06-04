@@ -243,6 +243,12 @@ WHERE phase_id = $1
   AND is_draft = true
   AND is_deleted = false;
 
+-- name: DeleteDraftPost :exec
+-- Hard delete a single draft post by ID.
+DELETE FROM messages
+WHERE id = $1
+  AND is_draft = true;
+
 -- name: DeleteDraftPostsForPhase :exec
 -- Hard delete draft posts when a phase is deleted.
 DELETE FROM messages
@@ -403,6 +409,7 @@ WHERE m.game_id = $1
   AND m.author_id = $2
   AND m.message_type = 'post'
   AND m.is_deleted = false
+  AND m.is_draft = false
 ORDER BY m.created_at DESC;
 
 -- ============================================================================
