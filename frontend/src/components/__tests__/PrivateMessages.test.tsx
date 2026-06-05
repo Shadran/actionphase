@@ -122,7 +122,7 @@ describe('PrivateMessages', () => {
 
       await waitFor(() => {
         const newButton = screen.getByRole('button', { name: /\+ new/i });
-        expect(newButton).toHaveAttribute('title', 'New conversations can only be started during Common Room phases');
+        expect(newButton).toHaveAttribute('title', 'New conversations can only be started during Common Room or Interlude phases');
       });
     });
 

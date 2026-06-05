@@ -561,6 +561,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if activePhase == nil || (activePhase.PhaseType != core.PhaseTypeCommonRoom && activePhase.PhaseType != core.PhaseTypeInterlude) {
+		h.App.Logger.Warn("Cannot edit private message outside common room or interlude phase", "game_id", conv.GameID, "phase_type", activePhase.PhaseType)
 		render.Render(w, r, core.ErrForbidden("private messages can only be edited during common room or interlude phases"))
 		return
 	}

@@ -1138,13 +1138,13 @@ describe('MessageThread', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/new messages can only be sent during common room phases/i)).toBeInTheDocument();
+        expect(screen.getByText(/new messages can only be sent during common room or interlude phases/i)).toBeInTheDocument();
       });
 
       const sendButton = screen.getByRole('button', { name: /send/i });
       expect(sendButton).toBeDisabled();
 
-      const textarea = screen.getByPlaceholderText(/messaging is only available during common room phases/i);
+      const textarea = screen.getByPlaceholderText(/messaging is only available during common room or interlude phases/i);
       expect(textarea).toBeDisabled();
     });
 
@@ -1159,7 +1159,7 @@ describe('MessageThread', () => {
       );
 
       await waitFor(() => {
-        expect(screen.queryByText(/new messages can only be sent during common room phases/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/new messages can only be sent during common room or interlude phases/i)).not.toBeInTheDocument();
       });
 
       const textarea = screen.getByPlaceholderText(/type your message/i);
@@ -1177,10 +1177,10 @@ describe('MessageThread', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/new messages can only be sent during common room phases/i)).toBeInTheDocument();
+        expect(screen.getByText(/new messages can only be sent during common room or interlude phases/i)).toBeInTheDocument();
       });
 
-      const textarea = screen.getByPlaceholderText(/messaging is only available during common room phases/i);
+      const textarea = screen.getByPlaceholderText(/messaging is only available during common room or interlude phases/i);
       expect(textarea).toBeDisabled();
     });
 
@@ -1195,7 +1195,7 @@ describe('MessageThread', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/new messages can only be sent during common room phases/i)).toBeInTheDocument();
+        expect(screen.getByText(/new messages can only be sent during common room or interlude phases/i)).toBeInTheDocument();
       });
 
       const sendButton = screen.getByRole('button', { name: /send/i });
@@ -1229,7 +1229,7 @@ describe('MessageThread', () => {
 
       await waitFor(() => {
         const sendButton = screen.getByRole('button', { name: /send/i });
-        expect(sendButton).toHaveAttribute('title', 'Messages can only be sent during Common Room phases');
+        expect(sendButton).toHaveAttribute('title', 'Messages can only be sent during Common Room or Interlude phases');
       });
     });
 
@@ -1260,7 +1260,7 @@ describe('MessageThread', () => {
       );
 
       await waitFor(() => {
-        expect(screen.queryByText(/new messages can only be sent during common room phases/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/new messages can only be sent during common room or interlude phases/i)).not.toBeInTheDocument();
       });
 
       const textarea = screen.getByPlaceholderText(/type your message/i);

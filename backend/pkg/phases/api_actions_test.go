@@ -348,8 +348,6 @@ func TestPhaseAPI_InterludeBlocksActionSubmission(t *testing.T) {
 	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
 	player := testDB.CreateTestUser(t, "player", "player@example.com")
 
-	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
-	require.NoError(t, err)
 	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
 	require.NoError(t, err)
 
@@ -367,12 +365,11 @@ func TestPhaseAPI_InterludeBlocksActionSubmission(t *testing.T) {
 	require.NoError(t, err)
 
 	phaseService := &phasesvc.PhaseService{DB: testDB.Pool, Logger: app.ObsLogger}
-	phase, err := phaseService.TransitionToNextPhase(context.Background(), game.ID, int32(gm.ID), core.TransitionPhaseRequest{
+	_, err = phaseService.TransitionToNextPhase(context.Background(), game.ID, int32(gm.ID), core.TransitionPhaseRequest{
 		PhaseType: core.PhaseTypeInterlude,
 		Title:     "Evening Interlude",
 	})
 	require.NoError(t, err)
-	_ = gmToken
 
 	t.Run("player cannot submit action during interlude phase", func(t *testing.T) {
 		body := SubmitActionRequest{
@@ -391,6 +388,4 @@ func TestPhaseAPI_InterludeBlocksActionSubmission(t *testing.T) {
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
-
-	_ = phase
 }

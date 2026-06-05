@@ -37,15 +37,14 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
     replace: true,
   });
 
-  // Check if we're in a common room phase (when messaging is allowed)
-  const isCommonRoomPhase = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
+  const isMessagingAllowed = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
 
   logger.debug('PrivateMessages component state', {
     selectedConversationId,
     charactersCount: characters.length,
     gameId,
     currentPhaseType,
-    isCommonRoomPhase
+    isMessagingAllowed
   });
 
   // Load conversations on mount and when gameId changes
@@ -105,16 +104,16 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
                   variant="primary"
                   size="sm"
                   onClick={() => setShowNewConversationModal(true)}
-                  disabled={!isCommonRoomPhase}
-                  title={!isCommonRoomPhase ? 'New conversations can only be started during Common Room phases' : 'Start a new private conversation'}
+                  disabled={!isMessagingAllowed}
+                  title={!isMessagingAllowed ? 'New conversations can only be started during Common Room or Interlude phases' : 'Start a new private conversation'}
                 >
                   + New
                 </Button>
               </div>
             </div>
-            {!isCommonRoomPhase && (
+            {!isMessagingAllowed && (
               <Alert variant="info" className="mt-2">
-                You can read message history, but new messages can only be sent during Common Room phases.
+                You can read message history, but new messages can only be sent during Common Room or Interlude phases.
               </Alert>
             )}
           </div>

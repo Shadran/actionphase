@@ -19,8 +19,7 @@ interface MessageThreadProps {
 }
 
 export function MessageThread({ gameId, conversationId, characters, currentPhaseType, onBack }: MessageThreadProps) {
-  // Check if we're in a common room phase (when messaging is allowed)
-  const isCommonRoomPhase = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
+  const isMessagingAllowed = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
   const { currentUser } = useAuth();
   const gameContext = useOptionalGameContext();
   const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
@@ -375,7 +374,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                         {formatTimestamp(message.created_at)}
                       </span>
                       {/* Edit/Delete buttons - only show for sender's non-deleted messages */}
-                      {currentUser && message.sender_user_id === currentUser.id && !message.is_deleted && isCommonRoomPhase && (
+                      {currentUser && message.sender_user_id === currentUser.id && !message.is_deleted && isMessagingAllowed && (
                         <div className="ml-auto flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleStartEdit(message.id, message.content)}
@@ -455,7 +454,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
       {/* Message Input */}
       <div className="surface-base border-t border-theme-default">
         {/* Mobile: "Reply" button shown when reply box is collapsed */}
-        {isCommonRoomPhase && !replyOpen && (
+        {isMessagingAllowed && !replyOpen && (
           <div className="sm:hidden p-2 flex justify-end">
             <Button
               variant="primary"
@@ -469,9 +468,9 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
 
         <div className={`p-4 ${!replyOpen ? 'hidden sm:block' : ''}`}>
         {/* Phase restriction alert */}
-        {!isCommonRoomPhase && (
+        {!isMessagingAllowed && (
           <Alert variant="info" className="mb-4">
-            New messages can only be sent during Common Room phases. You can read message history at any time.
+            New messages can only be sent during Common Room or Interlude phases. You can read message history at any time.
           </Alert>
         )}
 
@@ -483,7 +482,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                   <Select
                     value={selectedCharacterId?.toString() || ''}
                     onChange={(e) => setSelectedCharacterId(Number(e.target.value))}
-                    disabled={sending || !isCommonRoomPhase}
+                    disabled={sending || !isMessagingAllowed}
                   >
                     {participantCharacters.map((char) => (
                       <option key={char.id} value={char.id}>
@@ -498,8 +497,8 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                 value={newMessage}
                 onChange={setNewMessage}
                 rows={4}
-                placeholder={isCommonRoomPhase ? "Type your message..." : "Messaging is only available during Common Room phases"}
-                disabled={sending || !isCommonRoomPhase}
+                placeholder={isMessagingAllowed ? "Type your message..." : "Messaging is only available during Common Room or Interlude phases"}
+                disabled={sending || !isMessagingAllowed}
                 maxLength={50000}
                 warnOnUnsavedChanges
                 showCharacterCount={true}
@@ -509,8 +508,8 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                 <Button
                     type="submit"
                     variant="primary"
-                    disabled={sending || !newMessage.trim() || !isCommonRoomPhase}
-                    title={!isCommonRoomPhase ? 'Messages can only be sent during Common Room phases' : undefined}
+                    disabled={sending || !newMessage.trim() || !isMessagingAllowed}
+                    title={!isMessagingAllowed ? 'Messages can only be sent during Common Room or Interlude phases' : undefined}
                 >
                   {sending ? 'Sending...' : 'Send'}
                 </Button>
