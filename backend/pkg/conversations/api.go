@@ -356,9 +356,9 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if activePhase == nil || activePhase.PhaseType != "common_room" {
-		h.App.Logger.Warn("Cannot send private messages outside common room phase", "game_id", character.GameID, "phase_type", activePhase.PhaseType)
-		render.Render(w, r, core.ErrForbidden("private messages can only be sent during common room phases"))
+	if activePhase == nil || (activePhase.PhaseType != core.PhaseTypeCommonRoom && activePhase.PhaseType != core.PhaseTypeInterlude) {
+		h.App.Logger.Warn("Cannot send private messages outside common room or interlude phase", "game_id", character.GameID, "phase_type", activePhase.PhaseType)
+		render.Render(w, r, core.ErrForbidden("private messages can only be sent during common room or interlude phases"))
 		return
 	}
 
@@ -560,8 +560,8 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if activePhase == nil || activePhase.PhaseType != "common_room" {
-		render.Render(w, r, core.ErrForbidden("private messages can only be edited during common room phases"))
+	if activePhase == nil || (activePhase.PhaseType != core.PhaseTypeCommonRoom && activePhase.PhaseType != core.PhaseTypeInterlude) {
+		render.Render(w, r, core.ErrForbidden("private messages can only be edited during common room or interlude phases"))
 		return
 	}
 

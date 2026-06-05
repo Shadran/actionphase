@@ -1,7 +1,7 @@
 export interface GamePhase {
   id: number;
   game_id: number;
-  phase_type: 'common_room' | 'action';
+  phase_type: 'common_room' | 'action' | 'interlude';
   phase_number: number;
   title?: string;
   description?: string;
@@ -18,7 +18,7 @@ export interface GamePhase {
 }
 
 export interface CreatePhaseRequest {
-  phase_type: 'common_room' | 'action';
+  phase_type: 'common_room' | 'action' | 'interlude';
   title?: string;
   description?: string;
   start_time?: string;
@@ -112,17 +112,20 @@ export interface UpdateDraftCharacterUpdateRequest {
 // Phase display helpers
 export const PHASE_TYPE_LABELS: Record<GamePhase['phase_type'], string> = {
   common_room: 'Common Room',
-  action: 'Action Phase'
+  action: 'Action Phase',
+  interlude: 'Interlude'
 };
 
 export const PHASE_TYPE_DESCRIPTIONS: Record<GamePhase['phase_type'], string> = {
-  common_room: 'Open discussion and roleplay between characters',
-  action: 'Submit private actions to the GM'
+  common_room: 'Open discussion and roleplay between characters. The GM creates a public post and players can comment and send private messages.',
+  action: 'Players submit private actions to the GM for resolution. No public roleplay or private messaging.',
+  interlude: 'Private messaging only. No public post or action submissions — ideal for last-minute planning or one-on-one conversations with the GM.'
 };
 
 export const PHASE_TYPE_COLORS: Record<GamePhase['phase_type'], string> = {
   common_room: 'bg-semantic-success-subtle text-content-primary border-semantic-success',
-  action: 'bg-interactive-primary-subtle text-content-primary border-interactive-primary'
+  action: 'bg-interactive-primary-subtle text-content-primary border-interactive-primary',
+  interlude: 'bg-semantic-warning-subtle text-content-primary border-semantic-warning'
 };
 
 // Action phase states

@@ -612,7 +612,7 @@ func (f *TestDataFactory) NewPhase() *PhaseBuilder {
 	return &PhaseBuilder{
 		factory:     f,
 		gameID:      1, // Default game ID
-		phaseType:   "common_room",
+		phaseType:   PhaseTypeCommonRoom,
 		phaseNumber: nil, // Will auto-increment if not set
 		title:       fmt.Sprintf("Test Phase %d", seq),
 		description: "",
@@ -636,12 +636,17 @@ func (b *PhaseBuilder) WithPhaseType(phaseType string) *PhaseBuilder {
 }
 
 func (b *PhaseBuilder) CommonRoom() *PhaseBuilder {
-	b.phaseType = "common_room"
+	b.phaseType = PhaseTypeCommonRoom
 	return b
 }
 
 func (b *PhaseBuilder) ActionPhase() *PhaseBuilder {
-	b.phaseType = "action"
+	b.phaseType = PhaseTypeAction
+	return b
+}
+
+func (b *PhaseBuilder) InterludePhase() *PhaseBuilder {
+	b.phaseType = PhaseTypeInterlude
 	return b
 }
 

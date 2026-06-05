@@ -71,11 +71,12 @@ describe('CreatePhaseModal', () => {
       const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
       expect(phaseTypeSelect).toHaveValue('common_room');
 
-      // Check that both options exist
+      // Check that all options exist
       const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(2);
+      expect(options).toHaveLength(3);
       expect(screen.getByRole('option', { name: 'Common Room' })).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'Action Phase' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Interlude' })).toBeInTheDocument();
     });
 
     it('displays helper text for phase type', () => {

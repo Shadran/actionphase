@@ -71,6 +71,7 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
               >
                 <option value="common_room">Common Room</option>
                 <option value="action">Action Phase</option>
+                <option value="interlude">Interlude</option>
               </Select>
             </div>
 

@@ -44,6 +44,20 @@ var ValidGameStates = []string{
 	GameStateCancelled,
 }
 
+// PhaseTypes defines all valid game phase types.
+const (
+	PhaseTypeCommonRoom = "common_room"
+	PhaseTypeAction     = "action"
+	PhaseTypeInterlude  = "interlude"
+)
+
+// ValidPhaseTypes contains all valid phase types for validation.
+var ValidPhaseTypes = []string{
+	PhaseTypeCommonRoom,
+	PhaseTypeAction,
+	PhaseTypeInterlude,
+}
+
 // GameStateTransitions defines valid state transitions.
 // Maps current state -> allowed next states.
 //

@@ -33,16 +33,15 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate phase type
-	validTypes := []string{"common_room", "action", "results"}
 	isValid := false
-	for _, validType := range validTypes {
+	for _, validType := range core.ValidPhaseTypes {
 		if data.PhaseType == validType {
 			isValid = true
 			break
 		}
 	}
 	if !isValid {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase type")))
+		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase type: must be one of common_room, action, interlude")))
 		return
 	}
 
