@@ -108,9 +108,6 @@ export function useGameTabs({
         tabList.push({ id: 'actions', label, icon: icons.actions });
       }
 
-      // People tab (combines Characters and Participants)
-      tabList.push({ id: 'people', label: 'People', badge: participantCount, icon: icons.people });
-
       // Messages - Only visible to:
       // 1. GM (always)
       // 2. Regular participants (players)
@@ -119,6 +116,9 @@ export function useGameTabs({
       if (canSeeMessages) {
         tabList.push({ id: 'messages', label: 'Messages', icon: icons.messages });
       }
+
+      // People tab (combines Characters and Participants)
+      tabList.push({ id: 'people', label: 'People', badge: participantCount, icon: icons.people });
 
       // Handouts - available to all participants
       tabList.push({ id: 'handouts', label: 'Handouts', icon: icons.handouts });

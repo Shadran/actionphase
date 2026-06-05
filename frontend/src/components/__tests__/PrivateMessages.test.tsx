@@ -142,6 +142,24 @@ describe('PrivateMessages', () => {
       });
     });
 
+    it('enables messaging during interlude phase', async () => {
+      renderWithProviders(
+        <PrivateMessages
+          gameId={1}
+          characters={mockCharacters}
+          isAnonymous={false}
+          currentPhaseType="interlude"
+        />
+      , { gameId: 1 });
+
+      await waitFor(() => {
+        expect(screen.queryByText(/you can read message history/i)).not.toBeInTheDocument();
+      });
+
+      const newButton = screen.getByRole('button', { name: /\+ new/i });
+      expect(newButton).not.toBeDisabled();
+    });
+
     it('disables messaging when phase type is undefined', async () => {
       renderWithProviders(
         <PrivateMessages

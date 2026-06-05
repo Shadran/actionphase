@@ -38,7 +38,7 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
   });
 
   // Check if we're in a common room phase (when messaging is allowed)
-  const isCommonRoomPhase = currentPhaseType === 'common_room';
+  const isCommonRoomPhase = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
 
   logger.debug('PrivateMessages component state', {
     selectedConversationId,

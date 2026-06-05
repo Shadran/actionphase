@@ -119,7 +119,7 @@ export const PHASE_TYPE_LABELS: Record<GamePhase['phase_type'], string> = {
 export const PHASE_TYPE_DESCRIPTIONS: Record<GamePhase['phase_type'], string> = {
   common_room: 'Open discussion and roleplay between characters. The GM creates a public post and players can comment and send private messages.',
   action: 'Players submit private actions to the GM for resolution. No public roleplay or private messaging.',
-  interlude: 'Private messaging only. No public post or action submissions — ideal for last-minute planning or one-on-one conversations with the GM.'
+  interlude: 'Private messaging only. No public post or action submissions.'
 };
 
 export const PHASE_TYPE_COLORS: Record<GamePhase['phase_type'], string> = {

@@ -20,7 +20,7 @@ interface MessageThreadProps {
 
 export function MessageThread({ gameId, conversationId, characters, currentPhaseType, onBack }: MessageThreadProps) {
   // Check if we're in a common room phase (when messaging is allowed)
-  const isCommonRoomPhase = currentPhaseType === 'common_room';
+  const isCommonRoomPhase = currentPhaseType === 'common_room' || currentPhaseType === 'interlude';
   const { currentUser } = useAuth();
   const gameContext = useOptionalGameContext();
   const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;

@@ -1248,5 +1248,23 @@ describe('MessageThread', () => {
         expect(sendButton).not.toHaveAttribute('title');
       });
     });
+
+    it('enables messaging during interlude phase', async () => {
+      renderWithProviders(
+        <MessageThread
+          gameId={1}
+          conversationId={1}
+          characters={mockCharacters}
+          currentPhaseType="interlude"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText(/new messages can only be sent during common room phases/i)).not.toBeInTheDocument();
+      });
+
+      const textarea = screen.getByPlaceholderText(/type your message/i);
+      expect(textarea).not.toBeDisabled();
+    });
   });
 });
