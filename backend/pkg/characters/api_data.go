@@ -49,6 +49,7 @@ func (h *Handler) SetCharacterData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !canEdit {
+		h.App.ObsLogger.Warn(ctx, "Character edit permission denied", "character_id", characterID, "user_id", userID)
 		render.Render(w, r, core.ErrForbidden("you cannot edit this character"))
 		return
 	}
@@ -78,6 +79,7 @@ func (h *Handler) SetCharacterData(w http.ResponseWriter, r *http.Request) {
 
 		// Check if user is GM or Co-GM
 		if game.GmUserID != userID && !core.IsUserCoGM(ctx, h.App.Pool, character.GameID, userID) {
+			h.App.ObsLogger.Warn(ctx, "Character stats edit permission denied", "character_id", characterID, "user_id", userID, "game_id", character.GameID)
 			render.Render(w, r, core.ErrForbidden("only GMs and Co-GMs can edit character stats (abilities, skills, items, currency)"))
 			return
 		}

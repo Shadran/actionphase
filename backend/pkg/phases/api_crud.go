@@ -65,6 +65,7 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
+		h.App.ObsLogger.Warn(ctx, "Phase create permission denied", "game_id", gameID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("only the GM can create phases"))
 		return
 	}
@@ -245,6 +246,7 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
+		h.App.ObsLogger.Warn(ctx, "Phase deadline update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("only the GM can update phase deadlines"))
 		return
 	}
@@ -321,6 +323,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
+		h.App.ObsLogger.Warn(ctx, "Phase update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("only the GM can update phases"))
 		return
 	}
@@ -405,6 +408,7 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
+		h.App.ObsLogger.Warn(ctx, "Phase delete permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("only the GM can delete phases"))
 		return
 	}

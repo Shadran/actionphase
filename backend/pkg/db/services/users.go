@@ -559,5 +559,6 @@ func (s *UserService) RejectUser(ctx context.Context, userID int32) error {
 // SetPendingApproval places a user in the pending approval state.
 func (s *UserService) SetPendingApproval(ctx context.Context, userID int32) error {
 	q := db.New(s.DB)
+	s.Logger.Info(ctx, "User placed in pending approval state", "user_id", userID)
 	return q.SetPendingApproval(ctx, userID)
 }

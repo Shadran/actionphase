@@ -3,6 +3,7 @@ package db
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/models"
+	"actionphase/pkg/observability"
 	"context"
 	"time"
 
@@ -12,7 +13,8 @@ import (
 
 // DashboardService handles dashboard data aggregation and business logic
 type DashboardService struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Logger *observability.Logger
 }
 
 // Ensure DashboardService implements the interface
@@ -25,6 +27,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 	// Check if user has any games
 	gameCount, err := q.CountUserGames(ctx, userID)
 	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to count user games", "user_id", userID)
 		return nil, err
 	}
 
@@ -46,6 +49,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 	// Get games with enriched metadata
 	dbGames, err := q.GetUserDashboardGames(ctx, userID)
 	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to get dashboard games", "user_id", userID)
 		return nil, err
 	}
 
@@ -58,6 +62,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 		Limit:  5,
 	})
 	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to get recent messages", "user_id", userID)
 		return nil, err
 	}
 
@@ -70,6 +75,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 		Limit:  10,
 	})
 	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to get upcoming deadlines", "user_id", userID)
 		return nil, err
 	}
 
@@ -79,6 +85,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 	// Get unread notification count
 	unreadCount, err := q.GetDashboardUnreadCount(ctx, userID)
 	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to get unread notification count", "user_id", userID)
 		return nil, err
 	}
 	dashboard.UnreadNotifications = int(unreadCount)

@@ -375,6 +375,7 @@ func (h *Handler) RenameCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !canEdit {
+		h.App.ObsLogger.Warn(ctx, "Character rename permission denied", "character_id", characterID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("you do not have permission to rename this character"))
 		return
 	}

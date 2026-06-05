@@ -318,8 +318,22 @@ func (cs *CharacterService) SetCharacterData(ctx context.Context, req CharacterD
 		FieldType:   pgtype.Text{String: req.FieldType, Valid: true},
 		IsPublic:    pgtype.Bool{Bool: req.IsPublic, Valid: true},
 	})
+	if err != nil {
+		cs.Logger.LogError(ctx, err, "Failed to set character data",
+			"character_id", req.CharacterID,
+			"module_type", req.ModuleType,
+			"field_name", req.FieldName,
+		)
+		return err
+	}
 
-	return err
+	cs.Logger.Info(ctx, "Character data updated",
+		"character_id", req.CharacterID,
+		"module_type", req.ModuleType,
+		"field_name", req.FieldName,
+		"is_public", req.IsPublic,
+	)
+	return nil
 }
 
 func (cs *CharacterService) GetCharacterData(ctx context.Context, characterID int32) ([]models.CharacterDatum, error) {

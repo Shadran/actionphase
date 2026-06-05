@@ -208,7 +208,12 @@ func (gas *GameApplicationService) ApproveGameApplication(ctx context.Context, a
 func (gas *GameApplicationService) RejectGameApplication(ctx context.Context, applicationID, reviewerID int32) error {
 	queries := models.New(gas.DB)
 
-	_, err := queries.UpdateGameApplicationStatus(ctx, models.UpdateGameApplicationStatusParams{
+	application, err := gas.GetGameApplication(ctx, applicationID)
+	if err != nil {
+		return fmt.Errorf("failed to get game application: %w", err)
+	}
+
+	_, err = queries.UpdateGameApplicationStatus(ctx, models.UpdateGameApplicationStatusParams{
 		ID:               applicationID,
 		Status:           pgtype.Text{String: core.ApplicationStatusRejected, Valid: true},
 		ReviewedByUserID: pgtype.Int4{Int32: reviewerID, Valid: true},
@@ -219,6 +224,8 @@ func (gas *GameApplicationService) RejectGameApplication(ctx context.Context, ap
 
 	gas.Logger.Info(ctx, "Game application rejected",
 		"application_id", applicationID,
+		"game_id", application.GameID,
+		"user_id", application.UserID,
 		"reviewer_id", reviewerID,
 	)
 

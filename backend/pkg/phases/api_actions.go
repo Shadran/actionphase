@@ -53,6 +53,7 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !canSubmit {
+		h.App.ObsLogger.Warn(ctx, "Action submission permission denied", "game_id", gameID, "user_id", authUser.ID)
 		render.Render(w, r, core.ErrForbidden("you cannot submit actions for this game"))
 		return
 	}

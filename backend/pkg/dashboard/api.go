@@ -33,7 +33,7 @@ func (h *Handler) GetUserDashboard(w http.ResponseWriter, r *http.Request) {
 	h.App.ObsLogger.Info(ctx, "Authenticated user for dashboard retrieval", "user_id", userID)
 
 	// Create dashboard service
-	dashboardService := &services.DashboardService{DB: h.App.Pool}
+	dashboardService := &services.DashboardService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 	// Get dashboard data from service
 	dashboard, err := dashboardService.GetUserDashboard(ctx, userID)
