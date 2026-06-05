@@ -91,6 +91,14 @@ func (l *levelFilterHandler) Enabled(ctx context.Context, level slog.Level) bool
 	return level >= l.minLevel && l.Handler.Enabled(ctx, level)
 }
 
+func (l *levelFilterHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &levelFilterHandler{Handler: l.Handler.WithAttrs(attrs), minLevel: l.minLevel}
+}
+
+func (l *levelFilterHandler) WithGroup(name string) slog.Handler {
+	return &levelFilterHandler{Handler: l.Handler.WithGroup(name), minLevel: l.minLevel}
+}
+
 // fanOutHandler fans slog records out to multiple handlers.
 type fanOutHandler struct {
 	handlers []slog.Handler
