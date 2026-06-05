@@ -334,3 +334,63 @@ func TestPhaseAPI_GetCurrentPhase(t *testing.T) {
 		assert.Nil(t, response["phase"])
 	})
 }
+
+// TestPhaseAPI_InterludeBlocksActionSubmission verifies that action submissions are rejected
+// during interlude phases (interlude allows PMs only, not actions).
+func TestPhaseAPI_InterludeBlocksActionSubmission(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "action_results", "action_submissions", "phases", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupFullPhaseAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	var playerCharID int32
+	err = testDB.Pool.QueryRow(context.Background(),
+		`INSERT INTO characters (game_id, user_id, name, character_type, status) VALUES ($1, $2, $3, 'player_character', 'approved') RETURNING id`,
+		game.ID, int32(player.ID), "Test Character",
+	).Scan(&playerCharID)
+	require.NoError(t, err)
+
+	phaseService := &phasesvc.PhaseService{DB: testDB.Pool, Logger: app.ObsLogger}
+	phase, err := phaseService.TransitionToNextPhase(context.Background(), game.ID, int32(gm.ID), core.TransitionPhaseRequest{
+		PhaseType: core.PhaseTypeInterlude,
+		Title:     "Evening Interlude",
+	})
+	require.NoError(t, err)
+	_ = gmToken
+
+	t.Run("player cannot submit action during interlude phase", func(t *testing.T) {
+		body := SubmitActionRequest{
+			CharacterID: int32Ptr(playerCharID),
+			Content:     "I attempt to investigate the ruins.",
+			IsDraft:     false,
+		}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+playerToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	_ = phase
+}

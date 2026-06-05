@@ -27,16 +27,15 @@ func (ps *PhaseService) CreatePhase(ctx context.Context, req core.CreatePhaseReq
 	}
 
 	// Validate phase type
-	validPhaseTypes := []string{"common_room", "action"}
 	isValid := false
-	for _, validType := range validPhaseTypes {
+	for _, validType := range core.ValidPhaseTypes {
 		if req.PhaseType == validType {
 			isValid = true
 			break
 		}
 	}
 	if !isValid {
-		return nil, fmt.Errorf("invalid phase type: %s (must be 'common_room' or 'action')", req.PhaseType)
+		return nil, fmt.Errorf("invalid phase type: %s (must be one of: common_room, action, interlude)", req.PhaseType)
 	}
 
 	// Get next phase number

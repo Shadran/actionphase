@@ -1274,3 +1274,139 @@ func TestConversationAPI_UpdateMessage(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
 }
+
+// TestConversationAPI_InterludePhaseMessaging verifies that private messages are allowed during
+// interlude phases (PM-only phases with no public post or action submissions).
+func TestConversationAPI_InterludePhaseMessaging(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "conversations", "characters", "game_participants", "phases", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupConversationAPITestRouter(app, testDB)
+
+	player1 := testDB.CreateTestUser(t, "player1i", "player1i@example.com")
+	player2 := testDB.CreateTestUser(t, "player2i", "player2i@example.com")
+	gm := testDB.CreateTestUser(t, "gmi", "gmi@example.com")
+
+	player1Token, err := core.CreateTestJWTTokenForUser(app, player1)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Interlude Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player1.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player2.ID), "player")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	char1, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player1.ID)), Name: "Char1i", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+	char2, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player2.ID)), Name: "Char2i", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	phaseService := &phasesvc.PhaseService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	conversationService := db.NewConversationService(testDB.Pool)
+	conversation, err := conversationService.CreateConversation(context.Background(), db.CreateConversationRequest{
+		GameID:          game.ID,
+		Title:           "Planning Chat",
+		CreatedByUserID: int32(player1.ID),
+		ParticipantIDs:  []int32{char1.ID, char2.ID},
+	})
+	require.NoError(t, err)
+
+	sendURL := fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages", game.ID, conversation.ID)
+
+	t.Run("PMs allowed during active interlude phase", func(t *testing.T) {
+		phase, err := phaseService.CreatePhase(context.Background(), core.CreatePhaseRequest{
+			GameID:    game.ID,
+			PhaseType: core.PhaseTypeInterlude,
+			Title:     "Pre-Action Interlude",
+		})
+		require.NoError(t, err)
+		err = phaseService.ActivatePhase(context.Background(), phase.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		body := SendMessageRequest{CharacterID: char1.ID, Content: "Secret planning message"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", sendURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Equal(t, "Secret planning message", response["content"])
+	})
+
+	t.Run("PM editing allowed during active interlude phase", func(t *testing.T) {
+		phase, err := phaseService.CreatePhase(context.Background(), core.CreatePhaseRequest{
+			GameID:    game.ID,
+			PhaseType: core.PhaseTypeInterlude,
+			Title:     "Edit Test Interlude",
+		})
+		require.NoError(t, err)
+		err = phaseService.ActivatePhase(context.Background(), phase.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		msg, err := conversationService.SendMessage(context.Background(), db.SendMessageRequest{
+			ConversationID:    conversation.ID,
+			SenderUserID:      int32(player1.ID),
+			SenderCharacterID: char1.ID,
+			Content:           "Original message",
+		})
+		require.NoError(t, err)
+
+		editURL := fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages/%d", game.ID, conversation.ID, msg.ID)
+		body := map[string]string{"content": "Edited message"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Equal(t, "Edited message", response["content"])
+	})
+
+	t.Run("PMs blocked during action phase", func(t *testing.T) {
+		phase, err := phaseService.CreatePhase(context.Background(), core.CreatePhaseRequest{
+			GameID:    game.ID,
+			PhaseType: core.PhaseTypeAction,
+			Title:     "Action Phase",
+		})
+		require.NoError(t, err)
+		err = phaseService.ActivatePhase(context.Background(), phase.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		body := SendMessageRequest{CharacterID: char1.ID, Content: "Should be blocked"}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("POST", sendURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+		assert.Contains(t, rec.Body.String(), "interlude")
+	})
+}

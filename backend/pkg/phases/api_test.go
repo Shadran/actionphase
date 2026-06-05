@@ -574,3 +574,52 @@ func TestPhaseAPI_AuthorizationEdgeCases(t *testing.T) {
 		assert.NotEqual(t, http.StatusOK, rec.Code)
 	})
 }
+
+// TestPhaseAPI_CreateInterludePhase verifies interlude is a valid phase type and can be created.
+func TestPhaseAPI_CreateInterludePhase(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "phases", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPhaseAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	t.Run("GM successfully creates interlude phase", func(t *testing.T) {
+		reqBody := CreatePhaseRequest{PhaseType: "interlude", Title: "Evening Interlude"}
+		reqJSON, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/phases", game.ID), bytes.NewBuffer(reqJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		assert.Equal(t, "interlude", response["phase_type"])
+		assert.Equal(t, "Evening Interlude", response["title"])
+	})
+
+	t.Run("rejects removed 'results' phase type", func(t *testing.T) {
+		reqBody := CreatePhaseRequest{PhaseType: "results", Title: "Old Results Phase"}
+		reqJSON, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/phases", game.ID), bytes.NewBuffer(reqJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}

@@ -71,6 +71,12 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if activePhase.PhaseType != core.PhaseTypeAction {
+		h.App.ObsLogger.Warn(ctx, "Action submission rejected: not an action phase", "game_id", gameID, "phase_type", activePhase.PhaseType)
+		render.Render(w, r, core.ErrForbidden("actions can only be submitted during an action phase"))
+		return
+	}
+
 	// Submit action
 	req := core.SubmitActionRequest{
 		GameID:      int32(gameID),

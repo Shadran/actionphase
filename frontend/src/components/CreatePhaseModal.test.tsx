@@ -560,4 +560,57 @@ describe('CreatePhaseModal', () => {
       expect(screen.queryByTestId('draft-post-content')).not.toBeInTheDocument();
     });
   });
+
+  describe('Interlude phase type', () => {
+    it('shows interlude description when interlude is selected', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
+      fireEvent.change(phaseTypeSelect, { target: { value: 'interlude' } });
+
+      expect(screen.getByText(/Private messaging only/i)).toBeInTheDocument();
+    });
+
+    it('does not show draft opening post section for interlude', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
+      fireEvent.change(phaseTypeSelect, { target: { value: 'interlude' } });
+
+      expect(screen.queryByTestId('draft-post-toggle')).not.toBeInTheDocument();
+    });
+
+    it('submits with phase_type interlude', () => {
+      renderWithProviders(
+        <CreatePhaseModal
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          isSubmitting={false}
+        />
+      );
+
+      const phaseTypeSelect = screen.getByLabelText(/Phase Type/i);
+      fireEvent.change(phaseTypeSelect, { target: { value: 'interlude' } });
+
+      const form = screen.getByRole('button', { name: /Create Phase/i }).closest('form');
+      fireEvent.submit(form!);
+
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ phase_type: 'interlude' }),
+        undefined
+      );
+    });
+  });
 });
