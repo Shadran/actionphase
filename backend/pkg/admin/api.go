@@ -242,7 +242,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	messageService := &messagesvc.MessageService{DB: h.App.Pool}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	// Check if user can delete this message (admins always can via admin mode)
 	canDelete, err := messageService.CanUserDeleteComment(ctx, int32(messageID), adminID, true)

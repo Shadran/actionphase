@@ -283,7 +283,7 @@ func (h *Handler) ListAllPrivateConversations(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get all private conversations with filters
-	messageService := &messagesvc.MessageService{DB: h.App.Pool}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	conversations, err := messageService.ListAllPrivateConversations(ctx, core.ListAllPrivateConversationsParams{
 		GameID:           int32(gameID),
 		ParticipantNames: participantNames,
@@ -388,7 +388,7 @@ func (h *Handler) GetAudienceConversationMessages(w http.ResponseWriter, r *http
 	}
 
 	// Get conversation messages
-	messageService := &messagesvc.MessageService{DB: h.App.Pool}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	messages, err := messageService.GetAudienceConversationMessages(ctx, int32(conversationID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get conversation messages", "error", err, "conversation_id", conversationID)
@@ -463,7 +463,7 @@ func (h *Handler) GetConversationParticipants(w http.ResponseWriter, r *http.Req
 
 	selectedNames := r.URL.Query()["selected[]"]
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	names, err := messageService.GetConversationParticipantNames(ctx, int32(gameID), selectedNames)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get conversation participants", "error", err, "game_id", gameID)

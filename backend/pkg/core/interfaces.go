@@ -412,8 +412,8 @@ type PhaseServiceInterface interface {
 	GetPhaseHistory(ctx context.Context, gameID int32) ([]PhaseTransitionInfo, error)
 
 	// RunScheduledActivations activates any phases whose start_time has arrived.
-	// Returns the number of phases activated.
-	RunScheduledActivations(ctx context.Context) (int, error)
+	// Returns the number of phases examined and activated.
+	RunScheduledActivations(ctx context.Context) (examined int, activated int, err error)
 }
 
 // ActionSubmissionServiceInterface defines the contract for action submission operations.

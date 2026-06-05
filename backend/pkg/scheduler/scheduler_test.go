@@ -17,12 +17,12 @@ type mockPhaseService struct {
 	returnErr error
 }
 
-func (m *mockPhaseService) RunScheduledActivations(_ context.Context) (int, error) {
+func (m *mockPhaseService) RunScheduledActivations(_ context.Context) (int, int, error) {
 	m.callCount.Add(1)
 	if m.returnErr != nil {
-		return 0, m.returnErr
+		return 0, 0, m.returnErr
 	}
-	return 1, nil
+	return 1, 1, nil
 }
 
 func newTestLogger() *observability.Logger {

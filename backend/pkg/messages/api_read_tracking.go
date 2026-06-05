@@ -49,7 +49,7 @@ func (h *Handler) MarkPostRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	readMarker, err := messageService.MarkPostAsRead(ctx, userID, int32(gameID), int32(postID), requestBody.LastReadCommentID)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to mark post as read", "error", err, "game_id", gameID, "post_id", postID, "user_id", userID)
@@ -90,7 +90,7 @@ func (h *Handler) GetGameReadMarkers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	readMarkers, err := messageService.GetUserReadMarkersForGame(ctx, userID, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get read markers", "error", err, "game_id", gameID, "user_id", userID)
@@ -129,7 +129,7 @@ func (h *Handler) GetPostsUnreadInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	postsInfo, err := messageService.GetPostsWithUnreadInfo(ctx, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get posts unread info", "error", err, "game_id", gameID)
@@ -176,7 +176,7 @@ func (h *Handler) GetUnreadCommentIDs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	unreadComments, err := messageService.GetUnreadCommentIDsForPosts(ctx, userID, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get unread comment IDs", "error", err, "game_id", gameID, "user_id", userID)
@@ -238,7 +238,7 @@ func (h *Handler) ToggleCommentRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	if err := messageService.ToggleCommentRead(ctx, userID, int32(gameID), int32(postID), int32(commentID), requestBody.Read); err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to toggle comment read", "error", err,
 			"game_id", gameID, "post_id", postID, "comment_id", commentID, "user_id", userID)
@@ -269,7 +269,7 @@ func (h *Handler) GetManualReadCommentIDs(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	manualReads, err := messageService.GetManualReadCommentIDsForGame(ctx, userID, int32(gameID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get manual read comment IDs", "error", err, "game_id", gameID, "user_id", userID)

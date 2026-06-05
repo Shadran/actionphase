@@ -254,6 +254,12 @@ func (ps *PhaseService) activatePhaseInternal(ctx context.Context, phaseID int32
 		return nil, fmt.Errorf("failed to activate phase: %w", err)
 	}
 
+	// Count draft posts before publishing (non-fatal if this fails)
+	draftCount, countErr := txQueries.CountDraftPostsByPhase(ctx, pgtype.Int4{Int32: phaseID, Valid: true})
+	if countErr != nil {
+		ps.Logger.Warn(ctx, "Failed to count draft posts before publishing", "phase_id", phaseID, "error", countErr)
+	}
+
 	// Publish any draft posts for this phase atomically with activation
 	if err := txQueries.PublishDraftPostsForPhase(ctx, pgtype.Int4{Int32: phaseID, Valid: true}); err != nil {
 		ps.Logger.LogError(ctx, err, "Failed to publish draft posts during phase activation",
@@ -281,8 +287,19 @@ func (ps *PhaseService) activatePhaseInternal(ctx context.Context, phaseID int32
 		"phase_type", activePhase.PhaseType,
 	)
 
+	if countErr == nil && draftCount > 0 {
+		ps.Logger.Info(ctx, "Draft posts published on phase activation",
+			"phase_id", phaseID,
+			"game_id", phase.GameID,
+			"draft_posts_published", draftCount,
+		)
+	}
+
+	// Preserve context values (correlation_id, trace_id) without inheriting cancellation
+	notifCtx := context.WithoutCancel(ctx)
+
 	// Trigger notifications for phase activation (fire-and-forget)
-	go ps.notifyPhaseActivated(context.Background(), phase.GameID, activePhase.ID, activePhase.Title, 0)
+	go ps.notifyPhaseActivated(notifCtx, phase.GameID, activePhase.ID, activePhase.Title, 0)
 
 	return &activePhase, nil
 }

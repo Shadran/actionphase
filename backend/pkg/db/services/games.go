@@ -944,6 +944,13 @@ func (gs *GameService) CreateAudienceApplication(ctx context.Context, gameID, us
 		return nil, fmt.Errorf("failed to create audience application: %w", err)
 	}
 
+	gs.Logger.Info(ctx, "Audience application created",
+		"game_id", gameID,
+		"user_id", userID,
+		"auto_accepted", autoAccept,
+		"status", status,
+	)
+
 	return &participant, nil
 }
 
@@ -1070,6 +1077,12 @@ func (gs *GameService) PromoteToCoGM(ctx context.Context, gameID, userID, reques
 		return fmt.Errorf("failed to update participant role: %w", err)
 	}
 
+	gs.Logger.Info(ctx, "User promoted to co-GM",
+		"game_id", gameID,
+		"promoted_user_id", userID,
+		"requested_by_user_id", requestingUserID,
+	)
+
 	return nil
 }
 
@@ -1126,6 +1139,12 @@ func (gs *GameService) DemoteFromCoGM(ctx context.Context, gameID, userID, reque
 		return fmt.Errorf("failed to update participant role: %w", err)
 	}
 
+	gs.Logger.Info(ctx, "Co-GM demoted to audience",
+		"game_id", gameID,
+		"demoted_user_id", userID,
+		"requested_by_user_id", requestingUserID,
+	)
+
 	return nil
 }
 
@@ -1161,6 +1180,12 @@ func (gs *GameService) TransitionPlayerToAudience(ctx context.Context, gameID, u
 	if err != nil {
 		return fmt.Errorf("failed to transition participant to audience: %w", err)
 	}
+
+	gs.Logger.Info(ctx, "Player transitioned to audience (permadeath)",
+		"game_id", gameID,
+		"user_id", userID,
+		"requested_by_user_id", requestingUserID,
+	)
 
 	return nil
 }

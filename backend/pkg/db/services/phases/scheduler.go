@@ -12,27 +12,27 @@ import (
 // RunScheduledActivations finds all inactive phases whose start_time has arrived
 // and activates them. Each activation deactivates whatever phase is currently
 // active in that game (via activatePhaseInternal's transaction).
-// Returns the count of phases activated.
-func (ps *PhaseService) RunScheduledActivations(ctx context.Context) (int, error) {
+// Returns the count of phases examined and activated.
+func (ps *PhaseService) RunScheduledActivations(ctx context.Context) (examined int, activated int, err error) {
 	queries := models.New(ps.DB)
 
 	phases, err := queries.GetScheduledPhasesToActivate(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to query scheduled phases: %w", err)
+		return 0, 0, fmt.Errorf("failed to query scheduled phases: %w", err)
 	}
 
-	if len(phases) == 0 {
-		return 0, nil
+	examined = len(phases)
+	if examined == 0 {
+		return 0, 0, nil
 	}
 
-	activated := 0
 	// Track games we've already transitioned in this run — only activate the
 	// earliest scheduled phase per game (they're ordered by start_time ASC).
 	processedGames := make(map[int32]bool)
 
 	for _, phase := range phases {
 		if processedGames[phase.GameID] {
-			ps.Logger.Info(ctx, "Skipping additional scheduled phase for game (already activated one this run)",
+			ps.Logger.Debug(ctx, "Skipping additional scheduled phase for game (already activated one this run)",
 				"game_id", phase.GameID,
 				"phase_id", phase.ID,
 			)
@@ -73,10 +73,10 @@ func (ps *PhaseService) RunScheduledActivations(ctx context.Context) (int, error
 			"scheduled_start", phase.StartTime,
 		)
 
-		_, err = ps.activatePhaseInternal(ctx, phase.ID)
-		if err != nil {
+		_, activateErr := ps.activatePhaseInternal(ctx, phase.ID)
+		if activateErr != nil {
 			// Log but continue — don't let one failure block other games
-			ps.Logger.LogError(ctx, err, "Failed to auto-activate scheduled phase",
+			ps.Logger.LogError(ctx, activateErr, "Failed to auto-activate scheduled phase",
 				"game_id", phase.GameID,
 				"phase_id", phase.ID,
 			)
@@ -88,8 +88,8 @@ func (ps *PhaseService) RunScheduledActivations(ctx context.Context) (int, error
 	}
 
 	if activated > 0 {
-		ps.Logger.Info(ctx, "Scheduled phase activation run complete", "activated", activated)
+		ps.Logger.Info(ctx, "Scheduled phase activation run complete", "examined", examined, "activated", activated)
 	}
 
-	return activated, nil
+	return examined, activated, nil
 }

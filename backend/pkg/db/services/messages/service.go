@@ -16,8 +16,9 @@ import (
 // MessageService handles message and comment operations for the Common Room and private messaging.
 // All messages must be sent as characters and are associated with a game.
 type MessageService struct {
-	DB     *pgxpool.Pool
-	Logger *observability.Logger
+	DB      *pgxpool.Pool
+	Logger  *observability.Logger
+	Metrics *observability.OTELMetrics
 }
 
 // Helper function to convert *int32 to pgtype.Int4

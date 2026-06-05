@@ -20,12 +20,12 @@ func TestContextHelpers_RoundTrip(t *testing.T) {
 	ctx := context.Background()
 	ctx = WithCorrelationID(ctx, "corr-123")
 	ctx = WithRequestID(ctx, "req-456")
-	ctx = WithUserID(ctx, 42)
+	ctx = WithUserID(ctx, "42")
 	ctx = WithOperation(ctx, "test_op")
 
 	assert.Equal(t, "corr-123", GetCorrelationID(ctx))
 	assert.Equal(t, "req-456", GetRequestID(ctx))
-	assert.Equal(t, 42, GetUserID(ctx))
+	assert.Equal(t, "42", GetUserID(ctx))
 }
 
 func TestGetCorrelationID_Missing(t *testing.T) {

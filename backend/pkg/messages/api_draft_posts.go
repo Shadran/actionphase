@@ -41,7 +41,7 @@ func (h *Handler) GetDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	draft, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get draft post", "error", err, "phase_id", phaseID)
@@ -99,7 +99,7 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	draft, err := messageService.CreateDraftPost(ctx, core.CreatePostRequest{
 		GameID:      gameID,
 		PhaseID:     &phaseID,
@@ -162,7 +162,7 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	// Find existing draft to get its ID
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
@@ -210,7 +210,7 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {

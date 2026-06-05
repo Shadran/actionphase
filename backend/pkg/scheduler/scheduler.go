@@ -9,7 +9,7 @@ import (
 
 // ActivationRunner is the minimal interface the scheduler needs.
 type ActivationRunner interface {
-	RunScheduledActivations(ctx context.Context) (int, error)
+	RunScheduledActivations(ctx context.Context) (examined int, activated int, err error)
 }
 
 // Scheduler runs periodic background tasks for the ActionPhase application.
@@ -59,12 +59,15 @@ func (s *Scheduler) Start(ctx context.Context) context.CancelFunc {
 }
 
 func (s *Scheduler) runActivations(ctx context.Context) {
-	activated, err := s.phaseService.RunScheduledActivations(ctx)
+	s.logger.Debug(ctx, "Scheduler tick: checking for scheduled phase activations")
+	examined, activated, err := s.phaseService.RunScheduledActivations(ctx)
 	if err != nil {
-		s.logger.LogError(ctx, err, "Scheduled phase activation run failed")
+		s.logger.LogError(ctx, err, "Scheduled phase activation run failed", "examined", examined)
 		return
 	}
 	if activated > 0 {
-		s.logger.Info(ctx, "Scheduler activated phases", "count", activated)
+		s.logger.Info(ctx, "Scheduler activated phases", "examined", examined, "activated", activated)
+	} else {
+		s.logger.Debug(ctx, "Scheduler tick: no phases to activate", "examined", examined)
 	}
 }

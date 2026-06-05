@@ -56,24 +56,31 @@ func (s *MessageService) CreatePost(ctx context.Context, req core.CreatePostRequ
 		return nil, fmt.Errorf("failed to create post: %w", err)
 	}
 
-	// Trigger notifications for character mentions (fire-and-forget)
-	if len(mentionedIDs) > 0 {
-		go s.notifyCharacterMentions(context.Background(), mentionedIDs, req.CharacterID, req.AuthorID, req.GameID, message.ID)
-	}
-
-	// Notify all game participants about the new GM post (fire-and-forget)
-	go func() {
-		notifSvc := db.NewNotificationService(s.DB, s.Logger)
-		if err := notifSvc.NotifyCommonRoomPost(context.Background(), req.GameID, message.ID, truncatePostTitle(req.Content), req.AuthorID); err != nil {
-			s.Logger.LogError(context.Background(), err, "Failed to notify common room post", "game_id", req.GameID, "post_id", message.ID)
-		}
-	}()
-
 	s.Logger.Info(ctx, "Post created",
 		"post_id", message.ID,
 		"game_id", message.GameID,
 		"phase_id", message.PhaseID,
 	)
+	s.Metrics.RecordPostCreated(ctx)
+
+	// Preserve context values (correlation_id, trace_id) without inheriting cancellation
+	notifCtx := context.WithoutCancel(ctx)
+
+	// Trigger notifications for character mentions (fire-and-forget)
+	if len(mentionedIDs) > 0 {
+		go s.notifyCharacterMentions(notifCtx, mentionedIDs, req.CharacterID, req.AuthorID, req.GameID, message.ID)
+	}
+
+	// Notify all game participants about the new GM post (fire-and-forget)
+	go func() {
+		notifSvc := db.NewNotificationService(s.DB, s.Logger)
+		if err := notifSvc.NotifyCommonRoomPost(notifCtx, req.GameID, message.ID, truncatePostTitle(req.Content), req.AuthorID); err != nil {
+			s.Logger.LogError(notifCtx, err, "Failed to notify common room post", "game_id", req.GameID, "post_id", message.ID)
+			s.Metrics.RecordBackgroundJobFailure(notifCtx, "post_notification")
+		} else {
+			s.Logger.Debug(notifCtx, "Common room post notification sent", "game_id", req.GameID, "post_id", message.ID)
+		}
+	}()
 
 	return &message, nil
 }

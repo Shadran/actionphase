@@ -35,7 +35,7 @@ func TestPhaseService_RunScheduledActivations_ActivatesPastPhase(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, phase.IsActive.Bool)
 
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, activated, 1)
 
@@ -67,7 +67,7 @@ func TestPhaseService_RunScheduledActivations_SkipsFuturePhase(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify this game's phase is not activated
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 
 	// No active phase for this game
@@ -97,7 +97,7 @@ func TestPhaseService_RunScheduledActivations_SkipsNonInProgressGame(t *testing.
 	})
 	require.NoError(t, err)
 
-	_, err = phaseService.RunScheduledActivations(context.Background())
+	_, _, err = phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 
 	// Should have no active phase in this game
@@ -144,7 +144,7 @@ func TestPhaseService_RunScheduledActivations_DeactivatesCurrentPhase(t *testing
 	})
 	require.NoError(t, err)
 
-	_, err = phaseService.RunScheduledActivations(context.Background())
+	_, _, err = phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 
 	// Next phase is now active
@@ -190,7 +190,7 @@ func TestPhaseService_RunScheduledActivations_OnlyEarliestPerGame(t *testing.T) 
 	})
 	require.NoError(t, err)
 
-	_, err = phaseService.RunScheduledActivations(context.Background())
+	_, _, err = phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 
 	// Only the earliest should be active
@@ -300,7 +300,7 @@ func TestPhaseService_RunScheduledActivations_DoesNotOverrideManualActivation(t 
 	assert.True(t, active.ActivatedAt.Time.After(scheduledStart))
 
 	// Run scheduler — it should NOT override the manual activation
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 0, activated)
 
@@ -353,7 +353,7 @@ func TestPhaseService_RunScheduledActivations_SkipsCompletedHistoricalPhase(t *t
 	require.NoError(t, err)
 
 	// Scheduler should NOT pick up the historical phase (it has end_time set)
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 0, activated, "historical phase with end_time should not be re-activated")
 
@@ -388,7 +388,7 @@ func TestPhaseService_RunScheduledActivations_SkipsAlreadyActivePhase(t *testing
 	require.NoError(t, err)
 
 	// Scheduler should not blow up or double-activate this phase
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 0, activated, "already-active phase should not be counted as a new activation")
 
@@ -434,7 +434,7 @@ func TestPhaseService_RunScheduledActivations_OnlyActivatesScheduledPhase(t *tes
 	require.NoError(t, err)
 	assert.False(t, phaseB.StartTime.Valid, "phase B should have NULL start_time")
 
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 1, activated)
 
@@ -479,7 +479,7 @@ func TestPhaseService_RunScheduledActivations_ActivatesAcrossMultipleGames(t *te
 	})
 	require.NoError(t, err)
 
-	activated, err := phaseService.RunScheduledActivations(context.Background())
+	_, activated, err := phaseService.RunScheduledActivations(context.Background())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, activated, 2, "should activate one phase per game")
 

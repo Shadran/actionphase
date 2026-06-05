@@ -29,9 +29,12 @@ type MeterConfig struct {
 
 // OTELMetrics wraps the OTEL meter with pre-created instruments for common HTTP metrics.
 type OTELMetrics struct {
-	meter          metric.Meter
-	requestCounter metric.Int64Counter
-	requestLatency metric.Float64Histogram
+	meter                 metric.Meter
+	requestCounter        metric.Int64Counter
+	requestLatency        metric.Float64Histogram
+	backgroundJobFailures metric.Int64Counter
+	commentsCreated       metric.Int64Counter
+	postsCreated          metric.Int64Counter
 	// PrometheusHandler serves /metrics in Prometheus text format for local scraping.
 	PrometheusHandler http.Handler
 }
@@ -102,11 +105,35 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 		return nil, nil, fmt.Errorf("failed to create request latency histogram: %w", err)
 	}
 
+	bgJobFailures, err := meter.Int64Counter("app.background_job.failures",
+		metric.WithDescription("Number of background goroutine job failures"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create background job failure counter: %w", err)
+	}
+
+	commentsCreated, err := meter.Int64Counter("app.comments.created",
+		metric.WithDescription("Number of comments created"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create comments counter: %w", err)
+	}
+
+	postsCreated, err := meter.Int64Counter("app.posts.created",
+		metric.WithDescription("Number of posts created"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create posts counter: %w", err)
+	}
+
 	return &OTELMetrics{
-			meter:             meter,
-			requestCounter:    reqCounter,
-			requestLatency:    reqLatency,
-			PrometheusHandler: promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}),
+			meter:                 meter,
+			requestCounter:        reqCounter,
+			requestLatency:        reqLatency,
+			backgroundJobFailures: bgJobFailures,
+			commentsCreated:       commentsCreated,
+			postsCreated:          postsCreated,
+			PrometheusHandler:     promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}),
 		}, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -131,6 +158,33 @@ func httpMetricAttrs(method, route string, statusCode int) metric.MeasurementOpt
 		attribute.String("http.route", route),
 		attribute.String("http.response.status_class", statusClass(statusCode)),
 	)
+}
+
+// RecordBackgroundJobFailure increments the failure counter for fire-and-forget goroutines.
+// jobType examples: "mention_notification", "reply_notification", "post_notification"
+func (om *OTELMetrics) RecordBackgroundJobFailure(ctx context.Context, jobType string) {
+	if om == nil || om.backgroundJobFailures == nil {
+		return
+	}
+	om.backgroundJobFailures.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("job.type", jobType),
+	))
+}
+
+// RecordCommentCreated increments the comment created counter.
+func (om *OTELMetrics) RecordCommentCreated(ctx context.Context) {
+	if om == nil || om.commentsCreated == nil {
+		return
+	}
+	om.commentsCreated.Add(ctx, 1)
+}
+
+// RecordPostCreated increments the post created counter.
+func (om *OTELMetrics) RecordPostCreated(ctx context.Context) {
+	if om == nil || om.postsCreated == nil {
+		return
+	}
+	om.postsCreated.Add(ctx, 1)
 }
 
 // statusClass converts a status code to a class string (2xx, 3xx, 4xx, 5xx).

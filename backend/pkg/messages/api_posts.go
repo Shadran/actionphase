@@ -60,7 +60,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	post, err := messageService.CreatePost(ctx, core.CreatePostRequest{
 		GameID:      int32(gameID),
@@ -150,7 +150,7 @@ func (h *Handler) GetGamePosts(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getUserIDFromToken(r, h.App)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	posts, err := messageService.GetGamePosts(ctx, int32(gameID), phaseID, limit, offset)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get game posts", "error", err, "game_id", gameID)
@@ -228,7 +228,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	comment, err := messageService.CreateComment(ctx, core.CreateCommentRequest{
 		GameID:      int32(gameID),
@@ -296,7 +296,7 @@ func (h *Handler) GetMessage(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getUserIDFromToken(r, h.App)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	message, err := messageService.GetMessage(ctx, int32(messageID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get message", "error", err, "message_id", messageID)
@@ -342,7 +342,7 @@ func (h *Handler) GetPostComments(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getUserIDFromToken(r, h.App)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	comments, err := messageService.GetPostComments(ctx, int32(postID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to get post comments", "error", err, "post_id", postID)
@@ -457,7 +457,7 @@ func (h *Handler) GetPostCommentsWithThreads(w http.ResponseWriter, r *http.Requ
 	userID, _ := getUserIDFromToken(r, h.App)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	commentsWithDepth, err := messageService.GetPostCommentsWithThreads(ctx, int32(postID), limit, offset, maxDepth)
 	if err != nil {
@@ -567,7 +567,7 @@ func (h *Handler) UpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	canEdit, err := messageService.CanUserEditPost(ctx, int32(postID), userID)
 	if err != nil {
@@ -640,7 +640,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	canEdit, err := messageService.CanUserEditComment(ctx, int32(commentID), userID)
 	if err != nil {
@@ -721,7 +721,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := isAdminMode && user.IsAdmin
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
 	canDelete, err := messageService.CanUserDeleteComment(ctx, int32(commentID), userID, isAdmin)
 	if err != nil {

@@ -108,6 +108,13 @@ func (s *MessageService) notifyCharacterMentions(ctx context.Context, mentionedC
 				"message_id", messageID,
 				"game_id", gameID,
 			)
+			s.Metrics.RecordBackgroundJobFailure(ctx, "mention_notification")
+		} else {
+			s.Logger.Debug(ctx, "Character mention notification sent",
+				"mentioned_character_id", mentionedCharID,
+				"message_id", messageID,
+				"game_id", gameID,
+			)
 		}
 	}
 }
@@ -153,6 +160,13 @@ func (s *MessageService) notifyCommentReply(ctx context.Context, parentMessageID
 	)
 	if err != nil {
 		s.Logger.LogError(ctx, err, "Failed to send comment reply notification",
+			"parent_author_id", parentMessage.AuthorID,
+			"reply_message_id", replyMessageID,
+			"game_id", gameID,
+		)
+		s.Metrics.RecordBackgroundJobFailure(ctx, "reply_notification")
+	} else {
+		s.Logger.Debug(ctx, "Comment reply notification sent",
 			"parent_author_id", parentMessage.AuthorID,
 			"reply_message_id", replyMessageID,
 			"game_id", gameID,

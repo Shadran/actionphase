@@ -74,13 +74,28 @@ func (s *MessageService) CreateComment(ctx context.Context, req core.CreateComme
 		return nil, fmt.Errorf("failed to create comment: %w", err)
 	}
 
+	s.Logger.Info(ctx, "Comment created",
+		"message_id", message.ID,
+		"game_id", message.GameID,
+		"phase_id", message.PhaseID,
+		"parent_id", req.ParentID,
+		"author_id", req.AuthorID,
+		"character_id", req.CharacterID,
+		"visibility", string(message.Visibility),
+		"mention_count", len(mentionedIDs),
+	)
+	s.Metrics.RecordCommentCreated(ctx)
+
+	// Preserve context values (correlation_id, trace_id) without inheriting cancellation
+	notifCtx := context.WithoutCancel(ctx)
+
 	// Trigger notifications for character mentions (fire-and-forget)
 	if len(mentionedIDs) > 0 {
-		go s.notifyCharacterMentions(context.Background(), mentionedIDs, req.CharacterID, req.AuthorID, req.GameID, message.ID)
+		go s.notifyCharacterMentions(notifCtx, mentionedIDs, req.CharacterID, req.AuthorID, req.GameID, message.ID)
 	}
 
 	// Trigger notification for comment reply (fire-and-forget)
-	go s.notifyCommentReply(context.Background(), req.ParentID, req.CharacterID, req.AuthorID, req.GameID, message.ID)
+	go s.notifyCommentReply(notifCtx, req.ParentID, req.CharacterID, req.AuthorID, req.GameID, message.ID)
 
 	return &message, nil
 }
