@@ -61,6 +61,14 @@ services:
         # Pass VITE_ prefixed variables from .env to frontend build
         VITE_HCAPTCHA_SITE_KEY: ${VITE_HCAPTCHA_SITE_KEY:-}
         VITE_HCAPTCHA_ENABLED: ${VITE_HCAPTCHA_ENABLED:-false}
+        VITE_FARO_ENABLED: ${VITE_FARO_ENABLED:-false}
+        VITE_FARO_URL: ${VITE_FARO_URL:-}
+        VITE_FARO_APP_NAME: ${VITE_FARO_APP_NAME:-actionphase}
+        VITE_ENVIRONMENT: ${VITE_ENVIRONMENT:-production}
+        GRAFANA_FARO_API_KEY: ${GRAFANA_FARO_API_KEY:-}
+        GRAFANA_FARO_SOURCEMAP_ENDPOINT: ${GRAFANA_FARO_SOURCEMAP_ENDPOINT:-}
+        GRAFANA_FARO_APP_ID: ${GRAFANA_FARO_APP_ID:-}
+        GRAFANA_FARO_STACK_ID: ${GRAFANA_FARO_STACK_ID:-}
     container_name: actionphase-frontend
     restart: unless-stopped
     ports:
