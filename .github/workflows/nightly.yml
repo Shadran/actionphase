@@ -1,0 +1,80 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 04:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  race-detector:
+    name: Race Detector
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: example
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node.js for docs
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Build documentation
+        run: |
+          cd docs-site
+          npm ci
+          npm run docs:build
+          rm -rf ../backend/pkg/docs/dist
+          mkdir -p ../backend/pkg/docs/dist
+          cp -r .vitepress/dist/* ../backend/pkg/docs/dist/
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/migrate
+
+      - name: Create test database
+        env:
+          PGPASSWORD: example
+        run: psql -h localhost -U postgres -c "CREATE DATABASE actionphase_test;"
+
+      - name: Run migrations
+        run: |
+          migrate -source "file://$(pwd)/backend/pkg/db/migrations" \
+                  -database "postgres://postgres:example@localhost:5432/actionphase_test?sslmode=disable" \
+                  up
+
+      - name: Run tests with race detector
+        env:
+          TEST_DATABASE_URL: postgres://postgres:example@localhost:5432/actionphase_test?sslmode=disable
+        run: |
+          cd backend
+          packages=$(go list ./... | grep -v '/pkg/docs/dist')
+          if [ -n "$packages" ]; then
+            SKIP_DB_TESTS=false go test -p=1 -race $packages
+          else
+            echo "No packages to test"
+          fi
