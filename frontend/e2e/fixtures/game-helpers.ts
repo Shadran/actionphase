@@ -458,7 +458,7 @@ export async function isGameVisible(page: Page, gameTitle: string): Promise<bool
 export async function createPhase(
   page: Page,
   gameId: number,
-  phaseType: 'common_room' | 'action' | 'results',
+  phaseType: 'common_room' | 'action' | 'interlude',
   options: {
     title: string;
     description?: string;

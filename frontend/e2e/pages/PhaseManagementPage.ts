@@ -83,7 +83,7 @@ export class PhaseManagementPage {
    * @param options - Phase creation options
    */
   async createPhase(options: {
-    type: 'common_room' | 'action' | 'results';
+    type: 'common_room' | 'action' | 'interlude';
     title: string;
     description?: string;
     deadline?: Date;
