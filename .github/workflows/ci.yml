@@ -307,3 +307,35 @@ jobs:
 
       - name: Build frontend
         run: cd frontend && npm run build
+
+  upload-sourcemaps:
+    name: Upload Source Maps to Grafana
+    runs-on: ubuntu-latest
+    needs: [build-check]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend with source maps
+        env:
+          VITE_FARO_ENABLED: 'true'
+          VITE_FARO_APP_NAME: actionphase
+          GRAFANA_FARO_API_KEY: ${{ secrets.GRAFANA_FARO_API_KEY }}
+          GRAFANA_FARO_SOURCEMAP_ENDPOINT: ${{ secrets.GRAFANA_FARO_SOURCEMAP_ENDPOINT }}
+          GRAFANA_FARO_APP_ID: ${{ secrets.GRAFANA_FARO_APP_ID }}
+          GRAFANA_FARO_STACK_ID: ${{ secrets.GRAFANA_FARO_STACK_ID }}
+        run: |
+          cd frontend
+          SOURCEMAP=true npm run build

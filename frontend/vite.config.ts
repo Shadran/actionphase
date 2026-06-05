@@ -58,7 +58,7 @@ export default defineConfig({
     include: ['axios'],
   },
   build: {
-    sourcemap: 'hidden',
+    sourcemap: process.env.SOURCEMAP === 'true' ? 'hidden' : false,
     rollupOptions: {
       output: {
         manualChunks: {
