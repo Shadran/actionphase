@@ -204,7 +204,7 @@ func (l *Logger) LogOperation(ctx context.Context, operation string, args ...any
 			"duration_ms", duration.Milliseconds(),
 		}, args...)
 
-		l.WithContext(opCtx).logger.Info("Operation completed", completeArgs...)
+		l.WithContext(opCtx).logger.Debug("Operation completed", completeArgs...)
 	}
 }
 
