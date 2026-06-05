@@ -76,6 +76,7 @@ func main() {
 		OTELEndpoint: config.Telemetry.OTELEndpoint,
 		Environment:  config.App.Environment,
 		ServiceName:  "actionphase-backend",
+		LogLevel:     config.App.LogLevel,
 	}, obs.Logger)
 	if logErr != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: Failed to initialize log provider: %v\n", logErr)

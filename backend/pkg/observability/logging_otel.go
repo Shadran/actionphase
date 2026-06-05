@@ -21,6 +21,7 @@ type LogConfig struct {
 	OTELEndpoint string
 	Environment  string
 	ServiceName  string
+	LogLevel     string
 }
 
 // InitLogProvider initializes OpenTelemetry log shipping and wires it into obsLogger.
@@ -64,7 +65,10 @@ func InitLogProvider(cfg LogConfig, obsLogger *Logger) (shutdown func(), err err
 
 	// otelslog.NewHandler bridges slog to the OTEL log provider.
 	// Fan out to both the existing handler (console/file) and the OTEL handler.
-	otelHandler := otelslog.NewHandler(cfg.ServiceName, otelslog.WithLoggerProvider(lp))
+	otelHandler := &levelFilterHandler{
+		Handler:  otelslog.NewHandler(cfg.ServiceName, otelslog.WithLoggerProvider(lp)),
+		minLevel: parseLogLevel(cfg.LogLevel),
+	}
 	fanOut := &fanOutHandler{
 		handlers: []slog.Handler{obsLogger.Underlying().Handler(), otelHandler},
 	}
@@ -75,6 +79,16 @@ func InitLogProvider(cfg LogConfig, obsLogger *Logger) (shutdown func(), err err
 		defer cancel()
 		_ = lp.Shutdown(ctx)
 	}, nil
+}
+
+// levelFilterHandler wraps a handler and gates on a minimum slog level.
+type levelFilterHandler struct {
+	slog.Handler
+	minLevel slog.Level
+}
+
+func (l *levelFilterHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return level >= l.minLevel && l.Handler.Enabled(ctx, level)
 }
 
 // fanOutHandler fans slog records out to multiple handlers.
