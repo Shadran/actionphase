@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth/v5"
 	semconv "go.opentelemetry.io/otel/semconv/v1.36.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -154,34 +155,18 @@ func generateID(prefix string) string {
 	return prefix + "_" + hex.EncodeToString(bytes)
 }
 
-// extractUserIDFromRequest extracts user ID from JWT token in the request.
-// This integrates with the existing JWT authentication middleware.
+// extractUserIDFromRequest extracts the user ID from the JWT token placed in
+// context by jwtauth.Verifier. Returns empty string for unauthenticated requests.
 func extractUserIDFromRequest(r *http.Request) string {
-	// Check for JWT token in Authorization header
-	token := r.Header.Get("Authorization")
-	if token == "" {
+	_, claims, err := jwtauth.FromContext(r.Context())
+	if err != nil || claims == nil {
 		return ""
 	}
-
-	// This is a simplified extraction - in practice, you'd decode the JWT
-	// and extract the user ID claim. For now, we'll extract from the context
-	// if it's already been set by the JWT middleware.
-
-	// Look for user info in request context (set by JWT middleware)
-	if userClaim := r.Context().Value("user"); userClaim != nil {
-		if userMap, ok := userClaim.(map[string]interface{}); ok {
-			if userID, exists := userMap["user_id"]; exists {
-				if id, ok := userID.(string); ok {
-					return id
-				}
-				if id, ok := userID.(float64); ok {
-					return strconv.Itoa(int(id))
-				}
-			}
-		}
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return ""
 	}
-
-	return ""
+	return sub
 }
 
 // HealthCheckMiddleware provides a simple health check endpoint that bypasses

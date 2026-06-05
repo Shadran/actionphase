@@ -190,16 +190,15 @@ func (l *Logger) LogOperation(ctx context.Context, operation string, args ...any
 	// Create operation context
 	opCtx := context.WithValue(ctx, OperationKey, operation)
 
-	// Log operation start
-	allArgs := append([]any{"operation", operation, "status", "started"}, args...)
+	// Log operation start — "operation" comes from WithContext(opCtx), not repeated here
+	allArgs := append([]any{"source", "app", "status", "started"}, args...)
 	l.WithContext(opCtx).logger.Debug("Operation started", allArgs...)
 
 	return func() {
 		duration := time.Since(start)
 
-		// Log operation completion
 		completeArgs := append([]any{
-			"operation", operation,
+			"source", "app",
 			"status", "completed",
 			"duration_ms", duration.Milliseconds(),
 		}, args...)
@@ -265,7 +264,7 @@ func WithCorrelationID(ctx context.Context, correlationID string) context.Contex
 }
 
 // WithUserID adds a user ID to the context
-func WithUserID(ctx context.Context, userID interface{}) context.Context {
+func WithUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, UserIDKey, userID)
 }
 

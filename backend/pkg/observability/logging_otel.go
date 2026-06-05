@@ -91,6 +91,13 @@ func (l *levelFilterHandler) Enabled(ctx context.Context, level slog.Level) bool
 	return level >= l.minLevel && l.Handler.Enabled(ctx, level)
 }
 
+func (l *levelFilterHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level < l.minLevel {
+		return nil
+	}
+	return l.Handler.Handle(ctx, r)
+}
+
 func (l *levelFilterHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &levelFilterHandler{Handler: l.Handler.WithAttrs(attrs), minLevel: l.minLevel}
 }
