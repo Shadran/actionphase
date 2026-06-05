@@ -321,6 +321,7 @@ export const ThreadedComment = memo(function ThreadedComment({
       reply_count: 0,
       is_deleted: false,
       is_edited: false,
+      is_draft: false,
     };
 
     try {

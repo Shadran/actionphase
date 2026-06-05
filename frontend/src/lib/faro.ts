@@ -5,7 +5,7 @@ import {
 } from '@grafana/faro-web-sdk';
 import { TracingInstrumentation } from '@grafana/faro-web-tracing';
 import { ReactIntegration, createReactRouterV6DataOptions } from '@grafana/faro-react';
-import { matchRoutes, useLocation, useNavigationType, createRoutesFromChildren } from 'react-router-dom';
+import { matchRoutes } from 'react-router-dom';
 
 let faroInstance: Faro | null = null;
 
@@ -27,15 +27,12 @@ export function initFaro(): void {
     instrumentations: [
       ...getWebInstrumentations({
         captureConsole: true,
-        performanceInstrumentation: { enabled: false },
+        enablePerformanceInstrumentation: false,
       }),
       new TracingInstrumentation(),
       new ReactIntegration({
         router: createReactRouterV6DataOptions({
           matchRoutes,
-          useLocation,
-          useNavigationType,
-          createRoutesFromChildren,
         }),
       }),
     ],
