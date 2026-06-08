@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CharacterAvatar from './CharacterAvatar';
+import type { SheetItem } from '../hooks/useCharacterSheetItems';
 
 const ALLOWED_COLORS = new Set([
   'red', 'green', 'blue', 'purple', 'orange', 'gold', 'gray', 'teal', 'pink',
@@ -107,7 +108,7 @@ const DOMPURIFY_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
     'del', 'mark', 'span', 'img', 'button',
   ],
   ALLOWED_ATTR: [
-    'href', 'target', 'rel', 'class', 'data-mention-id',
+    'href', 'target', 'rel', 'class', 'data-mention-id', 'data-sheet-ref-id',
     'data-color', 'data-code-lang', 'data-image-expand',
     'src', 'alt', 'type', 'title', 'aria-label',
   ],
@@ -131,6 +132,8 @@ interface MentionedCharacter {
 interface MarkdownPreviewProps {
   content: string;
   mentionedCharacters?: MentionedCharacter[];
+  /** Character sheet items used to resolve [[item]] hover tooltips */
+  sheetItemRefs?: SheetItem[];
   className?: string;
   /**
    * Allow full width for code blocks or constrain to optimal line length (65ch) for prose.
@@ -164,7 +167,10 @@ function splitByCodeBlocks(text: string): Array<{ text: string; isCode: boolean 
   return segments;
 }
 
-function processContent(content: string, mentionedCharacters: MentionedCharacter[]): string {
+// Regex for [[DisplayName|type:uuid]] sheet item references
+const SHEET_REF_REGEX = /\[\[([^\]|]+)\|(?:ability|skill|item):([^\]]+)\]\]/g;
+
+function processContent(content: string, mentionedCharacters: MentionedCharacter[], sheetItemRefs: SheetItem[]): string {
   // Step 1: Process character mentions
   let mentionsResult = content;
   if (mentionedCharacters.length) {
@@ -191,6 +197,22 @@ function processContent(content: string, mentionedCharacters: MentionedCharacter
     }).join('');
   }
 
+  // Step 1b: Process [[DisplayName|type:uuid]] sheet item references, skipping code blocks
+  if (sheetItemRefs.length > 0 || SHEET_REF_REGEX.test(mentionsResult)) {
+    SHEET_REF_REGEX.lastIndex = 0; // reset stateful regex
+    const sheetSegments = splitByCodeBlocks(mentionsResult);
+    mentionsResult = sheetSegments.map((segment) => {
+      if (segment.isCode) return segment.text;
+      return segment.text.replace(
+        /\[\[([^\]|]+)\|(?:ability|skill|item):([^\]]+)\]\]/g,
+        (_match, displayName: string, refId: string) => {
+          const safeDisplay = escapeHtml(displayName);
+          return `<mark data-sheet-ref-id="${escapeHtml(refId)}" class="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-1 rounded font-medium cursor-help">[[${safeDisplay}]]</mark>`;
+        }
+      );
+    }).join('');
+  }
+
   // Step 2: Process [color:X]...[/color] syntax, skipping code blocks
   const colorRegex = /\[color:([a-z]+)\]([\s\S]*?)\[\/color\]/g;
   const hasColorSyntax = colorRegex.test(mentionsResult);
@@ -214,41 +236,62 @@ function processContent(content: string, mentionedCharacters: MentionedCharacter
 export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   content,
   mentionedCharacters = [],
+  sheetItemRefs = [],
   className = '',
   fullWidth = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredMentionId, setHoveredMentionId] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
+  const [hoveredSheetRefId, setHoveredSheetRefId] = useState<string | null>(null);
+  const [sheetTooltipPosition, setSheetTooltipPosition] = useState<{ top: number; left: number } | null>(null);
 
   const hoveredCharacter = React.useMemo(() => {
     if (hoveredMentionId === null) return null;
     return mentionedCharacters.find((char) => char.id === hoveredMentionId) || null;
   }, [hoveredMentionId, mentionedCharacters]);
 
+  const hoveredSheetItem = React.useMemo(() => {
+    if (!hoveredSheetRefId) return null;
+    return sheetItemRefs.find((item) => item.id === hoveredSheetRefId) || null;
+  }, [hoveredSheetRefId, sheetItemRefs]);
+
   const processedContent = React.useMemo(
-    () => processContent(content, mentionedCharacters),
-    [content, mentionedCharacters]
+    () => processContent(content, mentionedCharacters, sheetItemRefs),
+    [content, mentionedCharacters, sheetItemRefs]
   );
 
   const htmlContent = React.useMemo(() => renderMarkdown(processedContent), [processedContent]);
 
-  // Event delegation for mention tooltips
+  // Event delegation for mention and sheet item tooltips
   const handleMouseOver = useCallback((e: MouseEvent) => {
-    const mark = (e.target as Element).closest('mark[data-mention-id]');
-    if (mark) {
-      const id = Number(mark.getAttribute('data-mention-id'));
-      const rect = mark.getBoundingClientRect();
+    const mentionMark = (e.target as Element).closest('mark[data-mention-id]');
+    if (mentionMark) {
+      const id = Number(mentionMark.getAttribute('data-mention-id'));
+      const rect = mentionMark.getBoundingClientRect();
       setHoveredMentionId(id);
       setTooltipPosition({ top: rect.bottom + 4, left: rect.left });
+      return;
+    }
+    const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
+    if (sheetMark) {
+      const id = sheetMark.getAttribute('data-sheet-ref-id') ?? null;
+      const rect = sheetMark.getBoundingClientRect();
+      setHoveredSheetRefId(id);
+      setSheetTooltipPosition({ top: rect.bottom + 4, left: rect.left });
     }
   }, []);
 
   const handleMouseOut = useCallback((e: MouseEvent) => {
-    const mark = (e.target as Element).closest('mark[data-mention-id]');
-    if (mark && !mark.contains(e.relatedTarget as Node | null)) {
+    const mentionMark = (e.target as Element).closest('mark[data-mention-id]');
+    if (mentionMark && !mentionMark.contains(e.relatedTarget as Node | null)) {
       setHoveredMentionId(null);
       setTooltipPosition(null);
+    }
+    const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
+    if (sheetMark && !sheetMark.contains(e.relatedTarget as Node | null)) {
+      setHoveredSheetRefId(null);
+      setSheetTooltipPosition(null);
     }
   }, []);
 
@@ -336,6 +379,34 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
               {hoveredCharacter.character_type && (
                 <div className="text-xs text-gray-400 mt-0.5 capitalize">
                   {hoveredCharacter.character_type.replace('_', ' ')}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hoveredSheetItem && sheetTooltipPosition && (
+        <div
+          className="fixed z-50 px-3 py-2 text-sm bg-gray-900 dark:bg-gray-800 border border-border-primary rounded-lg shadow-lg pointer-events-none max-w-xs"
+          style={{ top: `${sheetTooltipPosition.top}px`, left: `${sheetTooltipPosition.left}px` }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-white">{hoveredSheetItem.name}</span>
+                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-700/50 text-amber-200 capitalize">
+                  {hoveredSheetItem.type}
+                </span>
+              </div>
+              {hoveredSheetItem.metadata && (
+                <div className="text-xs text-gray-400 mt-0.5">{hoveredSheetItem.metadata}</div>
+              )}
+              {hoveredSheetItem.description && (
+                <div className="text-xs text-gray-300 mt-1 leading-relaxed">
+                  {hoveredSheetItem.description.length > 200
+                    ? hoveredSheetItem.description.slice(0, 200) + '…'
+                    : hoveredSheetItem.description}
                 </div>
               )}
             </div>

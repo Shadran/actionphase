@@ -546,4 +546,72 @@ describe('MarkdownPreview', () => {
       expect(link?.querySelector('strong')).toBeInTheDocument();
     });
   });
+
+  describe('Sheet Item References ([[item]] syntax)', () => {
+    const sheetItems = [
+      { id: 'abc-1', name: 'Fire Bolt', type: 'ability' as const, description: 'Deals fire damage', metadata: 'innate' },
+      { id: 'xyz-2', name: 'Longbow', type: 'item' as const, description: 'A fine bow' },
+    ];
+
+    it('renders [[item]] tokens as amber highlighted marks', () => {
+      const { container } = render(
+        <MarkdownPreview
+          content="I use [[Fire Bolt|ability:abc-1]]"
+          sheetItemRefs={sheetItems}
+        />
+      );
+      const mark = container.querySelector('[data-sheet-ref-id="abc-1"]');
+      expect(mark).toBeInTheDocument();
+      expect(mark?.textContent).toContain('Fire Bolt');
+    });
+
+    it('renders [[item]] marks even without sheetItemRefs (no tooltip, but mark shown)', () => {
+      const { container } = render(
+        <MarkdownPreview content="I use [[Fire Bolt|ability:abc-1]]" />
+      );
+      const mark = container.querySelector('[data-sheet-ref-id="abc-1"]');
+      expect(mark).toBeInTheDocument();
+    });
+
+    it('does not process [[item]] syntax inside inline code', () => {
+      const { container } = render(
+        <MarkdownPreview content="`[[Fire Bolt|ability:abc-1]]`" sheetItemRefs={sheetItems} />
+      );
+      expect(container.querySelector('[data-sheet-ref-id]')).not.toBeInTheDocument();
+    });
+
+    it('does not process [[item]] syntax inside fenced code blocks', () => {
+      const { container } = render(
+        <MarkdownPreview content={'```\n[[Fire Bolt|ability:abc-1]]\n```'} sheetItemRefs={sheetItems} />
+      );
+      expect(container.querySelector('[data-sheet-ref-id]')).not.toBeInTheDocument();
+    });
+
+    it('renders multiple [[item]] references in one content string', () => {
+      const { container } = render(
+        <MarkdownPreview
+          content="I fire [[Fire Bolt|ability:abc-1]] with my [[Longbow|item:xyz-2]]"
+          sheetItemRefs={sheetItems}
+        />
+      );
+      expect(container.querySelector('[data-sheet-ref-id="abc-1"]')).toBeInTheDocument();
+      expect(container.querySelector('[data-sheet-ref-id="xyz-2"]')).toBeInTheDocument();
+    });
+
+    it('shows hover tooltip for item when sheetItemRefs contains the item', () => {
+      const { container } = render(
+        <MarkdownPreview
+          content="I use [[Fire Bolt|ability:abc-1]]"
+          sheetItemRefs={sheetItems}
+        />
+      );
+      const mark = container.querySelector('[data-sheet-ref-id="abc-1"]') as HTMLElement;
+      expect(mark).toBeInTheDocument();
+
+      fireEvent.mouseOver(mark);
+
+      // Tooltip with item name should appear
+      expect(screen.getByText('Fire Bolt')).toBeInTheDocument();
+    });
+  });
 });

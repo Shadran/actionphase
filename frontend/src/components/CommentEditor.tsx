@@ -2,8 +2,10 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CharacterAutocomplete } from './CharacterAutocomplete';
+import { SheetItemAutocomplete } from './SheetItemAutocomplete';
 import { Button, Textarea, Modal } from './ui';
 import type { Character } from '../types/characters';
+import type { SheetItem } from '../hooks/useCharacterSheetItems';
 
 /**
  * Inner component that calls useBlocker and renders the confirmation modal.
@@ -54,6 +56,7 @@ interface CommentEditorProps {
   rows?: number;
   showPreviewByDefault?: boolean;
   characters?: Character[]; // Characters available for mention autocomplete
+  sheetItems?: SheetItem[]; // Character sheet items for %% trigger autocomplete
   id?: string; // HTML id for label association
   maxLength?: number; // Maximum character limit
   showCharacterCount?: boolean; // Show character counter below textarea
@@ -81,6 +84,7 @@ export const CommentEditor = memo(function CommentEditor({
   rows = 4,
   showPreviewByDefault = false,
   characters = [],
+  sheetItems = [],
   id,
   maxLength,
   showCharacterCount = false,
@@ -94,6 +98,14 @@ export const CommentEditor = memo(function CommentEditor({
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mentionStartIndex, setMentionStartIndex] = useState(0);
+
+  // Sheet item autocomplete state (%% trigger)
+  const [showSheetAutocomplete, setShowSheetAutocomplete] = useState(false);
+  const [sheetQuery, setSheetQuery] = useState('');
+  const [sheetAutocompletePosition, setSheetAutocompletePosition] = useState({ top: 0, left: 0 });
+  const [sheetSelectedIndex, setSheetSelectedIndex] = useState(0);
+  const [sheetTriggerStartIndex, setSheetTriggerStartIndex] = useState(0);
+
   const [editorHeight, setEditorHeight] = useState<number | null>(null);
   const dragStartY = useRef<number | null>(null);
   const dragStartHeight = useRef<number>(0);
@@ -153,47 +165,76 @@ export const CommentEditor = memo(function CommentEditor({
     return { top, left };
   };
 
-  // Detect @ and trigger autocomplete
+  // Detect %% trigger for sheet item autocomplete
+  const handleSheetTriggerDetect = (newValue: string, cursorPosition: number) => {
+    if (sheetItems.length === 0) {
+      setShowSheetAutocomplete(false);
+      return;
+    }
+
+    const textBeforeCursor = newValue.substring(0, cursorPosition);
+    const lastDoublePercent = textBeforeCursor.lastIndexOf('%%');
+
+    if (lastDoublePercent === -1) {
+      setShowSheetAutocomplete(false);
+      return;
+    }
+
+    const textAfterTrigger = textBeforeCursor.substring(lastDoublePercent + 2);
+    if (textAfterTrigger.includes('\n') || textAfterTrigger.length > 50) {
+      setShowSheetAutocomplete(false);
+      return;
+    }
+
+    setShowSheetAutocomplete(true);
+    setShowAutocomplete(false); // mutually exclusive
+    setSheetQuery(textAfterTrigger);
+    setSheetTriggerStartIndex(lastDoublePercent);
+    setSheetSelectedIndex(0);
+
+    if (textareaRef.current) {
+      const position = getCaretCoordinates(textareaRef.current, cursorPosition);
+      setSheetAutocompletePosition(position);
+    }
+  };
+
+  // Detect @ and trigger character mention autocomplete
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursorPosition = e.target.selectionStart || 0;
 
     onChange(newValue);
 
-    // Only show autocomplete if characters are available
-    if (characters.length === 0) {
+    // Run both trigger detections — they are mutually exclusive via setShow* calls
+    let atTriggered = false;
+
+    if (characters.length > 0) {
+      const textBeforeCursor = newValue.substring(0, cursorPosition);
+      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+      if (lastAtIndex !== -1) {
+        const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+        if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n') && textAfterAt.length <= 50) {
+          setShowAutocomplete(true);
+          setAutocompleteQuery(textAfterAt);
+          setMentionStartIndex(lastAtIndex);
+          setSelectedIndex(0);
+          setShowSheetAutocomplete(false);
+          atTriggered = true;
+
+          if (textareaRef.current) {
+            const position = getCaretCoordinates(textareaRef.current, cursorPosition);
+            setAutocompletePosition(position);
+          }
+        }
+      }
+    }
+
+    if (!atTriggered) {
       setShowAutocomplete(false);
-      return;
     }
 
-    // Look for @ before cursor
-    const textBeforeCursor = newValue.substring(0, cursorPosition);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-
-    if (lastAtIndex === -1) {
-      setShowAutocomplete(false);
-      return;
-    }
-
-    // Check if there's a space between @ and cursor (cancels mention)
-    // Also limit mention length to 50 characters for performance
-    const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-    if (textAfterAt.includes(' ') || textAfterAt.includes('\n') || textAfterAt.length > 50) {
-      setShowAutocomplete(false);
-      return;
-    }
-
-    // Show autocomplete and calculate position for dropdown
-    setShowAutocomplete(true);
-    setAutocompleteQuery(textAfterAt);
-    setMentionStartIndex(lastAtIndex);
-    setSelectedIndex(0);
-
-    // Calculate dropdown position (only when showing autocomplete)
-    if (textareaRef.current) {
-      const position = getCaretCoordinates(textareaRef.current, cursorPosition);
-      setAutocompletePosition(position);
-    }
+    handleSheetTriggerDetect(newValue, cursorPosition);
   };
 
   // Handle character selection from autocomplete
@@ -217,8 +258,56 @@ export const CommentEditor = memo(function CommentEditor({
     }, 0);
   };
 
+  // Insert a sheet item token at a given index (or current cursor position)
+  const handleInsertSheetItem = useCallback((item: SheetItem, insertAtIndex?: number) => {
+    const textarea = textareaRef.current;
+    const insertPos = insertAtIndex ?? (textarea?.selectionStart ?? value.length);
+    const before = value.substring(0, insertPos);
+    const after = value.substring(insertPos);
+    const token = `[[${item.name}|${item.type}:${item.id}]] `;
+    onChange(before + token + after);
+    setShowSheetAutocomplete(false);
+
+    // Restore cursor after the inserted token
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newPos = insertPos + token.length;
+        textareaRef.current.setSelectionRange(newPos, newPos);
+        textareaRef.current.focus();
+      }
+    }, 0);
+  }, [value, onChange]);
+
+
   // Handle keyboard navigation in autocomplete
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSheetAutocomplete) {
+      const filteredItems = sheetQuery
+        ? sheetItems.filter((i) => i.name.toLowerCase().includes(sheetQuery.toLowerCase()))
+        : sheetItems;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSheetSelectedIndex((prev) => (prev + 1) % Math.max(filteredItems.length, 1));
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSheetSelectedIndex((prev) => (prev - 1 + Math.max(filteredItems.length, 1)) % Math.max(filteredItems.length, 1));
+          return;
+        case 'Enter':
+          if (filteredItems.length > 0) {
+            e.preventDefault();
+            handleInsertSheetItem(filteredItems[sheetSelectedIndex], sheetTriggerStartIndex);
+          }
+          return;
+        case 'Escape':
+          e.preventDefault();
+          setShowSheetAutocomplete(false);
+          return;
+      }
+    }
+
     if (!showAutocomplete) return;
 
     const filteredCharacters = characters.filter((char) =>
@@ -247,17 +336,18 @@ export const CommentEditor = memo(function CommentEditor({
     }
   };
 
-  // Close autocomplete when clicking outside
+  // Close autocompletes when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
       setShowAutocomplete(false);
+      setShowSheetAutocomplete(false);
     };
 
-    if (showAutocomplete) {
+    if (showAutocomplete || showSheetAutocomplete) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
-  }, [showAutocomplete]);
+  }, [showAutocomplete, showSheetAutocomplete]);
 
   const handleDragStart = useCallback((clientY: number) => {
     // Measure the actual textarea or preview div height at drag start.
@@ -380,6 +470,9 @@ export const CommentEditor = memo(function CommentEditor({
               <div>
                 <code className="surface-sunken px-1 rounded">@CharacterName</code> → mention
               </div>
+              <div>
+                <code className="surface-sunken px-1 rounded">%%</code> → insert sheet item
+              </div>
             </div>
             <div className="mt-2 pt-2 border-t border-theme-default text-content-primary">
               <div className="font-semibold text-content-secondary mb-1">Colored Text</div>
@@ -455,6 +548,18 @@ export const CommentEditor = memo(function CommentEditor({
           onSelect={handleSelectCharacter}
           selectedIndex={selectedIndex}
           onClose={() => setShowAutocomplete(false)}
+        />
+      )}
+
+      {/* Sheet Item Autocomplete (%% trigger) */}
+      {showSheetAutocomplete && sheetItems.length > 0 && (
+        <SheetItemAutocomplete
+          items={sheetItems}
+          query={sheetQuery}
+          position={sheetAutocompletePosition}
+          onSelect={(item) => handleInsertSheetItem(item, sheetTriggerStartIndex)}
+          selectedIndex={sheetSelectedIndex}
+          onClose={() => setShowSheetAutocomplete(false)}
         />
       )}
 

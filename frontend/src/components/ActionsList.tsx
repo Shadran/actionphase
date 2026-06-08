@@ -8,6 +8,7 @@ import { Modal } from './Modal';
 import { MarkdownPreview } from './MarkdownPreview';
 import CharacterAvatar from './CharacterAvatar';
 import { useGameContext } from '../contexts/GameContext';
+import { useCharacterSheetItems } from '../hooks/useCharacterSheetItems';
 
 interface ActionsListProps {
   gameId: number;
@@ -230,6 +231,9 @@ interface ActionCardProps {
 function ActionCard({ action, gameId, isExpanded, onToggleExpand }: ActionCardProps) {
   const [showResultForm, setShowResultForm] = useState(false);
   const { allGameCharacters, game } = useGameContext();
+
+  // Lazy-fetch character sheet items for [[item]] tooltip resolution when expanded
+  const sheetItems = useCharacterSheetItems(isExpanded && action.character_id ? action.character_id : null);
   const portraitAvatars = game?.portrait_avatars ?? false;
   const avatarUrl = action.character_id
     ? (allGameCharacters.find(c => c.id === action.character_id)?.avatar_url ?? null)
@@ -331,7 +335,7 @@ function ActionCard({ action, gameId, isExpanded, onToggleExpand }: ActionCardPr
       {isExpanded && (
         <div className="px-4 py-4 surface-raised border-t border-theme-default">
           <div className="surface-base p-4 rounded border border-theme-default">
-            <MarkdownPreview content={action.content} fullWidth />
+            <MarkdownPreview content={action.content} fullWidth sheetItemRefs={sheetItems} />
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-content-tertiary">
             <span>

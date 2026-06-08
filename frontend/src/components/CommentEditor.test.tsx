@@ -593,4 +593,83 @@ describe('CommentEditor', () => {
       expect(router.state.location.pathname).toBe('/other');
     });
   });
+
+  describe('Sheet Item Autocomplete (%% trigger)', () => {
+    const mockSheetItems = [
+      { id: 'a1', name: 'Fire Bolt', type: 'ability' as const, description: 'Deals fire damage' },
+      { id: 's1', name: 'Stealth', type: 'skill' as const },
+      { id: 'i1', name: 'Longbow', type: 'item' as const },
+    ];
+
+    it('shows sheet autocomplete when %% is typed', () => {
+      render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} />);
+      const textarea = screen.getByRole('textbox');
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    it('does not show autocomplete when sheetItems is empty', () => {
+      render(<CommentEditor {...defaultProps} sheetItems={[]} />);
+      const textarea = screen.getByRole('textbox');
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('filters items by text typed after %%', () => {
+      render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} />);
+      const textarea = screen.getByRole('textbox');
+      fireEvent.change(textarea, { target: { value: '%%bolt', selectionStart: 6 } });
+      expect(screen.getByText('Fire Bolt')).toBeInTheDocument();
+      expect(screen.queryByText('Stealth')).not.toBeInTheDocument();
+    });
+
+    it('inserts [[token]] when item is selected from autocomplete', () => {
+      const onChange = vi.fn();
+      render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} onChange={onChange} />);
+      const textarea = screen.getByRole('textbox');
+
+      // Trigger autocomplete
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+
+      // Click the item
+      fireEvent.click(screen.getByText('Fire Bolt'));
+
+      // onChange should have been called with the [[token]] replacing %%
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall).toContain('[[Fire Bolt|ability:a1]]');
+      expect(lastCall).not.toContain('%%');
+    });
+
+    it('closes sheet autocomplete when Escape is pressed', () => {
+      render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} />);
+      const textarea = screen.getByRole('textbox');
+
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+      fireEvent.keyDown(textarea, { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('%% and @ autocompletes are mutually exclusive', () => {
+      const mockCharacters = [{ id: 1, name: 'Gandalf' }];
+      render(
+        <CommentEditor
+          {...defaultProps}
+          sheetItems={mockSheetItems}
+          characters={mockCharacters}
+        />
+      );
+      const textarea = screen.getByRole('textbox');
+
+      // Trigger @ mention
+      fireEvent.change(textarea, { target: { value: '@', selectionStart: 1 } });
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+      // Switch to %% — should close @ and open sheet
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+      // Only one listbox should be visible
+      expect(screen.getAllByRole('listbox')).toHaveLength(1);
+    });
+  });
 });

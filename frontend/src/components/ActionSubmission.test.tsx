@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ActionSubmission } from './ActionSubmission';
 import type { GamePhase } from '../types/phases';
+import { useCharacterSheetItems } from '../hooks/useCharacterSheetItems';
 
 vi.mock('../hooks/useUserCharacters', () => ({
   useUserCharacters: vi.fn(() => ({ characters: [], isLoading: false })),
+}));
+
+vi.mock('../hooks/useCharacterSheetItems', () => ({
+  useCharacterSheetItems: vi.fn(() => []),
 }));
 
 vi.mock('../lib/api', () => ({
@@ -56,5 +62,35 @@ describe('ActionSubmission subtitle text', () => {
     const phase = { ...baseActionPhase, description: '' };
     renderWithClient(<ActionSubmission gameId={1} currentPhase={phase} />);
     expect(screen.getByText('Submit your private action to the GM')).toBeInTheDocument();
+  });
+});
+
+describe('ActionSubmission sheet drawer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not show Sheet button when character has no sheet items', () => {
+    renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
+    expect(screen.queryByTestId('sheet-toggle-button')).not.toBeInTheDocument();
+  });
+
+  it('shows Sheet button when character has sheet items', () => {
+    vi.mocked(useCharacterSheetItems).mockReturnValue([
+      { id: 'a1', name: 'Fire Bolt', type: 'ability' },
+    ]);
+    renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
+    expect(screen.getByTestId('sheet-toggle-button')).toBeInTheDocument();
+  });
+
+  it('opens drawer when Sheet button is clicked', async () => {
+    vi.mocked(useCharacterSheetItems).mockReturnValue([
+      { id: 'a1', name: 'Fire Bolt', type: 'ability' },
+    ]);
+    const user = userEvent.setup();
+    renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
+    await user.click(screen.getByTestId('sheet-toggle-button'));
+    expect(screen.getByText('Character Sheet')).toBeInTheDocument();
+    expect(screen.getByText('Fire Bolt')).toBeInTheDocument();
   });
 });

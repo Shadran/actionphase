@@ -85,3 +85,7 @@ export type { MetadataItemProps } from './MetadataItem';
 
 // HelpTooltip
 export { HelpTooltip } from './HelpTooltip';
+
+// Drawer
+export { Drawer } from './Drawer';
+export type { DrawerProps } from './Drawer';

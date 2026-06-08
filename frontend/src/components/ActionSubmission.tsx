@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useUserCharacters } from '../hooks/useUserCharacters';
+import { useCharacterSheetItems } from '../hooks/useCharacterSheetItems';
+import type { SheetItem } from '../hooks/useCharacterSheetItems';
 import { CountdownTimer } from './CountdownTimer';
-import { Button, Select, Alert } from './ui';
+import { Button, Select, Alert, Drawer } from './ui';
+import { SheetPanel } from './SheetPanel';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CommentEditor } from './CommentEditor';
 import type { GamePhase, ActionSubmissionRequest, ActionWithDetails } from '../types/phases';
@@ -20,11 +23,24 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPreviousActions, setShowPreviousActions] = useState(false);
   const [isCurrentActionExpanded, setIsCurrentActionExpanded] = useState(false);
+  const [sheetDrawerOpen, setSheetDrawerOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
   // Get user's controllable characters (works in anonymous mode)
   const { characters: availableCharacters } = useUserCharacters(gameId);
+
+  // Determine which character's sheet to show in the sidebar
+  const activeCharacterId = selectedCharacterId ?? (availableCharacters.length === 1 ? availableCharacters[0].id : null);
+  const sheetItems = useCharacterSheetItems(activeCharacterId);
+  const activeCharacter = availableCharacters.find((c) => c.id === activeCharacterId);
+
+  // Insert a sheet item token at the end of the current content
+  const handleInsertSheetItem = (item: SheetItem) => {
+    const token = `[[${item.name}|${item.type}:${item.id}]] `;
+    setContent((prev) => prev + token);
+    setSheetDrawerOpen(false);
+  };
 
   // Get user's previous actions
   const { data: userActionsData } = useQuery({
@@ -228,7 +244,20 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
 
             {/* Action Content */}
             <div>
-              <label className="block text-sm font-medium text-content-primary mb-1">Your Action</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-content-primary">Your Action</label>
+                {sheetItems.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSheetDrawerOpen(true)}
+                    data-testid="sheet-toggle-button"
+                  >
+                    📋 Sheet
+                  </Button>
+                )}
+              </div>
               <CommentEditor
                 value={content}
                 onChange={setContent}
@@ -239,6 +268,8 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 warnOnUnsavedChanges
                 showCharacterCount={true}
                 textareaTestId="action-textarea"
+                characters={availableCharacters}
+                sheetItems={sheetItems}
               />
               <p className="mt-1 text-xs text-content-tertiary">This action is private and will only be visible to the GM during the game. Maximum 100,000 characters.</p>
             </div>
@@ -288,6 +319,19 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
           </div>
         )}
       </div>
+
+      {/* Character Sheet Drawer */}
+      <Drawer
+        open={sheetDrawerOpen}
+        onClose={() => setSheetDrawerOpen(false)}
+        title="Character Sheet"
+      >
+        <SheetPanel
+          items={sheetItems}
+          onInsert={handleInsertSheetItem}
+          characterName={activeCharacter?.name}
+        />
+      </Drawer>
 
       {/* Action History */}
       {(() => {

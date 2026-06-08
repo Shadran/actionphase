@@ -6,6 +6,11 @@ import { server } from '../../mocks/server';
 import { renderWithProviders } from '../../test-utils';
 import { ActionsList } from '../ActionsList';
 import type { GamePhase, ActionWithDetails } from '../../types/phases';
+import { useCharacterSheetItems } from '../../hooks/useCharacterSheetItems';
+
+vi.mock('../../hooks/useCharacterSheetItems', () => ({
+  useCharacterSheetItems: vi.fn(() => []),
+}));
 
 // Mock CreateActionResultForm component
 vi.mock('../CreateActionResultForm', () => ({
@@ -1099,6 +1104,52 @@ describe('ActionsList', () => {
           screen.getByRole('button', { name: /Publish All Results/i })
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('ActionCard sheet item lazy-fetch', () => {
+    it('calls useCharacterSheetItems with null when card is collapsed', async () => {
+      setupDefaultHandlers([mockActions[0]]);
+
+      renderWithProviders(<ActionsList gameId={1} />, { gameId: 1 });
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Hero Character')[0]).toBeInTheDocument();
+      });
+
+      expect(vi.mocked(useCharacterSheetItems)).toHaveBeenCalledWith(null);
+    });
+
+    it('calls useCharacterSheetItems with character_id when card is expanded', async () => {
+      const user = userEvent.setup();
+      setupDefaultHandlers([mockActions[0]]);
+
+      renderWithProviders(<ActionsList gameId={1} />, { gameId: 1 });
+
+      const cards = await screen.findAllByText('Hero Character');
+      await user.click(cards[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('I investigate the mysterious door.')).toBeInTheDocument();
+      });
+
+      expect(vi.mocked(useCharacterSheetItems)).toHaveBeenCalledWith(1);
+    });
+
+    it('calls useCharacterSheetItems with null for action without character_id', async () => {
+      const actionWithoutCharacter: ActionWithDetails = {
+        ...mockActions[0],
+        character_id: undefined,
+      };
+      setupDefaultHandlers([actionWithoutCharacter]);
+
+      renderWithProviders(<ActionsList gameId={1} />, { gameId: 1 });
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Hero Character')[0]).toBeInTheDocument();
+      });
+
+      expect(vi.mocked(useCharacterSheetItems)).toHaveBeenCalledWith(null);
     });
   });
 });
