@@ -122,6 +122,14 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
   const { data: polls = [] } = usePollsByPhase(gameId, currentPhaseId || 0);
   const unvotedPollsCount = polls.filter(poll => !poll.user_has_voted).length;
 
+  // Check if player has already submitted an action for the current phase (served from cache)
+  const { data: userActionsData } = useQuery({
+    queryKey: ['userActions', gameId],
+    queryFn: () => apiClient.phases.getUserActions(gameId).then(r => r.data),
+    enabled: !!gameId && currentPhaseData?.phase?.phase_type === 'action' && isParticipant,
+  });
+  const hasSubmittedAction = !!userActionsData?.some(a => a.phase_id === currentPhaseData?.phase?.id);
+
   const [searchParams] = useSearchParams();
 
   // Custom hooks for tab management
@@ -135,6 +143,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
     isParticipant,
     hasCharacters: userCharacters.length > 0,
     unvotedPollsCount,
+    hasSubmittedAction,
   });
 
   const getTabHref = useCallback((tabId: string) => {
@@ -393,8 +402,8 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
               </div>
             )}
 
-            {/* Game Info Grid - Show game metadata */}
-            <GameInfoGrid game={game} />
+            {/* Game Info Grid - Show game metadata (not needed for in-progress games) */}
+            {game.state !== 'in_progress' && <GameInfoGrid game={game} />}
           </div>
 
           {/* User Application Status - Show pending applications */}

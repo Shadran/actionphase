@@ -600,7 +600,7 @@ function CharacterCard({
             size="sm"
             onClick={() => navigate(`/characters/${character.id}`)}
           >
-            View Profile
+            Profile Page
           </Button>
 
           {userRole === 'gm' && character.character_type === 'npc' && onAssignNPC && (
@@ -700,7 +700,7 @@ function CharacterCard({
             size="sm"
             onClick={() => navigate(`/characters/${character.id}`)}
           >
-            View Profile
+            Profile Page
           </Button>
 
           {/* Assign NPC Button (GM only, for NPCs) */}

@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import type { DashboardMessage } from '../types/dashboard';
 import { MessageSquare, Clock } from 'lucide-react';
 
+const stripMarkdown = (text: string) => text.replace(/(\*\*|__|[*_`#>])/g, '').trim();
+
 interface RecentActivityCardProps {
   messages: DashboardMessage[];
 }
@@ -66,7 +68,7 @@ export function RecentActivityCard({ messages }: RecentActivityCardProps) {
                 {formatMessageTime(message.created_at)}
               </div>
             </div>
-            <p className="text-sm text-content-secondary line-clamp-2">{message.content}</p>
+            <p className="text-sm text-content-secondary line-clamp-2">{stripMarkdown(message.content)}</p>
             <p className="text-xs text-content-tertiary mt-1">
               {message.message_type === 'post' ? 'Post' :
                message.message_type === 'comment' ? 'Comment' :

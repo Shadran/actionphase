@@ -13,6 +13,7 @@ interface UseGameTabsOptions {
   isParticipant?: boolean;
   hasCharacters?: boolean;
   unvotedPollsCount?: number;
+  hasSubmittedAction?: boolean;
 }
 
 // Icon helper to avoid JSX in .ts file
@@ -53,6 +54,7 @@ export function useGameTabs({
   isParticipant = false,
   hasCharacters = false,
   unvotedPollsCount = 0,
+  hasSubmittedAction = false,
 }: UseGameTabsOptions) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -104,7 +106,7 @@ export function useGameTabs({
       // 2. Regular participants (can submit actions)
       // Note: Audience members view actions via the Audience tab instead
       if (currentPhaseType === 'action' && (isGM || isParticipant)) {
-        const label = isGM ? 'Actions' : 'Submit Action';
+        const label = isGM ? 'Actions' : hasSubmittedAction ? 'Action Submitted ✓' : 'Submit Action';
         tabList.push({ id: 'actions', label, icon: icons.actions });
       }
 
@@ -130,6 +132,9 @@ export function useGameTabs({
 
       // History - context-aware label
       tabList.push({ id: 'history', label: 'History', icon: icons.history });
+
+      // Game Info - always available
+      tabList.push({ id: 'info', label: 'Game Info', icon: icons.info });
     } else if (gameState === 'completed' || gameState === 'cancelled') {
       // Post-game tabs - read-only archive view
       tabList.push({ id: 'history', label: 'History', icon: icons.history });
@@ -155,7 +160,7 @@ export function useGameTabs({
     }
 
     return tabList;
-  }, [gameState, isGM, participantCount, currentPhaseType, isParticipant, isAudience, hasCharacters, unvotedPollsCount]);
+  }, [gameState, isGM, participantCount, currentPhaseType, isParticipant, isAudience, hasCharacters, unvotedPollsCount, hasSubmittedAction]);
 
   // Smart default tab selection logic based on game context
   const defaultTab = useMemo(() => {
