@@ -511,7 +511,7 @@ export const CommentEditor = memo(function CommentEditor({
             style={editorHeight !== null ? { height: editorHeight } : { minHeight: `${rows * 1.5}rem` }}
           >
             {value.trim() ? (
-              <MarkdownPreview content={value} />
+              <MarkdownPreview content={value} sheetItemRefs={sheetItems} />
             ) : (
               <p className="text-xs text-content-tertiary italic">Preview will appear here...</p>
             )}

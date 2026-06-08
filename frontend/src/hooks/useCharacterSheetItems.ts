@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { apiClient } from '../lib/api';
 import type { CharacterAbility, CharacterSkill, InventoryItem } from '../types/characters';
 
@@ -66,18 +67,20 @@ export function useCharacterSheetItems(characterId: number | null): SheetItem[] 
     staleTime: 60_000,
   });
 
-  if (!data) return [];
+  return useMemo(() => {
+    if (!data) return [];
 
-  const getField = (moduleType: string, fieldName: string): string | undefined =>
-    data.find((d) => d.module_type === moduleType && d.field_name === fieldName)?.field_value;
+    const getField = (moduleType: string, fieldName: string): string | undefined =>
+      data.find((d) => d.module_type === moduleType && d.field_name === fieldName)?.field_value;
 
-  const abilities = parseJsonField<CharacterAbility>(getField('abilities', 'abilities'));
-  const skills = parseJsonField<CharacterSkill>(getField('abilities', 'skills'));
-  const items = parseJsonField<InventoryItem>(getField('inventory', 'items'));
+    const abilities = parseJsonField<CharacterAbility>(getField('abilities', 'abilities'));
+    const skills = parseJsonField<CharacterSkill>(getField('skills', 'skills'));
+    const items = parseJsonField<InventoryItem>(getField('inventory', 'items'));
 
-  return [
-    ...abilities.filter((a) => a.id && a.name).map(abilityToSheetItem),
-    ...skills.filter((s) => s.id && s.name).map(skillToSheetItem),
-    ...items.filter((i) => i.id && i.name).map(itemToSheetItem),
-  ];
+    return [
+      ...abilities.filter((a) => a.id && a.name).map(abilityToSheetItem),
+      ...skills.filter((s) => s.id && s.name).map(skillToSheetItem),
+      ...items.filter((i) => i.id && i.name).map(itemToSheetItem),
+    ];
+  }, [data]);
 }

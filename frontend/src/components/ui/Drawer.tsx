@@ -19,13 +19,13 @@ export interface DrawerProps {
 export function Drawer({ open, onClose, title, children, side = 'responsive' }: DrawerProps) {
   // Panel positioning classes
   const panelClasses = {
-    right: 'fixed inset-y-0 right-0 flex flex-col w-80 max-w-full bg-bg-secondary border-l border-border-primary shadow-xl',
-    bottom: 'fixed bottom-0 inset-x-0 flex flex-col max-h-[80vh] rounded-t-2xl bg-bg-secondary border-t border-border-primary shadow-xl',
-    responsive: 'fixed flex flex-col bg-bg-secondary shadow-xl ' +
+    right: 'fixed inset-y-0 right-0 flex flex-col w-80 max-w-full surface-raised border-l border-theme-default shadow-xl',
+    bottom: 'fixed bottom-0 inset-x-0 flex flex-col max-h-[80vh] rounded-t-2xl surface-raised border-t border-theme-default shadow-xl',
+    responsive: 'fixed flex flex-col surface-raised shadow-xl ' +
       // Desktop: right sidebar
-      'lg:inset-y-0 lg:right-0 lg:w-80 lg:max-w-full lg:border-l lg:border-border-primary ' +
+      'lg:inset-y-0 lg:right-0 lg:w-80 lg:max-w-full lg:border-l lg:border-theme-default ' +
       // Mobile: bottom sheet
-      'bottom-0 inset-x-0 max-h-[80vh] rounded-t-2xl border-t border-border-primary lg:rounded-none lg:max-h-full',
+      'bottom-0 inset-x-0 max-h-[80vh] rounded-t-2xl border-t border-theme-default lg:rounded-none lg:max-h-full',
   }[side];
 
   // Transition: right panels slide from right; bottom panels slide from bottom
@@ -69,14 +69,14 @@ export function Drawer({ open, onClose, title, children, side = 'responsive' }: 
             {/* Drag handle — only visible on bottom sheet */}
             {(side === 'bottom' || side === 'responsive') && (
               <div className={`flex justify-center pt-3 pb-1 shrink-0 ${side === 'responsive' ? 'lg:hidden' : ''}`}>
-                <div className="w-10 h-1 rounded-full bg-border-primary" />
+                <div className="w-10 h-1 rounded-full bg-theme-default" />
               </div>
             )}
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-theme-default shrink-0">
               {title ? (
-                <DialogTitle as="h2" className="text-base font-semibold text-text-heading">
+                <DialogTitle as="h2" className="text-base font-semibold text-content-primary">
                   {title}
                 </DialogTitle>
               ) : (
@@ -85,7 +85,7 @@ export function Drawer({ open, onClose, title, children, side = 'responsive' }: 
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                className="p-1 rounded-md text-content-secondary hover:text-content-primary hover:surface-base transition-colors"
                 aria-label="Close"
               >
                 <XMarkIcon className="h-5 w-5" />

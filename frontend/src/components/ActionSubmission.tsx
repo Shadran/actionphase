@@ -249,12 +249,12 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 {sheetItems.length > 0 && (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     onClick={() => setSheetDrawerOpen(true)}
                     data-testid="sheet-toggle-button"
                   >
-                    📋 Sheet
+                    Character Sheet
                   </Button>
                 )}
               </div>

@@ -283,13 +283,14 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   }, []);
 
   const handleMouseOut = useCallback((e: MouseEvent) => {
+    const relatedTarget = e.relatedTarget as Node | null;
     const mentionMark = (e.target as Element).closest('mark[data-mention-id]');
-    if (mentionMark && !mentionMark.contains(e.relatedTarget as Node | null)) {
+    if (mentionMark && !mentionMark.contains(relatedTarget)) {
       setHoveredMentionId(null);
       setTooltipPosition(null);
     }
     const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
-    if (sheetMark && !sheetMark.contains(e.relatedTarget as Node | null)) {
+    if (sheetMark && !sheetMark.contains(relatedTarget)) {
       setHoveredSheetRefId(null);
       setSheetTooltipPosition(null);
     }
@@ -349,6 +350,30 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       el.removeEventListener('click', handleClick);
     };
   }, [handleMouseOver, handleMouseOut, handleClick]);
+
+  // Use document-level mousemove to clear tooltip when cursor is no longer over a mark.
+  // We can't rely on mouseleave on the wrapper div because it spans full column width —
+  // moving right off text but staying in the div's layout box won't fire mouseleave.
+  useEffect(() => {
+    if (hoveredMentionId === null && hoveredSheetRefId === null) return;
+
+    const handleDocMouseMove = (e: MouseEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const overMention = el?.closest('mark[data-mention-id]');
+      const overSheet = el?.closest('mark[data-sheet-ref-id]');
+      if (!overMention) {
+        setHoveredMentionId(null);
+        setTooltipPosition(null);
+      }
+      if (!overSheet) {
+        setHoveredSheetRefId(null);
+        setSheetTooltipPosition(null);
+      }
+    };
+
+    document.addEventListener('mousemove', handleDocMouseMove);
+    return () => document.removeEventListener('mousemove', handleDocMouseMove);
+  }, [hoveredMentionId, hoveredSheetRefId]);
 
   return (
     <div className={`markdown-preview prose ${fullWidth ? 'max-w-none' : 'max-w-prose'} text-content-primary dark:text-white ${className}`}>
