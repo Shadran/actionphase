@@ -1,5 +1,4 @@
 import { Page, Locator } from '@playwright/test';
-import { navigateToGameTab } from '../utils/navigation';
 
 /**
  * Page Object for Action Submission
@@ -38,13 +37,13 @@ export class ActionSubmissionPage {
 
   /**
    * Navigate to game's actions tab
+   *
+   * Navigates directly via URL param to avoid matching the dynamic tab label
+   * ('Submit Action' vs 'Action Submitted ✓' vs 'Actions' for GM).
    */
   async goto() {
-    await this.page.goto(`/games/${this.gameId}`);
+    await this.page.goto(`/games/${this.gameId}?tab=actions`);
     await this.page.waitForLoadState('networkidle');
-
-    // Navigate to Submit Action tab (player view; GM view uses 'Actions')
-    await navigateToGameTab(this.page, 'Submit Action');
   }
 
   /**

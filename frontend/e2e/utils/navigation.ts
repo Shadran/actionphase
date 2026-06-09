@@ -60,7 +60,8 @@ export async function navigateToGameTab(page: Page, tabName: string) {
     'People': 'h2:has-text("Characters"), h3:has-text("Characters")',
     'Characters': 'h2:has-text("Characters")',
     'Actions': 'h2:has-text("Actions")',
-    'Submit Action': '', // Variable content, networkidle is sufficient
+    // The actions tab label is dynamic ('Submit Action' / 'Action Submitted ✓' / 'Actions' for GM)
+    // Prefer navigating via ?tab=actions URL param rather than matching the label directly.
     'Messages': '', // Variable content (heading hidden when conversation is open), networkidle is sufficient
     'History': 'h2:has-text("History")',
     'Handouts': '', // Variable content
