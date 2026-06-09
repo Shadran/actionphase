@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { ReactNode, MutableRefObject, ChangeEvent, KeyboardEvent } from 'react';
 import { useBlocker } from 'react-router-dom';
-import { Pencil, Eye, UserRound, HelpCircle } from 'lucide-react';
+import { Pencil, Eye, HelpCircle } from 'lucide-react';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CharacterAutocomplete } from './CharacterAutocomplete';
 import { SheetItemAutocomplete } from './SheetItemAutocomplete';
