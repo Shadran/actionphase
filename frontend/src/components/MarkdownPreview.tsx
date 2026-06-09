@@ -245,6 +245,10 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
   const [hoveredSheetRefId, setHoveredSheetRefId] = useState<string | null>(null);
   const [sheetTooltipPosition, setSheetTooltipPosition] = useState<{ top: number; left: number } | null>(null);
+  const [expandedSheetRefId, setExpandedSheetRefId] = useState<string | null>(null);
+  const expandedSheetRefIdRef = useRef<string | null>(null);
+  const mouseOverTooltip = useRef(false);
+  const sheetHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hoveredCharacter = React.useMemo(() => {
     if (hoveredMentionId === null) return null;
@@ -262,6 +266,11 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   );
 
   const htmlContent = React.useMemo(() => renderMarkdown(processedContent), [processedContent]);
+
+  // Keep ref in sync so event handlers always see the current value without stale closures
+  useEffect(() => {
+    expandedSheetRefIdRef.current = expandedSheetRefId;
+  }, [expandedSheetRefId]);
 
   // Event delegation for mention and sheet item tooltips
   const handleMouseOver = useCallback((e: MouseEvent) => {
@@ -290,9 +299,25 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       setTooltipPosition(null);
     }
     const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
-    if (sheetMark && !sheetMark.contains(relatedTarget)) {
-      setHoveredSheetRefId(null);
-      setSheetTooltipPosition(null);
+    if (sheetMark && !sheetMark.contains(relatedTarget) && !mouseOverTooltip.current) {
+      // Short delay lets the mouse cross the gap between mark and tooltip before hiding
+      sheetHideTimer.current = setTimeout(() => {
+        if (!mouseOverTooltip.current) {
+          setHoveredSheetRefId(null);
+          setSheetTooltipPosition(null);
+        }
+      }, 100);
+    }
+  }, []);
+
+  // Click on sheet mark toggles expanded tooltip; click outside dismisses it
+  const handleSheetMarkClick = useCallback((e: MouseEvent) => {
+    const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
+    if (sheetMark) {
+      e.stopPropagation();
+      const id = sheetMark.getAttribute('data-sheet-ref-id') ?? null;
+      setExpandedSheetRefId((prev) => (prev === id ? null : id));
+      return;
     }
   }, []);
 
@@ -343,37 +368,29 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     if (!el) return;
     el.addEventListener('mouseover', handleMouseOver);
     el.addEventListener('mouseout', handleMouseOut);
+    el.addEventListener('click', handleSheetMarkClick);
     el.addEventListener('click', handleClick);
     return () => {
       el.removeEventListener('mouseover', handleMouseOver);
       el.removeEventListener('mouseout', handleMouseOut);
+      el.removeEventListener('click', handleSheetMarkClick);
       el.removeEventListener('click', handleClick);
     };
-  }, [handleMouseOver, handleMouseOut, handleClick]);
+  }, [handleMouseOver, handleMouseOut, handleSheetMarkClick, handleClick]);
 
-  // Use document-level mousemove to clear tooltip when cursor is no longer over a mark.
-  // We can't rely on mouseleave on the wrapper div because it spans full column width —
-  // moving right off text but staying in the div's layout box won't fire mouseleave.
+
+  // Dismiss expanded tooltip on click outside
   useEffect(() => {
-    if (hoveredMentionId === null && hoveredSheetRefId === null) return;
-
-    const handleDocMouseMove = (e: MouseEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const overMention = el?.closest('mark[data-mention-id]');
-      const overSheet = el?.closest('mark[data-sheet-ref-id]');
-      if (!overMention) {
-        setHoveredMentionId(null);
-        setTooltipPosition(null);
-      }
-      if (!overSheet) {
-        setHoveredSheetRefId(null);
-        setSheetTooltipPosition(null);
+    if (!expandedSheetRefId) return;
+    const handleDocClick = (e: MouseEvent) => {
+      const el = e.target as Element;
+      if (!el.closest('mark[data-sheet-ref-id]') && !el.closest('[data-sheet-tooltip]')) {
+        setExpandedSheetRefId(null);
       }
     };
-
-    document.addEventListener('mousemove', handleDocMouseMove);
-    return () => document.removeEventListener('mousemove', handleDocMouseMove);
-  }, [hoveredMentionId, hoveredSheetRefId]);
+    document.addEventListener('click', handleDocClick);
+    return () => document.removeEventListener('click', handleDocClick);
+  }, [expandedSheetRefId]);
 
   return (
     <div className={`markdown-preview prose ${fullWidth ? 'max-w-none' : 'max-w-prose'} text-content-primary dark:text-white ${className}`}>
@@ -411,33 +428,78 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
         </div>
       )}
 
-      {hoveredSheetItem && sheetTooltipPosition && (
-        <div
-          className="fixed z-50 px-3 py-2 text-sm bg-gray-900 dark:bg-gray-800 border border-border-primary rounded-lg shadow-lg pointer-events-none max-w-xs"
-          style={{ top: `${sheetTooltipPosition.top}px`, left: `${sheetTooltipPosition.left}px` }}
-        >
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-semibold text-white">{hoveredSheetItem.name}</span>
-                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-700/50 text-amber-200 capitalize">
-                  {hoveredSheetItem.type}
-                </span>
-              </div>
-              {hoveredSheetItem.metadata && (
-                <div className="text-xs text-gray-400 mt-0.5">{hoveredSheetItem.metadata}</div>
-              )}
-              {hoveredSheetItem.description && (
-                <div className="text-xs text-gray-300 mt-1 leading-relaxed">
-                  {hoveredSheetItem.description.length > 200
-                    ? hoveredSheetItem.description.slice(0, 200) + '…'
-                    : hoveredSheetItem.description}
+      {hoveredSheetItem && sheetTooltipPosition && (() => {
+        const isExpanded = expandedSheetRefId === hoveredSheetItem.id;
+        const TRUNCATE = 200;
+        const desc = hoveredSheetItem.description ?? '';
+        const needsTruncation = desc.length > TRUNCATE;
+        return (
+          <div
+            data-sheet-tooltip
+            className="fixed z-50 px-3 py-2 text-sm bg-gray-900 dark:bg-gray-800 border border-amber-700/50 rounded-lg shadow-lg max-w-sm pointer-events-auto cursor-default"
+            style={{ top: `${sheetTooltipPosition.top}px`, left: `${sheetTooltipPosition.left}px` }}
+            onMouseEnter={() => {
+              mouseOverTooltip.current = true;
+              if (sheetHideTimer.current !== null) {
+                clearTimeout(sheetHideTimer.current);
+                sheetHideTimer.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              mouseOverTooltip.current = false;
+              if (!expandedSheetRefIdRef.current) {
+                setHoveredSheetRefId(null);
+                setSheetTooltipPosition(null);
+              }
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-semibold text-white">{hoveredSheetItem.name}</span>
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-700/50 text-amber-200 capitalize">
+                    {hoveredSheetItem.type}
+                  </span>
                 </div>
+                {hoveredSheetItem.metadata && (
+                  <div className="text-xs text-gray-400 mt-0.5">{hoveredSheetItem.metadata}</div>
+                )}
+                {desc && (
+                  <div
+                    className={`text-xs text-gray-300 mt-1 leading-relaxed whitespace-pre-line ${isExpanded ? 'max-h-64 overflow-y-auto' : ''}`}
+                    style={isExpanded ? { scrollbarWidth: 'thin', scrollbarColor: 'rgba(180,83,9,0.4) transparent' } : undefined}
+                  >
+                    {isExpanded ? desc : needsTruncation ? desc.slice(0, TRUNCATE) + '…' : desc}
+                  </div>
+                )}
+                {needsTruncation && !isExpanded && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      expandedSheetRefIdRef.current = hoveredSheetItem.id;
+                      setExpandedSheetRefId(hoveredSheetItem.id);
+                    }}
+                    className="text-xs text-amber-400 hover:text-amber-300 mt-1 underline cursor-pointer"
+                  >
+                    Read more
+                  </button>
+                )}
+              </div>
+              {isExpanded && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); expandedSheetRefIdRef.current = null; setExpandedSheetRefId(null); }}
+                  className="shrink-0 text-gray-400 hover:text-white ml-2 leading-none text-base"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

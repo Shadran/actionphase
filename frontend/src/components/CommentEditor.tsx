@@ -261,17 +261,24 @@ export const CommentEditor = memo(function CommentEditor({
   // Insert a sheet item token at a given index (or current cursor position)
   const handleInsertSheetItem = useCallback((item: SheetItem, insertAtIndex?: number) => {
     const textarea = textareaRef.current;
-    const insertPos = insertAtIndex ?? (textarea?.selectionStart ?? value.length);
-    const before = value.substring(0, insertPos);
-    const after = value.substring(insertPos);
+    const cursorPos = textarea?.selectionStart ?? value.length;
+    // When called from the %% trigger, insertAtIndex is the start of "%%".
+    // Strip from that point through the current cursor (removes "%%" + any typed query).
+    const before = insertAtIndex != null
+      ? value.substring(0, insertAtIndex)
+      : value.substring(0, cursorPos);
+    const after = insertAtIndex != null
+      ? value.substring(cursorPos)
+      : value.substring(cursorPos);
     const token = `[[${item.name}|${item.type}:${item.id}]] `;
     onChange(before + token + after);
     setShowSheetAutocomplete(false);
 
     // Restore cursor after the inserted token
+    const insertStart = insertAtIndex ?? cursorPos;
     setTimeout(() => {
       if (textareaRef.current) {
-        const newPos = insertPos + token.length;
+        const newPos = insertStart + token.length;
         textareaRef.current.setSelectionRange(newPos, newPos);
         textareaRef.current.focus();
       }
