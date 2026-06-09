@@ -29,7 +29,7 @@ test.describe('Admin Mode', () => {
     await page.goto('/admin');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('text=Admin Mode').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Admin Mode', exact: true })).toBeVisible();
 
     const adminModeToggle = page.locator('button[role="switch"][aria-label*="admin mode" i]');
     await expect(adminModeToggle).toBeVisible();

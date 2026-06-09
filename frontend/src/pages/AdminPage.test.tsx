@@ -73,6 +73,10 @@ describe('AdminPage', () => {
     );
   };
 
+  const selectTab = async (user: ReturnType<typeof userEvent.setup>, tabLabel: string) => {
+    await user.selectOptions(screen.getByRole('combobox'), tabLabel);
+  };
+
   describe('Banned Users Tab', () => {
     it('shows loading state initially', async () => {
       const user = userEvent.setup();
@@ -82,7 +86,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await user.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(user, 'Banned Users');
 
       expect(screen.getByText(/loading banned users/i)).toBeInTheDocument();
     });
@@ -95,7 +99,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await user.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(user, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText(/no banned users/i)).toBeInTheDocument();
@@ -131,7 +135,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await user.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(user, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText('banneduser1')).toBeInTheDocument();
@@ -155,7 +159,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await user.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(user, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText(/error loading banned users/i)).toBeInTheDocument();
@@ -181,7 +185,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userActions.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(userActions, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
@@ -220,7 +224,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userActions.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(userActions, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
@@ -253,7 +257,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userActions.click(screen.getByRole('button', { name: /banned users/i }));
+      await selectTab(userActions, 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
@@ -279,8 +283,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText(/administrator users/i)).toBeInTheDocument();
@@ -312,8 +315,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText('admin1')).toBeInTheDocument();
@@ -336,8 +338,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText(/no administrators found/i)).toBeInTheDocument();
@@ -352,8 +353,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText(/error loading administrators/i)).toBeInTheDocument();
@@ -388,15 +388,13 @@ describe('AdminPage', () => {
         expect(screen.getByRole('heading', { name: /^admin mode$/i })).toBeInTheDocument();
       });
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /administrator users/i })).toBeInTheDocument();
       });
 
-      const bannedUsersTab = screen.getByRole('button', { name: /banned users/i });
-      await userEvent.click(bannedUsersTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Banned Users');
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /^banned users$/i })).toBeInTheDocument();
@@ -430,8 +428,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText('testadmin')).toBeInTheDocument();
@@ -471,8 +468,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const adminsTab = screen.getByRole('button', { name: /^admins$/i });
-      await userEvent.click(adminsTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'Admins');
 
       await waitFor(() => {
         expect(screen.getByText('anotheradmin')).toBeInTheDocument();
@@ -507,8 +503,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const allUsersTab = screen.getByRole('button', { name: /all users/i });
-      await userEvent.click(allUsersTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'All Users');
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /all users/i })).toBeInTheDocument();
@@ -532,8 +527,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      const allUsersTab = screen.getByRole('button', { name: /all users/i });
-      await userEvent.click(allUsersTab);
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'All Users');
 
       await waitFor(() => {
         expect(screen.getByText('regularuser')).toBeInTheDocument();
@@ -558,7 +552,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'All Users');
 
       await waitFor(() => {
         expect(screen.getByText('adminuser')).toBeInTheDocument();
@@ -583,7 +577,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'All Users');
 
       await waitFor(() => {
         expect(screen.getByText('banneduser')).toBeInTheDocument();
@@ -599,7 +593,7 @@ describe('AdminPage', () => {
 
       renderAdminPage();
 
-      await userEvent.click(screen.getByRole('button', { name: /all users/i }));
+      await userEvent.selectOptions(screen.getByRole('combobox'), 'All Users');
 
       await waitFor(() => {
         expect(screen.getByText(/no users found/i)).toBeInTheDocument();

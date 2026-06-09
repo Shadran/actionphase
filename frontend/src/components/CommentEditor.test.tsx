@@ -242,7 +242,7 @@ describe('CommentEditor', () => {
 
     it('disables help toggle when disabled', () => {
       render(<CommentEditor {...defaultProps} disabled />);
-      const helpButton = screen.getByText(/Markdown Help/);
+      const helpButton = screen.getByRole('button', { name: /Markdown Help/ });
       expect(helpButton).toBeDisabled();
     });
   });

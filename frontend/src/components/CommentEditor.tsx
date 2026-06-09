@@ -461,7 +461,7 @@ export const CommentEditor = memo(function CommentEditor({
               <HelpCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Markdown Help</span>
             </Button>
-            <span className="text-xs text-content-tertiary whitespace-nowrap self-center">{value.length.toLocaleString()} chars</span>
+            <span className="text-xs text-content-tertiary whitespace-nowrap self-center">{value.length} characters</span>
           </div>
         </div>
       </div>
