@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CharacterAvatar from './CharacterAvatar';
+import { Badge } from './ui';
 import type { SheetItem } from '../hooks/useCharacterSheetItems';
 
 const ALLOWED_COLORS = new Set([
@@ -167,9 +168,6 @@ function splitByCodeBlocks(text: string): Array<{ text: string; isCode: boolean 
   return segments;
 }
 
-// Regex for [[DisplayName|type:uuid]] sheet item references
-const SHEET_REF_REGEX = /\[\[([^\]|]+)\|(?:ability|skill|item):([^\]]+)\]\]/g;
-
 function processContent(content: string, mentionedCharacters: MentionedCharacter[], sheetItemRefs: SheetItem[]): string {
   // Step 1: Process character mentions
   let mentionsResult = content;
@@ -198,8 +196,7 @@ function processContent(content: string, mentionedCharacters: MentionedCharacter
   }
 
   // Step 1b: Process [[DisplayName|type:uuid]] sheet item references, skipping code blocks
-  if (sheetItemRefs.length > 0 || SHEET_REF_REGEX.test(mentionsResult)) {
-    SHEET_REF_REGEX.lastIndex = 0; // reset stateful regex
+  if (sheetItemRefs.length > 0 || /\[\[([^\]|]+)\|(?:ability|skill|item):([^\]]+)\]\]/.test(mentionsResult)) {
     const sheetSegments = splitByCodeBlocks(mentionsResult);
     mentionsResult = sheetSegments.map((segment) => {
       if (segment.isCode) return segment.text;
@@ -436,7 +433,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
         return (
           <div
             data-sheet-tooltip
-            className="fixed z-50 px-3 py-2 text-sm bg-gray-900 dark:bg-gray-800 border border-amber-700/50 rounded-lg shadow-lg max-w-sm pointer-events-auto cursor-default"
+            className="fixed z-50 px-3 py-2 text-sm surface-overlay border border-semantic-warning rounded-lg shadow-lg max-w-sm pointer-events-auto cursor-default"
             style={{ top: `${sheetTooltipPosition.top}px`, left: `${sheetTooltipPosition.left}px` }}
             onMouseEnter={() => {
               mouseOverTooltip.current = true;
@@ -456,18 +453,15 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-white">{hoveredSheetItem.name}</span>
-                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-700/50 text-amber-200 capitalize">
-                    {hoveredSheetItem.type}
-                  </span>
+                  <span className="font-semibold text-content-primary">{hoveredSheetItem.name}</span>
+                  <Badge variant="warning" size="sm" className="capitalize">{hoveredSheetItem.type}</Badge>
                 </div>
                 {hoveredSheetItem.metadata && (
-                  <div className="text-xs text-gray-400 mt-0.5">{hoveredSheetItem.metadata}</div>
+                  <div className="text-xs text-content-tertiary mt-0.5">{hoveredSheetItem.metadata}</div>
                 )}
                 {desc && (
                   <div
-                    className={`text-xs text-gray-300 mt-1 leading-relaxed whitespace-pre-line ${isExpanded ? 'max-h-64 overflow-y-auto' : ''}`}
-                    style={isExpanded ? { scrollbarWidth: 'thin', scrollbarColor: 'rgba(180,83,9,0.4) transparent' } : undefined}
+                    className={`text-xs text-content-secondary mt-1 leading-relaxed whitespace-pre-line ${isExpanded ? 'max-h-64 overflow-y-auto' : ''}`}
                   >
                     {isExpanded ? desc : needsTruncation ? desc.slice(0, TRUNCATE) + '…' : desc}
                   </div>
@@ -480,7 +474,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                       expandedSheetRefIdRef.current = hoveredSheetItem.id;
                       setExpandedSheetRefId(hoveredSheetItem.id);
                     }}
-                    className="text-xs text-amber-400 hover:text-amber-300 mt-1 underline cursor-pointer"
+                    className="text-xs text-semantic-warning hover:text-interactive-primary-hover mt-1 underline cursor-pointer"
                   >
                     Read more
                   </button>
@@ -490,7 +484,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); expandedSheetRefIdRef.current = null; setExpandedSheetRefId(null); }}
-                  className="shrink-0 text-gray-400 hover:text-white ml-2 leading-none text-base"
+                  className="shrink-0 text-content-tertiary hover:text-content-primary ml-2 leading-none text-base"
                   aria-label="Close"
                 >
                   ×

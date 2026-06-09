@@ -63,6 +63,7 @@ interface CommentEditorProps {
   textareaTestId?: string; // data-testid forwarded to the inner textarea (for E2E tests)
   warnOnUnsavedChanges?: boolean; // Show confirmation dialog when navigating away with unsaved content
   sheetButton?: React.ReactNode; // Optional node rendered in the drag-handle bar (e.g. "Character Sheet" toggle)
+  insertSheetItemRef?: React.MutableRefObject<((item: SheetItem) => void) | null>; // Ref to expose cursor-aware insert for external callers (e.g. Drawer)
 }
 
 /**
@@ -92,6 +93,7 @@ export const CommentEditor = memo(function CommentEditor({
   textareaTestId,
   warnOnUnsavedChanges = false,
   sheetButton,
+  insertSheetItemRef,
 }: CommentEditorProps) {
   const [showPreview, setShowPreview] = useState(showPreviewByDefault);
   const [showHelp, setShowHelp] = useState(false);
@@ -269,9 +271,7 @@ export const CommentEditor = memo(function CommentEditor({
     const before = insertAtIndex != null
       ? value.substring(0, insertAtIndex)
       : value.substring(0, cursorPos);
-    const after = insertAtIndex != null
-      ? value.substring(cursorPos)
-      : value.substring(cursorPos);
+    const after = value.substring(cursorPos);
     const token = `[[${item.name}|${item.type}:${item.id}]] `;
     onChange(before + token + after);
     setShowSheetAutocomplete(false);
@@ -287,6 +287,12 @@ export const CommentEditor = memo(function CommentEditor({
     }, 0);
   }, [value, onChange]);
 
+  // Expose cursor-aware insert to external callers (e.g. a Drawer's SheetPanel)
+  useEffect(() => {
+    if (insertSheetItemRef) {
+      insertSheetItemRef.current = (item: SheetItem) => handleInsertSheetItem(item);
+    }
+  }, [insertSheetItemRef, handleInsertSheetItem]);
 
   // Handle keyboard navigation in autocomplete
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -569,7 +575,6 @@ export const CommentEditor = memo(function CommentEditor({
           position={sheetAutocompletePosition}
           onSelect={(item) => handleInsertSheetItem(item, sheetTriggerStartIndex)}
           selectedIndex={sheetSelectedIndex}
-          onClose={() => setShowSheetAutocomplete(false)}
         />
       )}
 

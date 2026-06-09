@@ -79,6 +79,7 @@ describe('useCharacterSheetItems', () => {
     vi.mocked(apiClient.characters.getCharacterData).mockResolvedValue({
       data: [
         makeDataRow({
+          module_type: 'skills',
           field_name: 'skills',
           field_value: JSON.stringify([
             { id: 'sk-1', name: 'Stealth', level: 3, category: 'Combat' },

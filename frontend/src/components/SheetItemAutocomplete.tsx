@@ -1,16 +1,11 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { SheetItem } from '../hooks/useCharacterSheetItems';
+import { Badge } from './ui';
 
-const TYPE_LABELS: Record<SheetItem['type'], string> = {
-  ability: 'ability',
-  skill: 'skill',
-  item: 'item',
-};
-
-const TYPE_COLOR: Record<SheetItem['type'], string> = {
-  ability: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  skill: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
-  item: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+const TYPE_BADGE_VARIANT: Record<SheetItem['type'], 'primary' | 'success' | 'warning'> = {
+  ability: 'primary',
+  skill: 'success',
+  item: 'warning',
 };
 
 interface SheetItemAutocompleteProps {
@@ -19,7 +14,6 @@ interface SheetItemAutocompleteProps {
   position: { top: number; left: number };
   onSelect: (item: SheetItem) => void;
   selectedIndex: number;
-  onClose: () => void;
 }
 
 /**
@@ -34,7 +28,6 @@ export function SheetItemAutocomplete({
   position,
   onSelect,
   selectedIndex,
-  onClose: _onClose,
 }: SheetItemAutocompleteProps) {
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -89,9 +82,9 @@ export function SheetItemAutocomplete({
               : 'hover:surface-raised text-content-primary'
           }`}
         >
-          <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${TYPE_COLOR[item.type]}`}>
-            {TYPE_LABELS[item.type]}
-          </span>
+          <Badge variant={TYPE_BADGE_VARIANT[item.type]} size="sm" className="shrink-0 capitalize">
+            {item.type}
+          </Badge>
           <span className="font-medium truncate">{item.name}</span>
         </li>
       ))}

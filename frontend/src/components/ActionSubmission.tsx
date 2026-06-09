@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useUserCharacters } from '../hooks/useUserCharacters';
@@ -24,6 +24,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
   const [showPreviousActions, setShowPreviousActions] = useState(false);
   const [isCurrentActionExpanded, setIsCurrentActionExpanded] = useState(false);
   const [sheetDrawerOpen, setSheetDrawerOpen] = useState(false);
+  const insertSheetItemRef = useRef<((item: SheetItem) => void) | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -35,10 +36,8 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
   const sheetItems = useCharacterSheetItems(activeCharacterId);
   const activeCharacter = availableCharacters.find((c) => c.id === activeCharacterId);
 
-  // Insert a sheet item token at the end of the current content
   const handleInsertSheetItem = (item: SheetItem) => {
-    const token = `[[${item.name}|${item.type}:${item.id}]] `;
-    setContent((prev) => prev + token);
+    insertSheetItemRef.current?.(item);
     setSheetDrawerOpen(false);
   };
 
@@ -257,6 +256,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 textareaTestId="action-textarea"
                 characters={availableCharacters}
                 sheetItems={sheetItems}
+                insertSheetItemRef={insertSheetItemRef}
                 sheetButton={sheetItems.length > 0 ? (
                   <Button
                     type="button"
@@ -360,7 +360,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
 
             {showPreviousActions && (
               <div className="px-6 pb-6">
-                <ActionHistory actions={userActions} currentPhaseId={currentPhase?.id} />
+                <ActionHistory actions={userActions} currentPhaseId={currentPhase?.id} sheetItems={sheetItems} />
               </div>
             )}
           </div>
@@ -373,9 +373,10 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
 interface ActionHistoryProps {
   actions: ActionWithDetails[];
   currentPhaseId?: number;
+  sheetItems?: SheetItem[];
 }
 
-function ActionHistory({ actions, currentPhaseId }: ActionHistoryProps) {
+function ActionHistory({ actions, currentPhaseId, sheetItems = [] }: ActionHistoryProps) {
   const [expandedActions, setExpandedActions] = useState<Set<number>>(new Set());
 
   // Filter out the current phase action

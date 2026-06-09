@@ -90,7 +90,7 @@ describe('ActionSubmission sheet drawer', () => {
     const user = userEvent.setup();
     renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
     await user.click(screen.getByTestId('sheet-toggle-button'));
-    expect(screen.getByText('Character Sheet')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Character Sheet' })).toBeInTheDocument();
     expect(screen.getByText('Fire Bolt')).toBeInTheDocument();
   });
 });
