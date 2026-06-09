@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { AdminModeToggle } from '../components/AdminModeToggle';
+import { TabNavigation } from '../components/TabNavigation';
 import { AdminsTab } from './admin/AdminsTab';
 import { BannedUsersTab } from './admin/BannedUsersTab';
 import { UserListTab } from './admin/UserListTab';
@@ -32,22 +33,13 @@ export function AdminPage() {
       <h1 className="text-3xl font-bold text-content-primary mb-8">Admin Panel</h1>
 
       {/* Tab Navigation */}
-      <div className="border-b border-theme-default mb-6">
-        <nav className="flex space-x-8">
-          {TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === id
-                  ? 'border-interactive-primary text-interactive-primary'
-                  : 'border-transparent text-content-tertiary hover:text-content-secondary hover:border-content-tertiary'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+      <div className="mb-6">
+        <TabNavigation
+          tabs={TABS}
+          activeTab={activeTab}
+          onTabChange={(t) => setActiveTab(t as TabId)}
+          getTabHref={(t) => `/admin/${t}`}
+        />
       </div>
 
       {activeTab === 'mode' && (
