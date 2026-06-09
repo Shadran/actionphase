@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { UserRound } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useUserCharacters } from '../hooks/useUserCharacters';
 import { useCharacterSheetItems } from '../hooks/useCharacterSheetItems';
@@ -257,12 +258,15 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 sheetButton={sheetItems.length > 0 ? (
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setSheetDrawerOpen(true)}
                     data-testid="sheet-toggle-button"
+                    title="Character Sheet"
+                    className="!px-2"
                   >
-                    Character Sheet
+                    <UserRound className="w-4 h-4" />
+                    <span className="hidden sm:inline">Character Sheet</span>
                   </Button>
                 ) : undefined}
               />

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { ReactNode, MutableRefObject, ChangeEvent, KeyboardEvent } from 'react';
 import { useBlocker } from 'react-router-dom';
+import { Pencil, Eye, UserRound, HelpCircle } from 'lucide-react';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CharacterAutocomplete } from './CharacterAutocomplete';
 import { SheetItemAutocomplete } from './SheetItemAutocomplete';
@@ -409,50 +410,59 @@ export const CommentEditor = memo(function CommentEditor({
   return (
     <div className="comment-editor">
       {/* Tab bar + secondary controls — sticky below the 64px nav bar so it stays visible when the editor is taller than the viewport */}
-      <div className="sticky top-16 z-10 flex items-end justify-between surface-base pt-2 border-b border-theme-default">
-        {/* Manila-style tabs */}
-        <div className="flex items-end gap-1">
-          <button
-            type="button"
-            onClick={() => setShowPreview(false)}
-            disabled={disabled}
-            className={[
-              'px-4 py-1.5 text-sm font-medium rounded-t-md border border-b-0 transition-colors',
-              !showPreview
-                ? 'surface-base border-theme-default text-content-primary relative z-10 -mb-px'
-                : 'surface-sunken border-transparent text-content-tertiary hover:text-content-secondary',
-            ].join(' ')}
-          >
-            Write
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            disabled={disabled}
-            className={[
-              'px-4 py-1.5 text-sm font-medium rounded-t-md border border-b-0 transition-colors',
-              showPreview
-                ? 'surface-base border-theme-default text-content-primary relative z-10 -mb-px'
-                : 'surface-sunken border-transparent text-content-tertiary hover:text-content-secondary',
-            ].join(' ')}
-          >
-            Preview
-          </button>
-        </div>
+      <div className="sticky top-16 z-10 surface-base border-b border-theme-default">
+        <div className="flex items-center justify-between pt-2 pb-1 gap-2">
+          {/* Manila-style tabs */}
+          <div className="flex items-end gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowPreview(false)}
+              disabled={disabled}
+              title="Write"
+              className={[
+                'flex items-center justify-center gap-1.5 min-w-[56px] px-5 py-1.5 text-sm font-medium rounded-t-md border border-b-0 transition-colors',
+                !showPreview
+                  ? 'surface-base border-theme-default text-content-primary relative z-10 -mb-px'
+                  : 'surface-sunken border-transparent text-content-tertiary hover:text-content-secondary',
+              ].join(' ')}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Write</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              disabled={disabled}
+              title="Preview"
+              className={[
+                'flex items-center justify-center gap-1.5 min-w-[56px] px-5 py-1.5 text-sm font-medium rounded-t-md border border-b-0 transition-colors',
+                showPreview
+                  ? 'surface-base border-theme-default text-content-primary relative z-10 -mb-px'
+                  : 'surface-sunken border-transparent text-content-tertiary hover:text-content-secondary',
+              ].join(' ')}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+          </div>
 
-        {/* Secondary controls */}
-        <div className="flex items-center gap-3 mb-1 text-xs">
-          {sheetButton && <div>{sheetButton}</div>}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowHelp(!showHelp)}
-            disabled={disabled}
-          >
-            ❓ Markdown Help
-          </Button>
-          <span className="text-content-tertiary">{value.length} characters</span>
+          {/* Secondary controls */}
+          <div className="flex items-center gap-1">
+            {sheetButton && <div>{sheetButton}</div>}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHelp(!showHelp)}
+              disabled={disabled}
+              title="Markdown Help"
+              className="!px-2"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Markdown Help</span>
+            </Button>
+            <span className="text-xs text-content-tertiary whitespace-nowrap self-center">{value.length.toLocaleString()} chars</span>
+          </div>
         </div>
       </div>
 
