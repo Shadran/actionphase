@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { SheetItem } from '../hooks/useCharacterSheetItems';
 import { Badge, Input } from './ui';
 
