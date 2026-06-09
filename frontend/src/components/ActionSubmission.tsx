@@ -159,55 +159,52 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
 
           return (
             <div className="mb-6 p-4 bg-semantic-info-subtle border border-semantic-info rounded-lg" data-testid="current-action-display">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-medium text-content-primary mb-2">Your Current Action</h3>
-                  <div className="text-sm text-content-primary surface-base p-3 rounded border border-theme-default" data-testid="action-content">
-                    <MarkdownPreview content={isCollapsible && !isCurrentActionExpanded ? previewContent : currentAction.content} sheetItemRefs={sheetItems} />
-                  </div>
-                  {isCollapsible && (
-                    <button
-                      onClick={() => setIsCurrentActionExpanded(!isCurrentActionExpanded)}
-                      className="mt-2 text-sm text-interactive-primary hover:text-interactive-primary-hover font-medium flex items-center"
-                    >
-                      {isCurrentActionExpanded ? (
-                        <>
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                          Show less
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                          Show full content
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {currentAction.character_name && (
-                    <p className="text-sm text-content-primary mt-2">
-                      Acting as: <span className="font-medium">{currentAction.character_name}</span>
-                    </p>
-                  )}
-                  <p className="text-xs text-content-primary mt-1" data-testid="action-status">
-                    Last updated: {new Date(currentAction.updated_at).toLocaleString()}
-                  </p>
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-content-primary">Your Current Action</h3>
                 {canSubmitAction && (
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => setIsExpanded(true)}
-                    className="ml-4"
                     data-testid="edit-action-button"
                   >
                     Edit
                   </Button>
                 )}
               </div>
+              <div className="text-sm text-content-primary surface-base p-3 rounded border border-theme-default" data-testid="action-content">
+                <MarkdownPreview content={isCollapsible && !isCurrentActionExpanded ? previewContent : currentAction.content} sheetItemRefs={sheetItems} />
+              </div>
+              {isCollapsible && (
+                <button
+                  onClick={() => setIsCurrentActionExpanded(!isCurrentActionExpanded)}
+                  className="mt-2 text-sm text-interactive-primary hover:text-interactive-primary-hover font-medium flex items-center"
+                >
+                  {isCurrentActionExpanded ? (
+                    <>
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Show less
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Show full content
+                    </>
+                  )}
+                </button>
+              )}
+              {currentAction.character_name && (
+                <p className="text-sm text-content-primary mt-2">
+                  Acting as: <span className="font-medium">{currentAction.character_name}</span>
+                </p>
+              )}
+              <p className="text-xs text-content-primary mt-1" data-testid="action-status">
+                Last updated: {new Date(currentAction.updated_at).toLocaleString()}
+              </p>
             </div>
           );
         })()}
