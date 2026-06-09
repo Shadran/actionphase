@@ -269,7 +269,7 @@ export const CommentEditor = memo(function CommentEditor({
     const cursorPos = textarea?.selectionStart ?? value.length;
     // When called from the %% trigger, insertAtIndex is the start of "%%".
     // Strip from that point through the current cursor (removes "%%" + any typed query).
-    const before = insertAtIndex != null
+    const before = insertAtIndex !== null && insertAtIndex !== undefined
       ? value.substring(0, insertAtIndex)
       : value.substring(0, cursorPos);
     const after = value.substring(cursorPos);

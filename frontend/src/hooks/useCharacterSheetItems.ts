@@ -33,7 +33,7 @@ function abilityToSheetItem(a: CharacterAbility): SheetItem {
 }
 
 function skillToSheetItem(s: CharacterSkill): SheetItem {
-  const meta = [s.category, s.level != null ? `Level ${s.level}` : undefined]
+  const meta = [s.category, s.level !== null && s.level !== undefined ? `Level ${s.level}` : undefined]
     .filter(Boolean)
     .join(' · ');
   return {
@@ -63,7 +63,7 @@ export function useCharacterSheetItems(characterId: number | null): SheetItem[] 
     queryKey: ['characterData', characterId],
     queryFn: () =>
       apiClient.characters.getCharacterData(characterId!).then((r) => r.data),
-    enabled: characterId != null,
+    enabled: characterId !== null && characterId !== undefined,
     staleTime: 60_000,
   });
 
