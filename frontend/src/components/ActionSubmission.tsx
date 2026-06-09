@@ -244,20 +244,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
 
             {/* Action Content */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-content-primary">Your Action</label>
-                {sheetItems.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setSheetDrawerOpen(true)}
-                    data-testid="sheet-toggle-button"
-                  >
-                    Character Sheet
-                  </Button>
-                )}
-              </div>
+              <label className="block text-sm font-medium text-content-primary mb-1">Your Action</label>
               <CommentEditor
                 value={content}
                 onChange={setContent}
@@ -270,6 +257,17 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 textareaTestId="action-textarea"
                 characters={availableCharacters}
                 sheetItems={sheetItems}
+                sheetButton={sheetItems.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSheetDrawerOpen(true)}
+                    data-testid="sheet-toggle-button"
+                  >
+                    Character Sheet
+                  </Button>
+                ) : undefined}
               />
               <p className="mt-1 text-xs text-content-tertiary">This action is private and will only be visible to the GM during the game. Maximum 100,000 characters.</p>
             </div>

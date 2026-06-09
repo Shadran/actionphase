@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CharacterAutocomplete } from './CharacterAutocomplete';
@@ -62,6 +62,7 @@ interface CommentEditorProps {
   showCharacterCount?: boolean; // Show character counter below textarea
   textareaTestId?: string; // data-testid forwarded to the inner textarea (for E2E tests)
   warnOnUnsavedChanges?: boolean; // Show confirmation dialog when navigating away with unsaved content
+  sheetButton?: React.ReactNode; // Optional node rendered in the drag-handle bar (e.g. "Character Sheet" toggle)
 }
 
 /**
@@ -90,6 +91,7 @@ export const CommentEditor = memo(function CommentEditor({
   showCharacterCount = false,
   textareaTestId,
   warnOnUnsavedChanges = false,
+  sheetButton,
 }: CommentEditorProps) {
   const [showPreview, setShowPreview] = useState(showPreviewByDefault);
   const [showHelp, setShowHelp] = useState(false);
@@ -399,8 +401,8 @@ export const CommentEditor = memo(function CommentEditor({
 
   return (
     <div className="comment-editor">
-      {/* Tab bar + secondary controls */}
-      <div className="flex items-end justify-between">
+      {/* Tab bar + secondary controls — sticky below the 64px nav bar so it stays visible when the editor is taller than the viewport */}
+      <div className="sticky top-16 z-10 flex items-end justify-between surface-base pt-2 border-b border-theme-default">
         {/* Manila-style tabs */}
         <div className="flex items-end gap-1">
           <button
@@ -433,6 +435,7 @@ export const CommentEditor = memo(function CommentEditor({
 
         {/* Secondary controls */}
         <div className="flex items-center gap-3 mb-1 text-xs">
+          {sheetButton && <div data-no-drag>{sheetButton}</div>}
           <Button
             type="button"
             variant="ghost"

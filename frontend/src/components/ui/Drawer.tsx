@@ -22,8 +22,8 @@ export function Drawer({ open, onClose, title, children, side = 'responsive' }: 
     right: 'fixed inset-y-0 right-0 flex flex-col w-80 max-w-full surface-raised border-l border-theme-default shadow-xl',
     bottom: 'fixed bottom-0 inset-x-0 flex flex-col max-h-[80vh] rounded-t-2xl surface-raised border-t border-theme-default shadow-xl',
     responsive: 'fixed flex flex-col surface-raised shadow-xl ' +
-      // Desktop: right sidebar
-      'lg:inset-y-0 lg:right-0 lg:w-80 lg:max-w-full lg:border-l lg:border-theme-default ' +
+      // Desktop: right sidebar (lg:left-auto cancels the non-prefixed inset-x-0)
+      'lg:inset-y-0 lg:right-0 lg:left-auto lg:w-80 lg:max-w-full lg:border-l lg:border-theme-default ' +
       // Mobile: bottom sheet
       'bottom-0 inset-x-0 max-h-[80vh] rounded-t-2xl border-t border-theme-default lg:rounded-none lg:max-h-full',
   }[side];
