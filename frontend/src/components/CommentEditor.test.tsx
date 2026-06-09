@@ -640,6 +640,17 @@ describe('CommentEditor', () => {
       expect(lastCall).not.toContain('%%');
     });
 
+    it('closes sheet autocomplete when space is typed after %%', () => {
+      render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} />);
+      const textarea = screen.getByRole('textbox');
+
+      fireEvent.change(textarea, { target: { value: '%%', selectionStart: 2 } });
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+      fireEvent.change(textarea, { target: { value: '%% ', selectionStart: 3 } });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
     it('closes sheet autocomplete when Escape is pressed', () => {
       render(<CommentEditor {...defaultProps} sheetItems={mockSheetItems} />);
       const textarea = screen.getByRole('textbox');

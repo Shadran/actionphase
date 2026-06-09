@@ -186,7 +186,7 @@ export const CommentEditor = memo(function CommentEditor({
     }
 
     const textAfterTrigger = textBeforeCursor.substring(lastDoublePercent + 2);
-    if (textAfterTrigger.includes('\n') || textAfterTrigger.length > 50) {
+    if (textAfterTrigger.includes(' ') || textAfterTrigger.includes('\n') || textAfterTrigger.length > 50) {
       setShowSheetAutocomplete(false);
       return;
     }
@@ -442,7 +442,7 @@ export const CommentEditor = memo(function CommentEditor({
 
         {/* Secondary controls */}
         <div className="flex items-center gap-3 mb-1 text-xs">
-          {sheetButton && <div data-no-drag>{sheetButton}</div>}
+          {sheetButton && <div>{sheetButton}</div>}
           <Button
             type="button"
             variant="ghost"
