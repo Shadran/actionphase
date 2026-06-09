@@ -307,13 +307,15 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     }
   }, []);
 
-  // Click on sheet mark toggles expanded tooltip; click outside dismisses it
+  // Click/tap on sheet mark shows tooltip (without auto-expanding)
   const handleSheetMarkClick = useCallback((e: MouseEvent) => {
     const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
     if (sheetMark) {
       e.stopPropagation();
       const id = sheetMark.getAttribute('data-sheet-ref-id') ?? null;
-      setExpandedSheetRefId((prev) => (prev === id ? null : id));
+      const rect = sheetMark.getBoundingClientRect();
+      setHoveredSheetRefId(id);
+      setSheetTooltipPosition({ top: rect.bottom + 4, left: rect.left });
       return;
     }
   }, []);
@@ -376,18 +378,25 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   }, [handleMouseOver, handleMouseOut, handleSheetMarkClick, handleClick]);
 
 
-  // Dismiss expanded tooltip on click outside
+  // Dismiss tooltip on click/touch outside
   useEffect(() => {
-    if (!expandedSheetRefId) return;
-    const handleDocClick = (e: MouseEvent) => {
-      const el = e.target as Element;
-      if (!el.closest('mark[data-sheet-ref-id]') && !el.closest('[data-sheet-tooltip]')) {
+    if (!hoveredSheetRefId) return;
+    const dismiss = (e: MouseEvent | TouchEvent) => {
+      const el = (e instanceof TouchEvent ? e.touches[0]?.target : e.target) as Element | null;
+      if (el && !el.closest('mark[data-sheet-ref-id]') && !el.closest('[data-sheet-tooltip]')) {
+        expandedSheetRefIdRef.current = null;
         setExpandedSheetRefId(null);
+        setHoveredSheetRefId(null);
+        setSheetTooltipPosition(null);
       }
     };
-    document.addEventListener('click', handleDocClick);
-    return () => document.removeEventListener('click', handleDocClick);
-  }, [expandedSheetRefId]);
+    document.addEventListener('click', dismiss);
+    document.addEventListener('touchstart', dismiss);
+    return () => {
+      document.removeEventListener('click', dismiss);
+      document.removeEventListener('touchstart', dismiss);
+    };
+  }, [hoveredSheetRefId]);
 
   return (
     <div className={`markdown-preview prose ${fullWidth ? 'max-w-none' : 'max-w-prose'} text-content-primary dark:text-white ${className}`}>
@@ -450,7 +459,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
               }
             }}
           >
-            <div className="flex items-start justify-between gap-2">
+            <div className="relative pr-6">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-content-primary">{hoveredSheetItem.name}</span>
@@ -482,18 +491,22 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                   </Button>
                 )}
               </div>
-              {isExpanded && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); expandedSheetRefIdRef.current = null; setExpandedSheetRefId(null); }}
-                  className="shrink-0 ml-2"
-                  aria-label="Close"
-                >
-                  ×
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  expandedSheetRefIdRef.current = null;
+                  setExpandedSheetRefId(null);
+                  setHoveredSheetRefId(null);
+                  setSheetTooltipPosition(null);
+                }}
+                className="absolute top-0 right-0 !min-h-0 !py-0 !px-0 w-5 h-5 flex items-center justify-center"
+                aria-label="Close"
+              >
+                ×
+              </Button>
             </div>
           </div>
         );
