@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import type { ReactNode, MutableRefObject, ChangeEvent, KeyboardEvent } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { MarkdownPreview } from './MarkdownPreview';
 import { CharacterAutocomplete } from './CharacterAutocomplete';
@@ -62,8 +63,8 @@ interface CommentEditorProps {
   showCharacterCount?: boolean; // Show character counter below textarea
   textareaTestId?: string; // data-testid forwarded to the inner textarea (for E2E tests)
   warnOnUnsavedChanges?: boolean; // Show confirmation dialog when navigating away with unsaved content
-  sheetButton?: React.ReactNode; // Optional node rendered in the drag-handle bar (e.g. "Character Sheet" toggle)
-  insertSheetItemRef?: React.MutableRefObject<((item: SheetItem) => void) | null>; // Ref to expose cursor-aware insert for external callers (e.g. Drawer)
+  sheetButton?: ReactNode; // Optional node rendered in the drag-handle bar (e.g. "Character Sheet" toggle)
+  insertSheetItemRef?: MutableRefObject<((item: SheetItem) => void) | null>; // Ref to expose cursor-aware insert for external callers (e.g. Drawer)
 }
 
 /**
@@ -203,7 +204,7 @@ export const CommentEditor = memo(function CommentEditor({
   };
 
   // Detect @ and trigger character mention autocomplete
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursorPosition = e.target.selectionStart || 0;
 
@@ -295,7 +296,7 @@ export const CommentEditor = memo(function CommentEditor({
   }, [insertSheetItemRef, handleInsertSheetItem]);
 
   // Handle keyboard navigation in autocomplete
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSheetAutocomplete) {
       const filteredItems = sheetQuery
         ? sheetItems.filter((i) => i.name.toLowerCase().includes(sheetQuery.toLowerCase()))

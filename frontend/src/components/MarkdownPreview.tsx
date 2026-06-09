@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CharacterAvatar from './CharacterAvatar';
-import { Badge } from './ui';
+import { Badge, Button } from './ui';
 import type { SheetItem } from '../hooks/useCharacterSheetItems';
 
 const ALLOWED_COLORS = new Set([
@@ -467,28 +467,32 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                   </div>
                 )}
                 {needsTruncation && !isExpanded && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       expandedSheetRefIdRef.current = hoveredSheetItem.id;
                       setExpandedSheetRefId(hoveredSheetItem.id);
                     }}
-                    className="text-xs text-semantic-warning hover:text-interactive-primary-hover mt-1 underline cursor-pointer"
+                    className="mt-1 px-0 text-semantic-warning hover:text-interactive-primary-hover underline"
                   >
                     Read more
-                  </button>
+                  </Button>
                 )}
               </div>
               {isExpanded && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={(e) => { e.stopPropagation(); expandedSheetRefIdRef.current = null; setExpandedSheetRefId(null); }}
-                  className="shrink-0 text-content-tertiary hover:text-content-primary ml-2 leading-none text-base"
+                  className="shrink-0 ml-2"
                   aria-label="Close"
                 >
                   ×
-                </button>
+                </Button>
               )}
             </div>
           </div>

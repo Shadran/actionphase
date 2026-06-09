@@ -54,12 +54,13 @@ export function SheetItemAutocomplete({
 
   if (filtered.length === 0) {
     return (
-      <div
+      <ul
+        role="listbox"
         className="z-50 surface-base border border-theme-default rounded-md shadow-lg py-2 px-3 text-sm text-content-tertiary"
         style={style}
       >
-        No items found
-      </div>
+        <li role="option" aria-selected={false}>No items found</li>
+      </ul>
     );
   }
 

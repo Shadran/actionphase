@@ -44,7 +44,7 @@ export function SheetPanel({ items, onInsert, characterName }: SheetPanelProps) 
   return (
     <div className="flex flex-col h-full">
       {characterName && (
-        <p className="px-4 pt-3 pb-1 text-xs text-text-secondary truncate">{characterName}</p>
+        <p className="px-4 pt-3 pb-1 text-xs text-content-secondary truncate">{characterName}</p>
       )}
       <div className="px-3 py-2 shrink-0">
         <Input
@@ -57,7 +57,7 @@ export function SheetPanel({ items, onInsert, characterName }: SheetPanelProps) 
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {!hasAny && (
-          <p className="text-sm text-text-secondary text-center py-6">
+          <p className="text-sm text-content-secondary text-center py-6">
             {filter ? 'No items match your filter.' : 'No items on this character\'s sheet yet.'}
           </p>
         )}
@@ -67,7 +67,7 @@ export function SheetPanel({ items, onInsert, characterName }: SheetPanelProps) 
           if (group.length === 0) return null;
           return (
             <section key={type} className="mb-4">
-              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-content-secondary">
                 {TYPE_LABELS[type]}
               </h3>
               <ul className="space-y-1">
@@ -76,12 +76,12 @@ export function SheetPanel({ items, onInsert, characterName }: SheetPanelProps) 
                     <button
                       type="button"
                       onClick={() => onInsert(item)}
-                      className="w-full text-left px-2 py-2 rounded-md hover:bg-bg-tertiary transition-colors group"
+                      className="w-full text-left px-2 py-2 rounded-md hover:surface-raised transition-colors group"
                     >
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm font-medium text-text-primary group-hover:text-interactive-primary truncate">
+                            <span className="text-sm font-medium text-content-primary group-hover:text-interactive-primary truncate">
                               {item.name}
                             </span>
                             {item.metadata && (
@@ -91,7 +91,7 @@ export function SheetPanel({ items, onInsert, characterName }: SheetPanelProps) 
                             )}
                           </div>
                           {item.description && (
-                            <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
+                            <p className="text-xs text-content-secondary mt-0.5 line-clamp-2">
                               {item.description}
                             </p>
                           )}
