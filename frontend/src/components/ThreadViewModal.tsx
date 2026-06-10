@@ -53,6 +53,13 @@ export function ThreadViewModal({
   // Determine if we're showing parent chain context or single comment
   const showingContext = parentChain && parentChain.length > 1;
 
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = original; };
+  }, []);
+
   // Auto-scroll to target comment when modal opens
   useEffect(() => {
     if (targetCommentId && showingContext) {
@@ -89,7 +96,7 @@ export function ThreadViewModal({
         onClick={onClose}
       >
         <div
-          className="surface-base rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          className="surface-base rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
