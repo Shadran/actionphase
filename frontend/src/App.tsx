@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, useParams, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicArchiveRoute } from './components/PublicArchiveRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -12,7 +11,8 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { logger } from '@/services/LoggingService';
 
-// Lazy load all page components for better code splitting
+// Lazy load Layout and all page components for better code splitting
+const Layout = lazy(() => import('./components/Layout').then(m => ({ default: m.Layout })));
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
@@ -98,6 +98,7 @@ function GameDetailsPageWrapper() {
 }
 
 const router = createBrowserRouter([
+  { path: '/', element: <Suspense fallback={<PageLoader />}><HomePage /></Suspense> },
   {
     element: <RootLayout />,
     children: [
@@ -149,7 +150,6 @@ const router = createBrowserRouter([
         path: '/characters/:characterId',
         element: <ProtectedRoute><CharacterPage /></ProtectedRoute>,
       },
-      { path: '/', element: <HomePage /> },
       { path: '*', element: <CatchAll /> },
     ],
   },
