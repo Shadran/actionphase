@@ -14,6 +14,18 @@ You can edit your action at any time before the deadline by clicking **Edit** on
 
 Your action is private — only the GM can see it during the game.
 
+### Inserting from Your Character Sheet
+
+While writing your action you can insert a reference to any item from your character sheet — an ability, skill, or inventory item. The reference renders as a highlighted link in the preview, and hovering or tapping it shows the item's description in a tooltip.
+
+There are two ways to insert:
+
+**From the Character Sheet drawer** — Click the **Character Sheet** button (person icon) in the toolbar to open a sidebar listing your abilities, skills, and inventory. Use the filter box to narrow the list, then click any item to insert it at the current cursor position.
+
+**With the `%%` shortcut** — Type `%%` anywhere in the editor to open an inline autocomplete menu. Continue typing to filter, then press `Enter` or click a result to insert.
+
+Both methods insert a `[[Item Name|type:id]]` tag. This is stored in your action text and remains readable as plain text if the sheet item is later removed.
+
 ### Previous Actions
 
 A collapsible **Your Previous Actions** section below the submission panel shows your submissions from earlier phases for reference.
