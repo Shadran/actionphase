@@ -126,21 +126,19 @@ export const GamesPage = () => {
         />
       </div>
 
-      {/* Pagination */}
-      {!isLoading && !isError && games.length > 0 && metadata.total_pages > 1 && (
-        <div className="mt-6">
-          <Pagination
-            currentPage={metadata.page}
-            totalPages={metadata.total_pages}
-            pageSize={metadata.page_size}
-            hasNextPage={metadata.has_next_page}
-            hasPreviousPage={metadata.has_previous_page}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            isLoading={isLoading}
-          />
-        </div>
-      )}
+      {/* Pagination - always in layout flow to prevent CLS; invisible when not applicable */}
+      <div className={`mt-6 ${isLoading || isError || games.length === 0 || metadata.total_pages <= 1 ? 'invisible' : ''}`}>
+        <Pagination
+          currentPage={metadata.page || 1}
+          totalPages={metadata.total_pages || 1}
+          pageSize={metadata.page_size || 10}
+          hasNextPage={metadata.has_next_page || false}
+          hasPreviousPage={metadata.has_previous_page || false}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isLoading={isLoading}
+        />
+      </div>
 
       {/* Create Game Modal */}
       <Modal

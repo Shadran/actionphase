@@ -1,7 +1,29 @@
 import { useAuth } from '../contexts/AuthContext';
 import type { EnrichedGameListItem } from '../types/games';
 import { EnhancedGameCard } from './EnhancedGameCard';
-import { Card, Spinner, Alert } from './ui';
+import { Card, Alert } from './ui';
+
+function GameCardSkeleton() {
+  return (
+    <div className="surface-base rounded-lg shadow-md border-2 border-theme-default animate-pulse">
+      <div className="p-4 border-b border-theme-default">
+        <div className="h-6 bg-bg-secondary rounded w-3/4 mb-3"></div>
+        <div className="flex gap-2">
+          <div className="h-5 bg-bg-secondary rounded-full w-16"></div>
+          <div className="h-5 bg-bg-secondary rounded-full w-20"></div>
+        </div>
+      </div>
+      <div className="p-4">
+        <div className="h-4 bg-bg-secondary rounded w-full mb-2"></div>
+        <div className="h-4 bg-bg-secondary rounded w-5/6 mb-4"></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-4 bg-bg-secondary rounded w-24"></div>
+          <div className="h-4 bg-bg-secondary rounded w-20"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface GamesListProps {
   games: EnrichedGameListItem[];
@@ -22,8 +44,12 @@ export const GamesList = ({
 
   if (loading) {
     return (
-      <Card variant="elevated" padding="lg" className="flex items-center justify-center min-h-[300px]">
-        <Spinner size="lg" label="Loading games..." />
+      <Card variant="elevated" padding="lg" data-testid="games-list">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <GameCardSkeleton key={i} />
+          ))}
+        </div>
       </Card>
     );
   }
