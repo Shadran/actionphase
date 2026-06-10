@@ -123,7 +123,7 @@ func TestGameAPI_ApplicationManagement(t *testing.T) {
 		router.ServeHTTP(getW, getReq)
 
 		core.AssertEqual(t, 200, getW.Code, "Should return 200 with null after withdrawal")
-			core.AssertEqual(t, "null\n", getW.Body.String(), "Body should be null after withdrawal")
+		core.AssertEqual(t, "null\n", getW.Body.String(), "Body should be null after withdrawal")
 	})
 
 	t.Run("withdraw_application_no_application", func(t *testing.T) {

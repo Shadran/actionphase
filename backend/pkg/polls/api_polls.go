@@ -202,7 +202,7 @@ func (h *Handler) verifyUserInGame(ctx context.Context, gameID int32, userID int
 
 // pollViewAccess holds the result of checking whether a user can view polls for a game.
 type pollViewAccess struct {
-	allowed             bool
+	allowed               bool
 	canSeeIndividualVotes bool // true for GM, Co-GM, audience, or any user viewing a completed game
 }
 

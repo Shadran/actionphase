@@ -383,7 +383,7 @@ func TestPollResultsAccess_NonParticipant(t *testing.T) {
 		GameID: game.ID, CreatedByUserID: int32(gmUser.ID),
 		Question: "Active poll", Deadline: time.Now().Add(24 * time.Hour),
 		ShowIndividualVotes: false,
-		Options: []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
+		Options:             []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
 	})
 	core.AssertNoError(t, err, "Creating active poll should succeed")
 
@@ -391,7 +391,7 @@ func TestPollResultsAccess_NonParticipant(t *testing.T) {
 		GameID: game.ID, CreatedByUserID: int32(gmUser.ID),
 		Question: "Expired poll", Deadline: time.Now().Add(-1 * time.Hour),
 		ShowIndividualVotes: false,
-		Options: []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
+		Options:             []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
 	})
 	core.AssertNoError(t, err, "Creating expired poll should succeed")
 
