@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { GamesList } from '../components/GamesList';
 import { CreateGameForm } from '../components/CreateGameForm';
 import { ApplyToGameModal } from '../components/ApplyToGameModal';
@@ -13,6 +14,7 @@ import type { EnrichedGameListItem } from '../types/games';
 
 export const GamesPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { showSuccess } = useToast();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -61,11 +63,8 @@ export const GamesPage = () => {
   };
 
   const handleApplicationSubmitted = () => {
-    // Show success message
     showSuccess('Successfully applied to game!');
-
-    // Refetch games list to update application status
-    window.location.reload(); // Simple refresh for now
+    queryClient.invalidateQueries({ queryKey: ['games', 'filtered'] });
   };
 
   return (
