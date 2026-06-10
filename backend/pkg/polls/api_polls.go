@@ -200,6 +200,46 @@ func (h *Handler) verifyUserInGame(ctx context.Context, gameID int32, userID int
 	return fmt.Errorf("user is not a participant in this game")
 }
 
+// pollViewAccess holds the result of checking whether a user can view polls for a game.
+type pollViewAccess struct {
+	allowed             bool
+	canSeeIndividualVotes bool // true for GM, Co-GM, audience, or any user viewing a completed game
+}
+
+// checkPollViewAccess determines what visibility level an authenticated user gets for
+// a game's polls. All authenticated users may read polls; the flag controls whether
+// they see individual vote attribution.
+//
+// Individual votes visible to:
+//   - GM / Co-GM: always
+//   - Audience: always (spectator role)
+//   - Everyone else: only after the game is completed
+func (h *Handler) checkPollViewAccess(ctx context.Context, gameID int32, userID int32) (pollViewAccess, error) {
+	gameService := &dbservices.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	game, err := gameService.GetGame(ctx, gameID)
+	if err != nil {
+		return pollViewAccess{}, fmt.Errorf("failed to get game: %w", err)
+	}
+
+	// Completed games: everyone sees full results
+	if game.State.String == "completed" {
+		return pollViewAccess{allowed: true, canSeeIndividualVotes: true}, nil
+	}
+
+	// GM and Co-GM always see full results
+	if game.GmUserID == userID || core.IsUserCoGM(ctx, h.App.Pool, gameID, userID) {
+		return pollViewAccess{allowed: true, canSeeIndividualVotes: true}, nil
+	}
+
+	// Audience always sees full results
+	if core.IsUserAudience(ctx, h.App.Pool, gameID, userID) {
+		return pollViewAccess{allowed: true, canSeeIndividualVotes: true}, nil
+	}
+
+	// Everyone else (players and non-participants) may see polls exist but not individual votes
+	return pollViewAccess{allowed: true, canSeeIndividualVotes: false}, nil
+}
+
 // API Handler Methods
 
 // CreatePoll handles POST /games/{gameId}/polls
@@ -349,10 +389,15 @@ func (h *Handler) ListGamePolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user is in game
-	if err := h.verifyUserInGame(ctx, int32(gameID), userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not in the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+	// Check access (completed games are public)
+	access, err := h.checkPollViewAccess(ctx, int32(gameID), userID)
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+	if !access.allowed {
+		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
 		return
 	}
 
@@ -420,10 +465,13 @@ func (h *Handler) GetPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user is in game
-	if err := h.verifyUserInGame(ctx, pollWithOptions.Poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not in the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+	// Check access (completed games are public)
+	if access, err := h.checkPollViewAccess(ctx, pollWithOptions.Poll.GameID, userID); err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	} else if !access.allowed {
+		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
 		return
 	}
 
@@ -495,32 +543,20 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.verifyUserInGame(ctx, poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not in the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
-		return
-	}
-
-	// Check access permissions for poll results
-	// GM and audience can always view results
-	// Regular players can only view results after poll expires
-	gameService := &dbservices.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	game, err := gameService.GetGame(ctx, poll.GameID)
+	// Check access (completed games are public) — also gives us canSeeIndividualVotes
+	access, err := h.checkPollViewAccess(ctx, poll.GameID, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
+		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
 		render.Render(w, r, core.ErrInternalError(err))
 		return
 	}
+	if !access.allowed {
+		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
+		return
+	}
 
-	isGM := game.GmUserID == userID
-	isAudience := core.IsUserAudience(ctx, h.App.Pool, poll.GameID, userID)
-	isCoGM := core.IsUserCoGM(ctx, h.App.Pool, poll.GameID, userID)
-
-	// GMs, co-GMs, and audience can always see individual poll results
-	canSeeIndividualVotes := isGM || isCoGM || isAudience
-
-	// Get poll results with privilege flag to include individual votes for privileged users
-	results, err := pollService.GetPollResults(ctx, int32(pollID), canSeeIndividualVotes)
+	// Get poll results; privileged users (GM, co-GM, audience, completed-game viewers) see individual votes
+	results, err := pollService.GetPollResults(ctx, int32(pollID), access.canSeeIndividualVotes)
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll results")
 		render.Render(w, r, core.ErrNotFound("poll"))
@@ -530,15 +566,14 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	// Check if poll has expired
 	pollExpired := results.Poll.Deadline.Time.Before(time.Now())
 
-	// Players (non-GM, non-Co-GM, non-audience) can only see results after poll expires
-	if !isGM && !isCoGM && !isAudience {
+	// Regular players can only see results after poll expires; privileged users can always view
+	if !access.canSeeIndividualVotes {
 		if !pollExpired {
 			h.App.ObsLogger.Error(ctx, "Cannot view results - poll still active")
 			render.Render(w, r, core.ErrForbidden("poll results not available until voting closes"))
 			return
 		}
 	}
-	// GM, Co-GM, and audience can always view results
 
 	// Convert core.PollResults to API response with flattened structure
 	optionResults := make([]OptionResult, len(results.OptionResults))
@@ -863,10 +898,15 @@ func (h *Handler) ListPollsByPhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user is in game
-	if err := h.verifyUserInGame(ctx, int32(gameID), userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not in the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+	// Check access (completed games are public)
+	access, err := h.checkPollViewAccess(ctx, int32(gameID), userID)
+	if err != nil {
+		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
+		render.Render(w, r, core.ErrInternalError(err))
+		return
+	}
+	if !access.allowed {
+		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
 		return
 	}
 

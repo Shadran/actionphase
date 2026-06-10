@@ -113,6 +113,15 @@ func TestPollResultsAccess(t *testing.T) {
 	})
 	core.AssertNoError(t, err, "Creating expired poll should succeed")
 
+	// Cast a vote on the expired poll so individual vote data exists in results
+	expiredOptionID := expiredPoll.Options[0].ID
+	_, err = pollService.SubmitVote(context.Background(), core.SubmitVoteRequest{
+		PollID:           expiredPoll.Poll.ID,
+		UserID:           int32(playerUser.ID),
+		SelectedOptionID: &expiredOptionID,
+	})
+	core.AssertNoError(t, err, "Submitting vote should succeed")
+
 	// Create tokens
 	gmToken, err := core.CreateTestJWTTokenForUser(app, gmUser)
 	core.AssertNoError(t, err, "GM token creation should succeed")
@@ -122,6 +131,35 @@ func TestPollResultsAccess(t *testing.T) {
 
 	audienceToken, err := core.CreateTestJWTTokenForUser(app, audienceUser)
 	core.AssertNoError(t, err, "Audience token creation should succeed")
+
+	makeResultsReq := func(token string, pollID int32) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/polls/"+strconv.Itoa(int(pollID))+"/results", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("pollId", strconv.Itoa(int(pollID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
+
+	hasVoters := func(body []byte) bool {
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return false
+		}
+		opts, _ := result["option_results"].([]interface{})
+		for _, o := range opts {
+			opt, _ := o.(map[string]interface{})
+			voters, _ := opt["voters"].([]interface{})
+			if len(voters) > 0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	// --- Status code access control ---
 
 	testCases := []struct {
 		name           string
@@ -176,23 +214,31 @@ func TestPollResultsAccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create request
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/polls/"+strconv.Itoa(int(tc.pollID))+"/results", nil)
-			req.Header.Set("Authorization", "Bearer "+tc.token)
-
-			// Set URL parameters
-			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("pollId", strconv.Itoa(int(tc.pollID)))
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-			// Execute request
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-
-			// Verify status code
+			w := makeResultsReq(tc.token, tc.pollID)
 			core.AssertEqual(t, tc.expectedStatus, w.Code, tc.description)
 		})
 	}
+
+	// --- Individual vote visibility (response body) ---
+	// All tests use the expired poll which has a vote cast on it.
+
+	t.Run("gm_sees_individual_votes_in_results", func(t *testing.T) {
+		w := makeResultsReq(gmToken, expiredPoll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, w.Code, "GM should get results")
+		core.AssertTrue(t, hasVoters(w.Body.Bytes()), "GM should see individual voter attribution in response")
+	})
+
+	t.Run("audience_sees_individual_votes_in_results", func(t *testing.T) {
+		w := makeResultsReq(audienceToken, expiredPoll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, w.Code, "Audience should get results")
+		core.AssertTrue(t, hasVoters(w.Body.Bytes()), "Audience should see individual voter attribution in response")
+	})
+
+	t.Run("player_does_not_see_individual_votes_in_results", func(t *testing.T) {
+		w := makeResultsReq(playerToken, expiredPoll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, w.Code, "Player should get results on expired poll")
+		core.AssertTrue(t, !hasVoters(w.Body.Bytes()), "Player should NOT see individual voter attribution in response")
+	})
 }
 
 // TestPollResults_AnonymousGame tests that voter character names are visible in poll results
@@ -303,8 +349,9 @@ func TestPollResults_AnonymousGame(t *testing.T) {
 	})
 }
 
-// TestPollResultsAccess_NotInGame tests that users not in the game cannot view poll results
-func TestPollResultsAccess_NotInGame(t *testing.T) {
+// TestPollResultsAccess_NonParticipant tests that non-participants can view results of
+// expired polls but are blocked from viewing active poll results (same rule as players).
+func TestPollResultsAccess_NonParticipant(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
 	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_participants", "games", "sessions", "users")
@@ -313,53 +360,45 @@ func TestPollResultsAccess_NotInGame(t *testing.T) {
 	router := setupPollTestRouter(app, testDB)
 	fixtures := testDB.SetupFixtures(t)
 
-	// Create test users
-	gmUser := fixtures.TestUser // GM
+	gmUser := fixtures.TestUser
 	outsiderUser := testDB.CreateTestUser(t, "outsider", "outsider@example.com")
 
 	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
-
-	// Create a game
 	game := testDB.CreateTestGame(t, int32(gmUser.ID), "Test Game")
-
-	// Create a poll
-	pollDeadline := time.Now().Add(24 * time.Hour)
-	poll, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
-		GameID:               game.ID,
-		PhaseID:              nil,
-		CreatedByUserID:      int32(gmUser.ID),
-		CreatedByCharacterID: nil,
-		Question:             "Test Poll Question",
-		Description:          core.StringPtr("Test poll"),
-		Deadline:             pollDeadline,
-		ShowIndividualVotes:  false,
-		AllowOtherOption:     false,
-		Options: []core.PollOptionInput{
-			{Text: "Option A", DisplayOrder: 1},
-			{Text: "Option B", DisplayOrder: 2},
-		},
-	})
-	core.AssertNoError(t, err, "Creating poll should succeed")
-
-	// Create token for outsider
 	outsiderToken, err := core.CreateTestJWTTokenForUser(app, outsiderUser)
 	core.AssertNoError(t, err, "Outsider token creation should succeed")
 
-	// Create request
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/polls/"+strconv.Itoa(int(poll.Poll.ID))+"/results", nil)
-	req.Header.Set("Authorization", "Bearer "+outsiderToken)
+	makeReq := func(pollID int32) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/polls/"+strconv.Itoa(int(pollID))+"/results", nil)
+		req.Header.Set("Authorization", "Bearer "+outsiderToken)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("pollId", strconv.Itoa(int(pollID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
 
-	// Set URL parameters
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("pollId", strconv.Itoa(int(poll.Poll.ID)))
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	activePoll, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
+		GameID: game.ID, CreatedByUserID: int32(gmUser.ID),
+		Question: "Active poll", Deadline: time.Now().Add(24 * time.Hour),
+		ShowIndividualVotes: false,
+		Options: []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
+	})
+	core.AssertNoError(t, err, "Creating active poll should succeed")
 
-	// Execute request
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	expiredPoll, err := pollService.CreatePollWithOptions(context.Background(), core.CreatePollRequest{
+		GameID: game.ID, CreatedByUserID: int32(gmUser.ID),
+		Question: "Expired poll", Deadline: time.Now().Add(-1 * time.Hour),
+		ShowIndividualVotes: false,
+		Options: []core.PollOptionInput{{Text: "A", DisplayOrder: 1}, {Text: "B", DisplayOrder: 2}},
+	})
+	core.AssertNoError(t, err, "Creating expired poll should succeed")
 
-	// Verify forbidden status
-	core.AssertEqual(t, http.StatusForbidden, w.Code, "Users not in the game should not be able to view poll results")
+	core.AssertEqual(t, http.StatusForbidden, makeReq(activePoll.Poll.ID).Code,
+		"Non-participant cannot view active poll results (poll not yet closed)")
+	core.AssertEqual(t, http.StatusOK, makeReq(expiredPoll.Poll.ID).Code,
+		"Non-participant can view expired poll results")
 }
 
 // setupPollVoteTestRouter creates a test router for poll voting
@@ -833,14 +872,14 @@ func TestListPollsByPhase(t *testing.T) {
 			description:       "Phase with no polls should return empty array",
 		},
 		{
-			name:              "outsider_cannot_access",
+			name:              "outsider_can_access",
 			gameID:            game.ID,
 			phaseID:           phase1.ID,
 			token:             outsiderToken,
-			expectedStatus:    http.StatusForbidden,
-			expectedPollCount: 0,
-			expectedPollIDs:   nil,
-			description:       "User not in game should get 403 Forbidden",
+			expectedStatus:    http.StatusOK,
+			expectedPollCount: 2,
+			expectedPollIDs:   []int32{poll1Phase1.Poll.ID, poll2Phase1.Poll.ID},
+			description:       "Non-participants can list polls (individual vote visibility controlled separately)",
 		},
 	}
 
@@ -1118,4 +1157,209 @@ func TestSubmitVote_ValidationErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPollVisibilityByRole tests the access rules for poll listing and result visibility:
+//   - All authenticated users can list polls (non-participants included)
+//   - Individual vote attribution: GM/Co-GM/audience always; everyone else only on completed games
+func TestPollVisibilityByRole(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_votes", "poll_options", "common_room_polls", "game_audience", "game_phases", "game_participants", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	listByPhaseRouter := setupListPollsByPhaseTestRouter(app, testDB)
+	resultsRouter := setupPollTestRouter(app, testDB)
+
+	ctx := context.Background()
+	fixtures := testDB.SetupFixtures(t)
+
+	gmUser := fixtures.TestUser
+	playerUser := testDB.CreateTestUser(t, "vis_player", "vis_player@example.com")
+	audienceUser := testDB.CreateTestUser(t, "vis_audience", "vis_audience@example.com")
+	outsiderUser := testDB.CreateTestUser(t, "vis_outsider", "vis_outsider@example.com")
+
+	gameService := &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	pollService := &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger}
+	queries := db.New(testDB.Pool)
+
+	game := testDB.CreateTestGame(t, int32(gmUser.ID), "Visibility Test Game")
+
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(playerUser.ID), "player")
+	core.AssertNoError(t, err, "Adding player should succeed")
+
+	_, err = queries.CreateAudienceApplication(ctx, db.CreateAudienceApplicationParams{
+		GameID: game.ID,
+		UserID: int32(audienceUser.ID),
+		Status: pgtype.Text{String: "active", Valid: true},
+	})
+	core.AssertNoError(t, err, "Adding audience member should succeed")
+
+	phase := testDB.CreateTestPhase(t, game.ID, "common_room", "Test Phase")
+
+	// Expired poll (ShowIndividualVotes=false): privileged users see voter attribution,
+	// players and outsiders do not (used for in-progress game tests).
+	expiredDeadline := time.Now().Add(-1 * time.Hour)
+	poll, err := pollService.CreatePollWithOptions(ctx, core.CreatePollRequest{
+		GameID:              game.ID,
+		PhaseID:             &phase.ID,
+		CreatedByUserID:     int32(gmUser.ID),
+		Question:            "Visibility test poll (expired)",
+		Deadline:            expiredDeadline,
+		ShowIndividualVotes: false,
+		Options: []core.PollOptionInput{
+			{Text: "Option A", DisplayOrder: 1},
+		},
+	})
+	core.AssertNoError(t, err, "Creating expired poll should succeed")
+
+	optionID := poll.Options[0].ID
+	_, err = pollService.SubmitVote(ctx, core.SubmitVoteRequest{
+		PollID:           poll.Poll.ID,
+		UserID:           int32(playerUser.ID),
+		SelectedOptionID: &optionID,
+	})
+	core.AssertNoError(t, err, "Submitting vote should succeed")
+
+	// Active poll (deadline in future, ShowIndividualVotes=false): used to verify that
+	// on a completed game the expiry check is skipped and all users see full results.
+	activePollDeadline := time.Now().Add(24 * time.Hour)
+	activePoll, err := pollService.CreatePollWithOptions(ctx, core.CreatePollRequest{
+		GameID:              game.ID,
+		PhaseID:             &phase.ID,
+		CreatedByUserID:     int32(gmUser.ID),
+		Question:            "Visibility test poll (active deadline)",
+		Deadline:            activePollDeadline,
+		ShowIndividualVotes: false,
+		Options: []core.PollOptionInput{
+			{Text: "Option A", DisplayOrder: 1},
+		},
+	})
+	core.AssertNoError(t, err, "Creating active-deadline poll should succeed")
+
+	activeOptionID := activePoll.Options[0].ID
+	_, err = pollService.SubmitVote(ctx, core.SubmitVoteRequest{
+		PollID:           activePoll.Poll.ID,
+		UserID:           int32(playerUser.ID),
+		SelectedOptionID: &activeOptionID,
+	})
+	core.AssertNoError(t, err, "Submitting vote on active poll should succeed")
+
+	gmToken, _ := core.CreateTestJWTTokenForUser(app, gmUser)
+	playerToken, _ := core.CreateTestJWTTokenForUser(app, playerUser)
+	audienceToken, _ := core.CreateTestJWTTokenForUser(app, audienceUser)
+	outsiderToken, _ := core.CreateTestJWTTokenForUser(app, outsiderUser)
+
+	makeListByPhaseReq := func(token string) *httptest.ResponseRecorder {
+		url := "/api/v1/games/" + strconv.Itoa(int(game.ID)) + "/phases/" + strconv.Itoa(int(phase.ID)) + "/polls"
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("gameId", strconv.Itoa(int(game.ID)))
+		rctx.URLParams.Add("phaseId", strconv.Itoa(int(phase.ID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		listByPhaseRouter.ServeHTTP(w, req)
+		return w
+	}
+
+	makeResultsReq := func(token string, pollID int32) *httptest.ResponseRecorder {
+		url := "/api/v1/polls/" + strconv.Itoa(int(pollID)) + "/results"
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("pollId", strconv.Itoa(int(pollID)))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		resultsRouter.ServeHTTP(w, req)
+		return w
+	}
+
+	hasVoters := func(body []byte) bool {
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return false
+		}
+		opts, _ := result["option_results"].([]interface{})
+		for _, o := range opts {
+			opt, _ := o.(map[string]interface{})
+			voters, _ := opt["voters"].([]interface{})
+			if len(voters) > 0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	t.Run("in_progress game: all users can list polls by phase", func(t *testing.T) {
+		for _, tc := range []struct{ name, token string }{
+			{"gm", gmToken}, {"player", playerToken}, {"audience", audienceToken}, {"outsider", outsiderToken},
+		} {
+			w := makeListByPhaseReq(tc.token)
+			core.AssertEqual(t, http.StatusOK, w.Code, tc.name+" should be able to list polls on in-progress game")
+		}
+	})
+
+	t.Run("in_progress game: only gm and audience see individual votes in results", func(t *testing.T) {
+		wmGM := makeResultsReq(gmToken, poll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, wmGM.Code, "GM should get results")
+		core.AssertTrue(t, hasVoters(wmGM.Body.Bytes()), "GM should see individual votes")
+
+		wAud := makeResultsReq(audienceToken, poll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, wAud.Code, "Audience should get results")
+		core.AssertTrue(t, hasVoters(wAud.Body.Bytes()), "Audience should see individual votes")
+
+		wPlayer := makeResultsReq(playerToken, poll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, wPlayer.Code, "Player should get results (poll expired)")
+		core.AssertTrue(t, !hasVoters(wPlayer.Body.Bytes()), "Player should NOT see individual votes")
+
+		wOut := makeResultsReq(outsiderToken, poll.Poll.ID)
+		core.AssertEqual(t, http.StatusOK, wOut.Code, "Outsider should get results (poll expired)")
+		core.AssertTrue(t, !hasVoters(wOut.Body.Bytes()), "Outsider should NOT see individual votes")
+	})
+
+	t.Run("in_progress game: active-deadline poll blocks player and outsider from results", func(t *testing.T) {
+		// GM and audience can see active poll results; player and outsider cannot (poll not yet closed)
+		core.AssertEqual(t, http.StatusOK, makeResultsReq(gmToken, activePoll.Poll.ID).Code, "GM can view active poll results")
+		core.AssertEqual(t, http.StatusOK, makeResultsReq(audienceToken, activePoll.Poll.ID).Code, "Audience can view active poll results")
+		core.AssertEqual(t, http.StatusForbidden, makeResultsReq(playerToken, activePoll.Poll.ID).Code, "Player blocked from active poll results")
+		core.AssertEqual(t, http.StatusForbidden, makeResultsReq(outsiderToken, activePoll.Poll.ID).Code, "Outsider blocked from active poll results")
+	})
+
+	// Walk the game through state transitions to reach completed
+	for _, state := range []string{core.GameStateRecruitment, core.GameStateCharacterCreation, core.GameStateInProgress, core.GameStateCompleted} {
+		_, err = gameService.UpdateGameState(ctx, game.ID, state)
+		core.AssertNoError(t, err, "Transitioning game to "+state+" should succeed")
+	}
+
+	t.Run("completed game: all users can list polls by phase", func(t *testing.T) {
+		for _, tc := range []struct{ name, token string }{
+			{"gm", gmToken}, {"player", playerToken}, {"audience", audienceToken}, {"outsider", outsiderToken},
+		} {
+			w := makeListByPhaseReq(tc.token)
+			core.AssertEqual(t, http.StatusOK, w.Code, tc.name+" should be able to list polls on completed game")
+		}
+	})
+
+	t.Run("completed game: all users see individual votes in results (expired poll)", func(t *testing.T) {
+		for _, tc := range []struct{ name, token string }{
+			{"gm", gmToken}, {"player", playerToken}, {"audience", audienceToken}, {"outsider", outsiderToken},
+		} {
+			w := makeResultsReq(tc.token, poll.Poll.ID)
+			core.AssertEqual(t, http.StatusOK, w.Code, tc.name+" should get results on completed game")
+			core.AssertTrue(t, hasVoters(w.Body.Bytes()), tc.name+" should see individual votes on completed game")
+		}
+	})
+
+	t.Run("completed game: all users see individual votes even on active-deadline poll", func(t *testing.T) {
+		// Key case: a poll whose deadline hasn't passed yet, but the game is completed.
+		// The expiry check must be skipped — canSeeIndividualVotes=true for everyone on completed games.
+		for _, tc := range []struct{ name, token string }{
+			{"gm", gmToken}, {"player", playerToken}, {"audience", audienceToken}, {"outsider", outsiderToken},
+		} {
+			w := makeResultsReq(tc.token, activePoll.Poll.ID)
+			core.AssertEqual(t, http.StatusOK, w.Code, tc.name+" should get active-deadline poll results on completed game")
+			core.AssertTrue(t, hasVoters(w.Body.Bytes()), tc.name+" should see individual votes on completed game regardless of poll deadline")
+		}
+	})
 }

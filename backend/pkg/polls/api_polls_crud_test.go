@@ -329,7 +329,8 @@ func TestPollCRUD_GetPoll_NonParticipant(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusForbidden, rec.Code)
+	// Non-participants can now read polls (visibility rules enforced on results, not listing)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 // TestPollCRUD_ListGamePolls tests GET /api/v1/games/{gameId}/polls
@@ -391,14 +392,15 @@ func TestPollCRUD_ListGamePolls(t *testing.T) {
 		assert.Len(t, response, 2)
 	})
 
-	t.Run("non-participant cannot list game polls", func(t *testing.T) {
+	t.Run("non-participant can list game polls", func(t *testing.T) {
 		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/polls", game.ID), nil)
 		req.Header.Set("Authorization", "Bearer "+outsiderToken)
 
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 
-		assert.Equal(t, http.StatusForbidden, rec.Code)
+		// Non-participants can see polls exist; individual vote visibility is controlled separately
+		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 
 	t.Run("response includes user_has_voted field", func(t *testing.T) {
