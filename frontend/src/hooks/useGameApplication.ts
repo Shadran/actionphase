@@ -34,8 +34,12 @@ export function useGameApplication({
   useEffect(() => {
     const fetchUserApplication = async () => {
       if (!isGM && !isInGame && !isLoadingParticipants && currentUserId && gameState !== 'completed') {
-        const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
-        setUserApplication(applicationResponse.data);
+        try {
+          const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
+          setUserApplication(applicationResponse.data);
+        } catch {
+          setUserApplication(null);
+        }
       } else {
         setUserApplication(null);
       }
@@ -46,8 +50,12 @@ export function useGameApplication({
 
   const refetchUserApplication = async () => {
     if (!isGM && !isInGame && currentUserId && gameState !== 'completed') {
-      const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
-      setUserApplication(applicationResponse.data);
+      try {
+        const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
+        setUserApplication(applicationResponse.data);
+      } catch {
+        setUserApplication(null);
+      }
     }
   };
 
