@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
+import { simpleApi } from '../lib/simple-api';
 import type { LoginRequest, RegisterRequest, User, AuthResponse } from '../types/auth';
 import type { AxiosResponse } from 'axios';
 import { logger } from '@/services/LoggingService';
@@ -93,7 +94,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (token) {
         apiClient.setAuthToken(token);
-        // Invalidate currentUser query to trigger authentication check
+        // Prefetch dashboard in parallel with the auth re-check so data is already
+        // in cache when DashboardPage mounts, eliminating the sequential waterfall.
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard'],
+          queryFn: () => simpleApi.getDashboard().then(r => r.data),
+        });
         queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         setAuthError(null);
       }
@@ -117,7 +123,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (token) {
         apiClient.setAuthToken(token);
-        // Invalidate currentUser query to trigger authentication check
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard'],
+          queryFn: () => simpleApi.getDashboard().then(r => r.data),
+        });
         queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         setAuthError(null);
       }
