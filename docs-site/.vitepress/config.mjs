@@ -65,7 +65,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/yourusername/actionphase' }
+      { icon: 'github', link: 'https://github.com/RallinaTricolor/actionphase' }
     ],
 
     footer: {
