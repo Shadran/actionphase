@@ -36,33 +36,29 @@ export const PublicArchiveRoute = ({ children }: PublicArchiveRouteProps) => {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Show loading spinner while checking auth or fetching game state
+  // While auth is still resolving, render children optimistically so the page skeleton
+  // paints immediately. If the user turns out to be unauthenticated and the game is not
+  // a public archive, we redirect below once both checks complete.
   if (isCheckingAuth || isLoadingGame) {
-    return (
-      <div className="min-h-screen surface-page flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-interactive-primary"></div>
-      </div>
-    );
-  }
-
-  // If game fetch failed, let the error bubble up to the child component
-  // (it will show "Game not found" message)
-  if (error && !isAuthenticated) {
-    // Unauthenticated user trying to access non-existent or private game
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Public Archive Mode: Completed games are viewable by anyone
-  if (game?.state === 'completed') {
-    // Allow access regardless of authentication status
     return <>{children}</>;
   }
 
-  // Non-completed games require authentication
+  // Both checks complete — enforce access control.
+
+  // If game fetch failed, unauthenticated user gets redirected to login
+  if (error && !isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Public Archive Mode: completed games are viewable by anyone
+  if (game?.state === 'completed') {
+    return <>{children}</>;
+  }
+
+  // Non-completed game, unauthenticated user → redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Authenticated user - allow access
   return <>{children}</>;
 };

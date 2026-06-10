@@ -9,6 +9,7 @@ export function GameBanner({ bannerUrl }: GameBannerProps) {
         src={bannerUrl}
         alt="Game banner"
         className="w-full h-full object-cover"
+        fetchPriority="high"
         onError={(e) => {
           const img = e.target as HTMLImageElement;
           if (img.parentElement) img.parentElement.style.display = 'none';
