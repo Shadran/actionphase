@@ -445,7 +445,7 @@ export const handlers = [
 
   // Game application endpoints
   http.get('/api/v1/games/:gameId/application/mine', () => {
-    return HttpResponse.json(null, { status: 404 })
+    return HttpResponse.json(null)
   }),
 
   http.get('/api/v1/games/:gameId/applicants', () => {

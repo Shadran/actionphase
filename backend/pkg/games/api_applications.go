@@ -392,8 +392,8 @@ func (h *Handler) GetMyGameApplication(w http.ResponseWriter, r *http.Request) {
 	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	application, err := applicationService.GetGameApplicationByUserAndGame(ctx, int32(gameID), userID)
 	if err != nil {
-		// User has no application - return 404
-		render.Render(w, r, core.ErrNotFound("no application found for this game"))
+		// User has no application - return 200 null (expected, not an error)
+		render.JSON(w, r, nil)
 		return
 	}
 

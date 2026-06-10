@@ -266,9 +266,9 @@ describe('GamesList', () => {
     it('renders loading state initially', () => {
       renderWithProviders(<GamesList games={[]} loading={true} error={null} />)
 
-      // Should show loading spinner (appears multiple times due to accessibility label)
-      const loadingElements = screen.getAllByText('Loading games...')
-      expect(loadingElements.length).toBeGreaterThan(0)
+      // Loading renders skeleton cards, not text
+      expect(screen.getByTestId('games-list')).toBeInTheDocument()
+      expect(screen.queryByRole('article')).not.toBeInTheDocument()
     })
 
     it('renders games list after loading', () => {

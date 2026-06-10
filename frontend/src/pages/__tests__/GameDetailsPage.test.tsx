@@ -83,10 +83,7 @@ describe('GameDetailsPage', () => {
             created_at: '2025-01-05T00:00:00Z',
           })
         }
-        return HttpResponse.json(
-          { error: 'No application found' },
-          { status: 404 }
-        )
+        return HttpResponse.json(null)
       }),
       http.get('http://localhost:3000/api/v1/games/:id/current-phase', () => {
         if (game.state === 'in_progress') {
@@ -453,7 +450,7 @@ describe('GameDetailsPage', () => {
           HttpResponse.json({ id: 2, username: 'player1', email: 'player1@example.com' })
         ),
         http.get('http://localhost:3000/api/v1/games/:id/application/mine', () =>
-          HttpResponse.json({ error: 'Not found' }, { status: 404 })
+          HttpResponse.json(null)
         ),
         http.get('http://localhost:3000/api/v1/games/:id/current-phase', async () => {
           // Simulate a slow phase fetch

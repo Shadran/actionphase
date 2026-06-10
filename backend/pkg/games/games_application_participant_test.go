@@ -87,14 +87,15 @@ func TestGameAPI_ApplicationManagement(t *testing.T) {
 	})
 
 	t.Run("get_my_application_no_application", func(t *testing.T) {
-		// GM has no application
+		// GM has no application - should return 200 with null body
 		req := httptest.NewRequest("GET", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/application", nil)
 		req.Header.Set("Authorization", "Bearer "+gmToken)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
 
-		core.AssertEqual(t, 404, w.Code, "Should return 404 Not Found")
+		core.AssertEqual(t, 200, w.Code, "Should return 200 OK with null body")
+		core.AssertEqual(t, "null\n", w.Body.String(), "Body should be null")
 	})
 
 	t.Run("get_my_application_unauthorized", func(t *testing.T) {
@@ -121,7 +122,8 @@ func TestGameAPI_ApplicationManagement(t *testing.T) {
 		getW := httptest.NewRecorder()
 		router.ServeHTTP(getW, getReq)
 
-		core.AssertEqual(t, 404, getW.Code, "Application should be deleted")
+		core.AssertEqual(t, 200, getW.Code, "Should return 200 with null after withdrawal")
+			core.AssertEqual(t, "null\n", getW.Body.String(), "Body should be null after withdrawal")
 	})
 
 	t.Run("withdraw_application_no_application", func(t *testing.T) {

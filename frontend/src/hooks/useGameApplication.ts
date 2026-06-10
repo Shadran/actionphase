@@ -10,6 +10,7 @@ interface UseGameApplicationOptions {
   currentUserId: number | null;
   isLoadingParticipants: boolean; // Prevent checking application while participants are loading
   refetchGameData: () => Promise<void>;
+  gameState?: string;
 }
 
 export function useGameApplication({
@@ -19,6 +20,7 @@ export function useGameApplication({
   currentUserId,
   isLoadingParticipants,
   refetchGameData,
+  gameState,
 }: UseGameApplicationOptions) {
   const { showError } = useToast();
   const [userApplication, setUserApplication] = useState<GameApplication | null>(null);
@@ -26,36 +28,26 @@ export function useGameApplication({
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
-  // Fetch user's application if not GM and not already in the game
-  // Note: Users can apply during recruitment (player) or anytime (audience)
-  // Wait for participants to load to avoid race condition
+  // Fetch user's application if not GM and not already in the game.
+  // Skip for completed games — applications are no longer possible.
+  // Wait for participants to load to avoid race condition.
   useEffect(() => {
     const fetchUserApplication = async () => {
-      if (!isGM && !isInGame && !isLoadingParticipants && currentUserId) {
-        try {
-          const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
-          setUserApplication(applicationResponse.data);
-        } catch (_appErr) {
-          // User has no application - that's fine
-          setUserApplication(null);
-        }
+      if (!isGM && !isInGame && !isLoadingParticipants && currentUserId && gameState !== 'completed') {
+        const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
+        setUserApplication(applicationResponse.data);
       } else {
         setUserApplication(null);
       }
     };
 
     fetchUserApplication();
-  }, [gameId, isGM, isInGame, isLoadingParticipants, currentUserId]);
+  }, [gameId, isGM, isInGame, isLoadingParticipants, currentUserId, gameState]);
 
   const refetchUserApplication = async () => {
-    if (!isGM && !isInGame && currentUserId) {
-      try {
-        const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
-        setUserApplication(applicationResponse.data);
-      } catch (_appErr) {
-        // User has no application - that's fine
-        setUserApplication(null);
-      }
+    if (!isGM && !isInGame && currentUserId && gameState !== 'completed') {
+      const applicationResponse = await apiClient.games.getMyGameApplication(gameId);
+      setUserApplication(applicationResponse.data);
     }
   };
 

@@ -205,9 +205,11 @@ describe('GamesPage', () => {
 
     // Open modal and submit application
     fireEvent.click(screen.getByText('Apply to Game'))
+    expect(screen.getByTestId('apply-modal')).toBeInTheDocument()
+
     fireEvent.click(screen.getByText('Submit Application'))
 
-    // Should reload page after successful submission
-    expect(window.location.reload).toHaveBeenCalled()
+    // Modal should close after successful submission
+    expect(screen.queryByTestId('apply-modal')).not.toBeInTheDocument()
   })
 })

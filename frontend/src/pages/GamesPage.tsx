@@ -63,6 +63,7 @@ export const GamesPage = () => {
   };
 
   const handleApplicationSubmitted = () => {
+    setShowApplyModal(false);
     showSuccess('Successfully applied to game!');
     queryClient.invalidateQueries({ queryKey: ['games', 'filtered'] });
   };

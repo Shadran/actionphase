@@ -81,6 +81,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
     currentUserId,
     isLoadingParticipants,
     refetchGameData,
+    gameState: game?.state,
   });
 
   // Wrap handlers to trigger applications list refresh

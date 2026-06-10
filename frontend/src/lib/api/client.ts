@@ -132,10 +132,8 @@ export class BaseApiClient {
 
         // Downgrade expected non-errors to debug:
         // - /auth/me 401: expected when unauthenticated (probe endpoint)
-        // - /application/mine 404: expected when user hasn't applied to a game
         const isExpectedNonError =
-          (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) ||
-          (error.response?.status === 404 && error.config?.url?.includes('/application/mine'));
+          (error.response?.status === 401 && error.config?.url?.includes('/auth/me'));
         const logFn = isExpectedNonError ? logger.debug : logger.error;
         logFn('API Request Failed', {
           method: error.config?.method?.toUpperCase(),
