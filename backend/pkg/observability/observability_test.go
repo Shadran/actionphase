@@ -355,3 +355,40 @@ func TestMetricsHandler_ReturnsValidJSON(t *testing.T) {
 	require.NoError(t, err, "metrics response should be valid JSON")
 	assert.Equal(t, int64(1), snap.Counters["test_counter"])
 }
+
+// ============================================================================
+// isScannerProbe
+// ============================================================================
+
+func TestIsScannerProbe(t *testing.T) {
+	probes := []string{
+		"/.env",
+		"/.env.local",
+		"/.env.production",
+		"/api/v2/.env",
+		"/api/backend/.env",
+		"/.git/config",
+		"/.git/HEAD",
+		"/wp-login.php",
+		"/phpinfo.php",
+		"/info.php",
+		"/something/random.php",
+		"/wp-admin",
+		"/wordpress",
+	}
+	for _, p := range probes {
+		assert.True(t, isScannerProbe(p), "expected probe: %s", p)
+	}
+
+	legit := []string{
+		"/api/v1/games",
+		"/api/v1/games/42",
+		"/api/v1/auth/login",
+		"/health",
+		"/api/v1/nonexistent",
+		"/static/app.js",
+	}
+	for _, p := range legit {
+		assert.False(t, isScannerProbe(p), "expected NOT probe: %s", p)
+	}
+}

@@ -225,14 +225,22 @@ func (l *Logger) LogError(ctx context.Context, err error, msg string, args ...an
 // This should be called from HTTP middleware to provide consistent request logging.
 func (l *Logger) LogHTTPRequest(ctx context.Context, method, path string, statusCode int, duration time.Duration, args ...any) {
 	level := slog.LevelInfo
-
-	// Use different log levels based on status code
 	if statusCode >= 500 {
 		level = slog.LevelError
 	} else if statusCode >= 400 {
 		level = slog.LevelWarn
 	}
+	l.logHTTPRequest(ctx, level, method, path, statusCode, duration, args...)
+}
 
+// LogHTTPRequestAtLevel logs an HTTP request at the specified level, overriding
+// the default level selection. Used to downgrade noisy-but-expected requests
+// (e.g. scanner probes) without losing the structured fields.
+func (l *Logger) LogHTTPRequestAtLevel(ctx context.Context, level slog.Level, method, path string, statusCode int, duration time.Duration, args ...any) {
+	l.logHTTPRequest(ctx, level, method, path, statusCode, duration, args...)
+}
+
+func (l *Logger) logHTTPRequest(ctx context.Context, level slog.Level, method, path string, statusCode int, duration time.Duration, args ...any) {
 	httpArgs := append([]any{
 		"source", "http",
 		"http_method", method,

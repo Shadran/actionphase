@@ -3,9 +3,12 @@ package observability
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
 	"net/http"
+	"path"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -68,16 +71,17 @@ func RequestTracingMiddleware(logger *Logger) func(next http.Handler) http.Handl
 			// are already fully captured by metrics and traces.
 			duration := time.Since(start)
 			if ww.Status() >= 400 {
-				logger.LogHTTPRequest(
-					ctx,
-					r.Method,
-					routePattern(r),
-					ww.Status(),
-					duration,
+				logArgs := []any{
 					"remote_addr", r.RemoteAddr,
 					"user_agent", r.UserAgent(),
 					"content_length", r.ContentLength,
-				)
+				}
+				if isScannerProbe(r.URL.Path) {
+					// Downgrade internet scanner noise to DEBUG; still recorded in metrics.
+					logger.LogHTTPRequestAtLevel(ctx, slog.LevelDebug, r.Method, routePattern(r), ww.Status(), duration, logArgs...)
+				} else {
+					logger.LogHTTPRequest(ctx, r.Method, routePattern(r), ww.Status(), duration, logArgs...)
+				}
 			}
 		})
 	}
@@ -232,4 +236,42 @@ func routePattern(r *http.Request) string {
 		return chiCtx.RoutePattern()
 	}
 	return r.URL.Path
+}
+
+// isScannerProbe reports whether the request path matches patterns commonly
+// used by automated internet scanners hunting for exposed secrets or CVEs.
+// These generate expected 404s that are not actionable and should not appear
+// as WARN-level noise in production logs.
+func isScannerProbe(reqPath string) bool {
+	// Normalise to prevent traversal tricks like /foo/../.env
+	cleaned := path.Clean(reqPath)
+	base := path.Base(cleaned)
+
+	// Files that should never exist on this server
+	probeFiles := []string{
+		".env", ".env.local", ".env.production", ".env.staging", ".env.development",
+		".git", "config", "phpinfo.php", "info.php", "wp-login.php",
+	}
+	for _, f := range probeFiles {
+		if base == f {
+			return true
+		}
+	}
+
+	// Path suffixes (catches /api/v2/.env, /backend/.env, etc.)
+	probeSuffixes := []string{
+		"/.env", "/.git/config", "/.git/HEAD", "/wp-admin", "/wordpress",
+	}
+	for _, suffix := range probeSuffixes {
+		if strings.HasSuffix(cleaned, suffix) {
+			return true
+		}
+	}
+
+	// Any .php file — this server runs no PHP
+	if strings.HasSuffix(base, ".php") {
+		return true
+	}
+
+	return false
 }
