@@ -111,7 +111,7 @@ export async function applyToGame(page: Page, gameId: number): Promise<void> {
   await page.waitForLoadState('networkidle');
 
   // Click the apply button
-  await page.click(`[data-testid="apply-button-${gameId}"]`);
+  await page.locator(`[data-testid="apply-button-${gameId}"]`).locator('visible=true').click();
 
   // Wait for the application to be submitted
   await page.waitForLoadState('networkidle');

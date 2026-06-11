@@ -25,7 +25,7 @@ export class GameApplicationsPage {
     this.applicationsList = page.getByTestId('applications-list');
     this.applicationsPendingSection = page.getByTestId('applications-pending-section');
     this.applicationsReviewedSection = page.getByTestId('applications-reviewed-section');
-    this.applyButton = page.getByTestId(`apply-button-${gameId}`);
+    this.applyButton = page.getByTestId(`apply-button-${gameId}`).locator('visible=true');
   }
 
   /**
@@ -75,7 +75,7 @@ export class GameApplicationsPage {
    * Withdraw a pending application
    */
   async withdrawApplication() {
-    const withdrawButton = this.page.getByTestId('withdraw-application-button');
+    const withdrawButton = this.page.getByTestId('withdraw-application-button').locator('visible=true');
     await withdrawButton.waitFor({ state: 'visible', timeout: 5000 });
     await withdrawButton.click();
     await this.page.waitForLoadState('networkidle');

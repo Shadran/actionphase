@@ -209,7 +209,7 @@ describe('GameDetailsPage', () => {
       renderGameDetailsPage(1)
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /apply to join/i })).toBeInTheDocument()
+        expect(screen.getAllByTestId('apply-button-1').length).toBeGreaterThanOrEqual(1)
       })
     })
 
@@ -240,7 +240,7 @@ describe('GameDetailsPage', () => {
         expect(screen.getByText(/your application status/i)).toBeInTheDocument()
         expect(screen.getByText(/applied as player/i)).toBeInTheDocument()
         expect(screen.getByText(/I would love to join!/i)).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /withdraw application/i })).toBeInTheDocument()
+        expect(screen.getAllByTestId('withdraw-application-button').length).toBeGreaterThanOrEqual(1)
       }, { timeout: 3000 })
     })
 

@@ -193,6 +193,7 @@ describe('GameTabContent - Actions Tab with GameResultsManager', () => {
   });
 
   it('only shows GameResultsManager when actions tab is active', () => {
+
     const { rerender } = render(
       <GameTabContent
         activeTab="people"

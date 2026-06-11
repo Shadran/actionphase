@@ -27,6 +27,8 @@ interface GameActionsProps {
   onWithdrawApplication: () => void;
   onLeaveGame: () => void;
   onDeleteGame?: () => void;
+  // Controls which portion to render — allows splitting player CTAs from the GM kebab menu
+  slot?: 'player-actions' | 'menu-actions' | 'all';
 }
 
 /**
@@ -53,6 +55,7 @@ export function GameActions({
   onWithdrawApplication,
   onLeaveGame: _onLeaveGame,
   onDeleteGame,
+  slot = 'all',
 }: GameActionsProps) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,10 +89,17 @@ export function GameActions({
     (game.state === 'character_creation' || game.state === 'in_progress' || game.state === 'completed') &&
     !userApplication;
 
+  const showPlayerActions = slot === 'all' || slot === 'player-actions';
+  const showMenuActions = slot === 'all' || slot === 'menu-actions';
+
+  const hasPlayerActions = showApplyButton || showWithdrawButton || showJoinAsAudienceButton;
+  if (showPlayerActions && !showMenuActions && !hasPlayerActions) return null;
+  if (showMenuActions && !showPlayerActions && !hasMenuItems) return null;
+
   return (
     <div className="flex items-center gap-2">
-      {/* Player Actions - Always visible */}
-      {showApplyButton && (
+      {/* Player Actions */}
+      {showPlayerActions && showApplyButton && (
         <Button
           variant="primary"
           size="sm"
@@ -101,7 +111,7 @@ export function GameActions({
         </Button>
       )}
 
-      {showWithdrawButton && (
+      {showPlayerActions && showWithdrawButton && (
         <Button
           variant="warning"
           size="sm"
@@ -113,7 +123,7 @@ export function GameActions({
         </Button>
       )}
 
-      {showJoinAsAudienceButton && (
+      {showPlayerActions && showJoinAsAudienceButton && (
         <Button
           variant="secondary"
           size="sm"
@@ -126,7 +136,7 @@ export function GameActions({
       )}
 
       {/* Kebab Menu for GM/Editor Actions */}
-      {hasMenuItems && (
+      {showMenuActions && hasMenuItems && (
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}

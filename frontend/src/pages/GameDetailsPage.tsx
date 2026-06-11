@@ -378,6 +378,30 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
             playerCount={`${game.current_players || 0}/${game.max_players || '∞'}`}
             isCollapsed={isHeaderCollapsed}
             onToggleCollapse={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+            pinnedAction={
+              <GameActions
+                game={game}
+                isGM={isGM}
+                canEditGame={canEditGame}
+                isCheckingAuth={isCheckingAuth}
+                isParticipant={isParticipant}
+                isInGame={isInGame}
+                userRole={userRole}
+                userApplication={userApplication}
+                hasPendingAudienceApplication={
+                  !!userApplication && userApplication.role === 'audience' && userApplication.status === 'pending'
+                }
+                actionLoading={actionLoading}
+                stateActions={stateActions}
+                onEditGame={() => setShowEditModal(true)}
+                onStateChange={handleStateChange}
+                onApplyToGame={() => setShowApplyModal(true)}
+                onWithdrawApplication={handleWithdrawApplication}
+                onLeaveGame={handleLeaveGame}
+                onDeleteGame={handleDeleteGame}
+                slot="player-actions"
+              />
+            }
             actionMenu={
               <GameActions
                 game={game}
@@ -389,7 +413,6 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
                 userRole={userRole}
                 userApplication={userApplication}
                 hasPendingAudienceApplication={
-                  // Check if user has a pending audience application in game_applications
                   !!userApplication && userApplication.role === 'audience' && userApplication.status === 'pending'
                 }
                 actionLoading={actionLoading}
@@ -400,6 +423,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
                 onWithdrawApplication={handleWithdrawApplication}
                 onLeaveGame={handleLeaveGame}
                 onDeleteGame={handleDeleteGame}
+                slot="menu-actions"
               />
             }
           />

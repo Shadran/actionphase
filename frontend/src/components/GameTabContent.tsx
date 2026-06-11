@@ -35,7 +35,7 @@ interface GameTabContentProps {
   onLeaveGame?: () => void;
   onRefreshData?: () => Promise<void>;
   actionLoading?: boolean;
-  applicationsRefreshTrigger?: number; // Trigger to refresh applications list
+  applicationsRefreshTrigger?: number;
 }
 
 const formatDate = (dateString?: string) => {

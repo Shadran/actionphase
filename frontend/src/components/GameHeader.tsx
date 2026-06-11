@@ -9,7 +9,8 @@ interface GameHeaderProps {
   game: GameListItem | GameWithDetails;
   participants?: GameParticipant[];
   playerCount?: string; // e.g., "3/5" or "3" for current players / max
-  actionMenu?: React.ReactNode; // Optional action menu in top-right
+  pinnedAction?: React.ReactNode; // Always visible on mobile, even when collapsed (primary player CTAs)
+  actionMenu?: React.ReactNode; // Hidden on mobile when collapsed (GM/editor actions)
   isCollapsed?: boolean; // External collapse state (for parent to control what gets hidden)
   onToggleCollapse?: () => void; // Callback when collapse button is clicked
 }
@@ -25,6 +26,7 @@ export function GameHeader({
   game,
   participants = [],
   playerCount,
+  pinnedAction,
   actionMenu,
   isCollapsed: externalIsCollapsed,
   onToggleCollapse
@@ -88,7 +90,13 @@ export function GameHeader({
             </Badge>
           </div>
         </div>
-        {/* Action menu - hidden when collapsed on mobile, always visible on desktop */}
+        {/* Pinned action - desktop only in title row (mobile renders below the collapsible block) */}
+        {pinnedAction && (
+          <div className="hidden md:block flex-shrink-0">
+            {pinnedAction}
+          </div>
+        )}
+        {/* Action menu - hidden when collapsed on mobile (GM/editor actions) */}
         {actionMenu && (
           <div className={`flex-shrink-0 ${isCollapsed ? 'hidden md:block' : ''}`}>
             {actionMenu}
@@ -166,6 +174,14 @@ export function GameHeader({
           )}
         </div>
       </div>
+
+      {/* Pinned action - mobile only, always visible below header regardless of collapse state */}
+      {/* On desktop, player CTAs are shown in the actionMenu slot in the title row */}
+      {pinnedAction && (
+        <div className="md:hidden mt-2">
+          {pinnedAction}
+        </div>
+      )}
     </div>
   );
 }

@@ -257,12 +257,11 @@ test.describe('Game Application Workflow', () => {
     await expect(page.locator('text=E2E Test: Character Creation Audience')).toBeVisible({ timeout: 10000 });
 
     // Should see "Join as Audience" button (not Apply to Join, since recruitment is closed)
-    const joinAsAudienceButton = page.getByTestId('join-as-audience-button');
+    const joinAsAudienceButton = page.getByTestId('join-as-audience-button').locator('visible=true');
     await expect(joinAsAudienceButton).toBeVisible({ timeout: 5000 });
 
     // Should NOT see "Apply to Join" button (recruitment phase has ended)
-    const applyButton = page.getByTestId(/apply-button-/);
-    await expect(applyButton).not.toBeVisible();
+    await expect(page.getByTestId(/apply-button-/).locator('visible=true')).not.toBeVisible();
 
     // Click "Join as Audience" button to open modal
     await joinAsAudienceButton.click();
@@ -283,9 +282,9 @@ test.describe('Game Application Workflow', () => {
 
     // With auto_accept_audience: true, user should be immediately added as participant
     // Verify "Join as Audience" button is no longer visible (user successfully joined)
-    await expect(page.getByTestId('join-as-audience-button')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('join-as-audience-button').locator('visible=true')).not.toBeVisible({ timeout: 5000 });
 
     // Verify no "Apply to Join" button appears (would appear for non-participants)
-    await expect(page.getByTestId(/apply-button-/)).not.toBeVisible();
+    await expect(page.getByTestId(/apply-button-/).locator('visible=true')).not.toBeVisible();
   });
 });
