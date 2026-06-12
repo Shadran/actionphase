@@ -13,7 +13,6 @@ import { GameHeader } from '../components/GameHeader';
 import { GameBanner } from '../components/GameBanner';
 import { GameApplicationStatus } from '../components/GameApplicationStatus';
 import { GameActions } from '../components/GameActions';
-import { GameInfoGrid } from '../components/GameInfoGrid';
 import { TabNavigation } from '../components/TabNavigation';
 import { GameTabContent } from '../components/GameTabContent';
 import { ApplyToGameModal } from '../components/ApplyToGameModal';
@@ -461,8 +460,6 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
               </div>
             )}
 
-            {/* Game Info Grid - Show game metadata (not needed for in-progress games) */}
-            {game.state !== 'in_progress' && <GameInfoGrid game={game} />}
           </div>
 
           {/* User Application Status - Show pending applications */}

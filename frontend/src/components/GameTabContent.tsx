@@ -91,52 +91,71 @@ export function GameTabContent({
 
   // Game Info Tab (Recruitment & other states)
   if (activeTab === 'info') {
+    const hasSchedule =
+      game.common_room_open_day != null &&
+      game.common_room_open_time != null &&
+      game.common_room_close_day != null &&
+      game.common_room_close_time != null &&
+      game.schedule_timezone != null;
+
     return (
       <>
         <h2 className="text-2xl font-bold text-content-primary mb-6">Game Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+          {/* Players always shown */}
           <div>
-            <h3 className="font-semibold text-content-primary mb-2">Genre</h3>
-            <p className="text-content-secondary">{game.genre || 'Not specified'}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">Players</p>
+            <p className="text-content-primary">{game.current_players} / {game.max_players || 'Unlimited'}</p>
           </div>
-          <div>
-            <h3 className="font-semibold text-content-primary mb-2">Players</h3>
-            <p className="text-content-secondary">
-              {game.current_players} / {game.max_players || 'Unlimited'}
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-content-primary mb-2">Recruitment Deadline</h3>
-            <p className="text-content-secondary">{formatDate(game.recruitment_deadline)}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-content-primary mb-2">Start Date</h3>
-            <p className="text-content-secondary">{formatDate(game.start_date)}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-content-primary mb-2">End Date</h3>
-            <p className="text-content-secondary">{formatDate(game.end_date)}</p>
-          </div>
+
+          {game.genre && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">Genre</p>
+              <p className="text-content-primary">{game.genre}</p>
+            </div>
+          )}
+
+          {game.recruitment_deadline && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">Recruitment Deadline</p>
+              <p className="text-content-primary">{formatDate(game.recruitment_deadline)}</p>
+            </div>
+          )}
+
+          {game.start_date && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">Start Date</p>
+              <p className="text-content-primary">{formatDate(game.start_date)}</p>
+            </div>
+          )}
+
+          {game.end_date && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">End Date</p>
+              <p className="text-content-primary">{formatDate(game.end_date)}</p>
+            </div>
+          )}
         </div>
 
-        {/* Common Room Schedule */}
-        {game.common_room_open_day != null &&
-          game.common_room_open_time != null &&
-          game.common_room_close_day != null &&
-          game.common_room_close_time != null &&
-          game.schedule_timezone != null && (
-          <div className="mb-8">
-            <h3 className="font-semibold text-content-primary mb-2">Common Room Schedule</h3>
-            <p className="text-content-secondary text-sm">
-              <span className="font-medium text-content-primary">Opens:</span>{' '}
-              {formatScheduleDay(game.common_room_open_day, game.common_room_open_time, game.schedule_timezone)}
-            </p>
-            <p className="text-content-secondary text-sm mt-1">
-              <span className="font-medium text-content-primary">Closes:</span>{' '}
-              {formatScheduleDay(game.common_room_close_day, game.common_room_close_time, game.schedule_timezone)}
-            </p>
-            <p className="text-content-tertiary text-xs mt-1">Times shown in your local timezone</p>
-          </div>
+        {hasSchedule && (
+          <>
+            <div className="border-t border-border-primary my-6" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-3">Common Room Schedule</p>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 max-w-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary">Opens</p>
+                <p className="text-content-primary text-sm">
+                  {formatScheduleDay(game.common_room_open_day!, game.common_room_open_time!, game.schedule_timezone!)}
+                </p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary">Closes</p>
+                <p className="text-content-primary text-sm">
+                  {formatScheduleDay(game.common_room_close_day!, game.common_room_close_time!, game.schedule_timezone!)}
+                </p>
+              </div>
+              <p className="text-content-tertiary text-xs mt-3">Times shown in your local timezone</p>
+            </div>
+          </>
         )}
 
         {/* Show public applicants list during recruitment */}
