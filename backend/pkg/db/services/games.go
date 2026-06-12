@@ -61,6 +61,7 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		"is_public", req.IsPublic,
 		"is_anonymous", req.IsAnonymous,
 		"auto_accept_audience", req.AutoAcceptAudience,
+		"has_schedule", req.CommonRoomOpenDay != nil,
 	)
 
 	queries := models.New(gs.DB)
@@ -82,30 +83,13 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
 	}
 
-	var openDay, closeDay pgtype.Int2
-	if req.CommonRoomOpenDay != nil {
-		openDay = pgtype.Int2{Int16: *req.CommonRoomOpenDay, Valid: true}
-	}
-	if req.CommonRoomCloseDay != nil {
-		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
-	}
-
-	// validateScheduleFields in the handler layer guarantees HH:MM format, so parseHHMM cannot fail here.
-	var openTime, closeTime pgtype.Time
-	if req.CommonRoomOpenTime != nil {
-		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
-			openTime = t
-		}
-	}
-	if req.CommonRoomCloseTime != nil {
-		if t, err := parseHHMM(*req.CommonRoomCloseTime); err == nil {
-			closeTime = t
-		}
-	}
-
-	var scheduleTimezone pgtype.Text
-	if req.ScheduleTimezone != nil {
-		scheduleTimezone = pgtype.Text{String: *req.ScheduleTimezone, Valid: true}
+	openDay, closeDay, openTime, closeTime, scheduleTimezone, err := scheduleFieldsToPgtype(
+		req.CommonRoomOpenDay, req.CommonRoomCloseDay,
+		req.CommonRoomOpenTime, req.CommonRoomCloseTime,
+		req.ScheduleTimezone,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	game, err := queries.CreateGame(ctx, models.CreateGameParams{
@@ -389,31 +373,19 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
 	}
 
-	var openDay, closeDay pgtype.Int2
-	if req.CommonRoomOpenDay != nil {
-		openDay = pgtype.Int2{Int16: *req.CommonRoomOpenDay, Valid: true}
-	}
-	if req.CommonRoomCloseDay != nil {
-		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
-	}
-
-	// validateScheduleFields in the handler layer guarantees HH:MM format, so parseHHMM cannot fail here.
-	var openTime, closeTime pgtype.Time
-	if req.CommonRoomOpenTime != nil {
-		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
-			openTime = t
-		}
-	}
-	if req.CommonRoomCloseTime != nil {
-		if t, err := parseHHMM(*req.CommonRoomCloseTime); err == nil {
-			closeTime = t
-		}
+	openDay, closeDay, openTime, closeTime, scheduleTimezone, err := scheduleFieldsToPgtype(
+		req.CommonRoomOpenDay, req.CommonRoomCloseDay,
+		req.CommonRoomOpenTime, req.CommonRoomCloseTime,
+		req.ScheduleTimezone,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	var scheduleTimezone pgtype.Text
-	if req.ScheduleTimezone != nil {
-		scheduleTimezone = pgtype.Text{String: *req.ScheduleTimezone, Valid: true}
-	}
+	gs.Logger.Info(ctx, "Updating game",
+		"game_id", req.ID,
+		"has_schedule", req.CommonRoomOpenDay != nil,
+	)
 
 	updatedGame, err := queries.UpdateGame(ctx, models.UpdateGameParams{
 		ID:                      req.ID,
@@ -436,8 +408,16 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		CommonRoomCloseTime:     closeTime,
 		ScheduleTimezone:        scheduleTimezone,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &updatedGame, err
+	gs.Logger.Info(ctx, "Game updated successfully",
+		"game_id", updatedGame.ID,
+		"has_schedule", updatedGame.CommonRoomOpenDay.Valid,
+	)
+
+	return &updatedGame, nil
 }
 
 // UpdateGameBannerURL sets or clears the banner_url for a game.
@@ -1250,6 +1230,45 @@ func (gs *GameService) TransitionPlayerToAudience(ctx context.Context, gameID, u
 	)
 
 	return nil
+}
+
+// scheduleFieldsToPgtype converts schedule pointer fields from a request into pgtype values.
+// Returns an error if any time string is malformed (should not occur when handler validation runs first).
+func scheduleFieldsToPgtype(
+	openDay, closeDay *int16,
+	openTime, closeTime *string,
+	tz *string,
+) (pgtype.Int2, pgtype.Int2, pgtype.Time, pgtype.Time, pgtype.Text, error) {
+	var pgOpenDay, pgCloseDay pgtype.Int2
+	if openDay != nil {
+		pgOpenDay = pgtype.Int2{Int16: *openDay, Valid: true}
+	}
+	if closeDay != nil {
+		pgCloseDay = pgtype.Int2{Int16: *closeDay, Valid: true}
+	}
+
+	var pgOpenTime, pgCloseTime pgtype.Time
+	if openTime != nil {
+		t, err := parseHHMM(*openTime)
+		if err != nil {
+			return pgtype.Int2{}, pgtype.Int2{}, pgtype.Time{}, pgtype.Time{}, pgtype.Text{}, fmt.Errorf("invalid open time: %w", err)
+		}
+		pgOpenTime = t
+	}
+	if closeTime != nil {
+		t, err := parseHHMM(*closeTime)
+		if err != nil {
+			return pgtype.Int2{}, pgtype.Int2{}, pgtype.Time{}, pgtype.Time{}, pgtype.Text{}, fmt.Errorf("invalid close time: %w", err)
+		}
+		pgCloseTime = t
+	}
+
+	var pgTZ pgtype.Text
+	if tz != nil {
+		pgTZ = pgtype.Text{String: *tz, Valid: true}
+	}
+
+	return pgOpenDay, pgCloseDay, pgOpenTime, pgCloseTime, pgTZ, nil
 }
 
 // parseHHMM parses a "HH:MM" string into a pgtype.Time.

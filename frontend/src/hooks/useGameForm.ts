@@ -159,6 +159,9 @@ export function useGameForm(initialData?: GameWithDetails) {
       common_room_open_time: hasSchedule ? formData.common_room_open_time : null,
       common_room_close_day: hasSchedule ? Number(formData.common_room_close_day) : null,
       common_room_close_time: hasSchedule ? formData.common_room_close_time : null,
+      // Timezone is captured from the browser at submission time rather than stored in form state.
+      // On re-edit the stored timezone is discarded — the next save uses whatever the GM's browser reports.
+      // This is intentional: we assume GMs configure schedules from their home timezone.
       schedule_timezone: hasSchedule ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
     } as CreateGameRequest;
 

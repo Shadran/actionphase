@@ -374,6 +374,50 @@ func TestCreateGame_SettingsPersistAfterRefresh(t *testing.T) {
 	core.AssertEqual(t, false, updatedGame.AutoAcceptAudience, "auto_accept_audience should update and persist")
 }
 
+// TestUpdateGame_CommonRoomSchedule_PartialFill verifies that submitting only some schedule fields is rejected.
+func TestUpdateGame_CommonRoomSchedule_PartialFill(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	testDB.CleanupTables(t, "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+	fixtures := testDB.SetupFixtures(t)
+
+	accessToken, err := core.CreateTestJWTTokenForUser(app, fixtures.TestUser)
+	core.AssertNoError(t, err, "Test token creation should succeed")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game, err := gameService.CreateGame(context.Background(), core.CreateGameRequest{
+		Title:       "Partial Schedule Test Game",
+		Description: "Testing partial schedule rejection",
+		GMUserID:    int32(fixtures.TestUser.ID),
+	})
+	core.AssertNoError(t, err, "Should create game")
+
+	openDay := int16(1)
+	openTime := "09:00"
+	// Intentionally omit close_day, close_time, and schedule_timezone
+
+	updateBody := UpdateGameRequest{
+		Title:              game.Title,
+		Description:        game.Description.String,
+		IsPublic:           true,
+		CommonRoomOpenDay:  &openDay,
+		CommonRoomOpenTime: &openTime,
+	}
+	bodyBytes, _ := json.Marshal(updateBody)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	core.AssertEqual(t, http.StatusBadRequest, w.Code, "Should return 400 for partial schedule fields")
+}
+
 // TestUpdateGame_CommonRoomSchedule verifies that schedule fields persist and can be cleared.
 func TestUpdateGame_CommonRoomSchedule(t *testing.T) {
 	testDB := core.NewTestDatabase(t)

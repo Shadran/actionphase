@@ -154,6 +154,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
               label="at"
               id="common_room_open_time"
               type="time"
+              optional
               value={formData.common_room_open_time}
               onChange={(e) => onChange('common_room_open_time', e.target.value)}
             />
@@ -184,6 +185,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
               label="at"
               id="common_room_close_time"
               type="time"
+              optional
               value={formData.common_room_close_time}
               onChange={(e) => onChange('common_room_close_time', e.target.value)}
             />
