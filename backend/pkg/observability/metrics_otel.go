@@ -47,6 +47,8 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.DeploymentEnvironmentName(cfg.Environment),
+			// Also emit the legacy key; Grafana Cloud filters on "deployment.environment" (no .name suffix)
+			attribute.String("deployment.environment", cfg.Environment),
 		),
 		resource.WithTelemetrySDK(),
 		resource.WithHost(),

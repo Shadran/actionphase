@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -53,6 +54,8 @@ func InitTracer(cfg TracerConfig) (shutdown func(), err error) {
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.DeploymentEnvironmentName(cfg.Environment),
+			// Also emit the legacy key; Grafana Cloud filters on "deployment.environment" (no .name suffix)
+			attribute.String("deployment.environment", cfg.Environment),
 		),
 		resource.WithTelemetrySDK(),
 		resource.WithHost(),

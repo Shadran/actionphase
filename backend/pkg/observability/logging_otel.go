@@ -8,6 +8,7 @@ import (
 	"time"
 
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -43,6 +44,8 @@ func InitLogProvider(cfg LogConfig, obsLogger *Logger) (shutdown func(), err err
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.DeploymentEnvironmentName(cfg.Environment),
+			// Also emit the legacy key; Grafana Cloud filters on "deployment.environment" (no .name suffix)
+			attribute.String("deployment.environment", cfg.Environment),
 		),
 		resource.WithTelemetrySDK(),
 		resource.WithHost(),
