@@ -3,9 +3,12 @@
  * into a display string ("Saturday at 10:00 AM") in the viewer's local timezone.
  *
  * Algorithm:
- * 1. Find the UTC instant corresponding to (day, time) in the stored timezone
- *    by computing the timezone offset at that moment.
- * 2. Format that UTC instant using the browser's default timezone via Intl.
+ * 1. Find a reference date in the current week matching the stored day-of-week.
+ *    Using a current-week anchor means DST offsets reflect the actual time of year,
+ *    so the displayed time stays correct as DST transitions occur.
+ * 2. Compute the UTC instant for (day, time) in the stored timezone by measuring
+ *    the offset at that moment.
+ * 3. Format that UTC instant using the browser's default timezone via Intl.
  */
 export function formatScheduleDay(
   day: number,
@@ -14,9 +17,15 @@ export function formatScheduleDay(
 ): string {
   const [hours, minutes] = time.split(':').map(Number);
 
-  // Reference week anchored to 2024-01-07 (a Sunday). day=0→Sun, day=6→Sat.
-  // First estimate: treat (day, time) as UTC.
-  const estimateUtcMs = Date.UTC(2024, 0, 7 + day, hours, minutes, 0);
+  // Anchor to the current week: find the most recent Sunday, then add `day` days.
+  // This ensures the DST offset used is representative of the current time of year.
+  const now = new Date();
+  const currentSundayUtcMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - now.getUTCDay()
+  );
+  const estimateUtcMs = currentSundayUtcMs + day * 86400_000 + hours * 3600_000 + minutes * 60_000;
 
   // Find out what local clock the stored timezone shows at that UTC estimate.
   const storedTzFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -34,8 +43,7 @@ export function formatScheduleDay(
   const p: Record<string, string> = {};
   for (const { type, value } of parts) p[type] = value;
 
-  // What UTC time corresponds to the stored timezone's local representation?
-  // storedLocalMs is what the stored timezone "thinks" this UTC moment is.
+  // storedLocalMs: what the stored timezone "thinks" this UTC moment is (as fake-UTC ms)
   const storedLocalMs = Date.UTC(
     parseInt(p.year, 10),
     parseInt(p.month, 10) - 1,
@@ -48,8 +56,8 @@ export function formatScheduleDay(
   // Offset: how far UTC is from the stored timezone's local time
   const offsetMs = estimateUtcMs - storedLocalMs;
 
-  // The target local time in the stored timezone (as a fake-UTC ms value)
-  const targetLocalMs = Date.UTC(2024, 0, 7 + day, hours, minutes, 0);
+  // The target local time in the stored timezone (anchored to current week)
+  const targetLocalMs = currentSundayUtcMs + day * 86400_000 + hours * 3600_000 + minutes * 60_000;
 
   // The actual UTC instant for (day, time) in the stored timezone
   const actualUtcMs = targetLocalMs + offsetMs;

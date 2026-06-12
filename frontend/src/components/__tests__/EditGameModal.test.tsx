@@ -459,7 +459,7 @@ describe('EditGameModal', () => {
       await user.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Title is required')).toBeInTheDocument();
+        expect(screen.getByText('Game title is required')).toBeInTheDocument();
       });
     });
 
@@ -482,7 +482,7 @@ describe('EditGameModal', () => {
       await user.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Description is required')).toBeInTheDocument();
+        expect(screen.getByText('Game description is required')).toBeInTheDocument();
       });
     });
   });

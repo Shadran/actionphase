@@ -333,6 +333,11 @@ type CreateGameRequest struct {
 	AllowGroupConversations bool
 	PortraitAvatars         bool
 	BannerURL               *string
+	CommonRoomOpenDay       *int16
+	CommonRoomOpenTime      *string // "HH:MM"
+	CommonRoomCloseDay      *int16
+	CommonRoomCloseTime     *string // "HH:MM"
+	ScheduleTimezone        *string // IANA timezone name, e.g. "America/New_York"
 }
 
 // UpdateGameRequest represents the parameters needed to update an existing game

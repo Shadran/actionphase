@@ -197,9 +197,11 @@ func (q *Queries) CreateAudienceApplication(ctx context.Context, arg CreateAudie
 const createGame = `-- name: CreateGame :one
 INSERT INTO games (
     title, description, gm_user_id, genre, start_date, end_date,
-    recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url
+    recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url,
+    common_room_open_day, common_room_open_time, common_room_close_day, common_room_close_time, schedule_timezone
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+    $15, $16, $17, $18, $19
 ) RETURNING id, title, description, gm_user_id, state, genre, start_date, end_date, recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url, common_room_open_day, common_room_open_time, common_room_close_day, common_room_close_time, schedule_timezone, created_at, updated_at
 `
 
@@ -218,6 +220,11 @@ type CreateGameParams struct {
 	AllowGroupConversations bool               `json:"allow_group_conversations"`
 	PortraitAvatars         bool               `json:"portrait_avatars"`
 	BannerUrl               pgtype.Text        `json:"banner_url"`
+	CommonRoomOpenDay       pgtype.Int2        `json:"common_room_open_day"`
+	CommonRoomOpenTime      pgtype.Time        `json:"common_room_open_time"`
+	CommonRoomCloseDay      pgtype.Int2        `json:"common_room_close_day"`
+	CommonRoomCloseTime     pgtype.Time        `json:"common_room_close_time"`
+	ScheduleTimezone        pgtype.Text        `json:"schedule_timezone"`
 }
 
 func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (Game, error) {
@@ -236,6 +243,11 @@ func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (Game, e
 		arg.AllowGroupConversations,
 		arg.PortraitAvatars,
 		arg.BannerUrl,
+		arg.CommonRoomOpenDay,
+		arg.CommonRoomOpenTime,
+		arg.CommonRoomCloseDay,
+		arg.CommonRoomCloseTime,
+		arg.ScheduleTimezone,
 	)
 	var i Game
 	err := row.Scan(

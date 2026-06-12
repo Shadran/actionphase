@@ -1,9 +1,11 @@
 -- name: CreateGame :one
 INSERT INTO games (
     title, description, gm_user_id, genre, start_date, end_date,
-    recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url
+    recruitment_deadline, max_players, is_public, is_anonymous, auto_accept_audience, allow_group_conversations, portrait_avatars, banner_url,
+    common_room_open_day, common_room_open_time, common_room_close_day, common_room_close_time, schedule_timezone
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+    $15, $16, $17, $18, $19
 ) RETURNING *;
 
 -- name: GetGame :one

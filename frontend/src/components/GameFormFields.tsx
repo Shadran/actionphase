@@ -126,7 +126,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
       <SectionHeading>Common Room Schedule</SectionHeading>
 
       <p className="text-sm text-content-secondary -mt-1">
-        Set the recurring weekly window when Common Room is open. Players will see these times in their own local timezone.
+        Set the recurring weekly window when Common Room is open. Times are stored in your current timezone (<span className="font-medium">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>) and shown to players in their own local timezone.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

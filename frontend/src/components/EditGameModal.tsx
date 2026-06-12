@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GameWithDetails, UpdateGameRequest } from '../types/games';
 import { apiClient } from '../lib/api';
 import { Button, Alert } from './ui';
 import { Modal } from './Modal';
-import { GameFormFields, type GameFormData } from './GameFormFields';
-import { convertToISO8601, formatDateTimeLocal } from '../lib/utils/dates';
-import { useUploadGameBanner, useDeleteGameBanner } from '../hooks/useGameBanner';
+import { GameFormFields } from './GameFormFields';
 import { HelpTooltip } from './ui/HelpTooltip';
+import { useGameForm, gameToFormData } from '../hooks/useGameForm';
 
 interface EditGameModalProps {
   game: GameWithDetails;
@@ -17,108 +16,51 @@ interface EditGameModalProps {
 
 export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGameModalProps) {
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const uploadBanner = useUploadGameBanner();
-  const deleteBanner = useDeleteGameBanner();
-
-  const [formData, setFormData] = useState<GameFormData>({
-    title: '',
-    description: '',
-    genre: '',
-    max_players: '',
-    recruitment_deadline: '',
-    start_date: '',
-    end_date: '',
-    is_anonymous: false,
-    auto_accept_audience: false,
-    allow_group_conversations: true,
-    portrait_avatars: false,
-    common_room_open_day: '',
-    common_room_open_time: '',
-    common_room_close_day: '',
-    common_room_close_time: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null);
-  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
+  const {
+    formData,
+    setFormData,
+    handleChange,
+    error,
+    setError,
+    loading,
+    setLoading,
+    pendingBannerFile,
+    bannerPreviewUrl,
+    handleBannerFileSelect,
+    discardPendingBanner,
+    uploadBanner,
+    deleteBanner,
+    buildApiPayload,
+  } = useGameForm(game);
 
   useEffect(() => {
     if (isOpen && game) {
-      setFormData({
-        title: game.title || '',
-        description: game.description || '',
-        genre: game.genre || '',
-        max_players: game.max_players || '',
-        recruitment_deadline: game.recruitment_deadline ? formatDateTimeLocal(game.recruitment_deadline) : '',
-        start_date: game.start_date ? formatDateTimeLocal(game.start_date) : '',
-        end_date: game.end_date ? formatDateTimeLocal(game.end_date) : '',
-        is_anonymous: game.is_anonymous || false,
-        auto_accept_audience: game.auto_accept_audience || false,
-        allow_group_conversations: game.allow_group_conversations ?? true,
-        portrait_avatars: game.portrait_avatars ?? false,
-        common_room_open_day: game.common_room_open_day ?? '',
-        common_room_open_time: game.common_room_open_time ? game.common_room_open_time.slice(0, 5) : '',
-        common_room_close_day: game.common_room_close_day ?? '',
-        common_room_close_time: game.common_room_close_time ? game.common_room_close_time.slice(0, 5) : '',
-      });
+      setFormData(gameToFormData(game));
       setError(null);
-      setPendingBannerFile(null);
-      setBannerPreviewUrl(null);
     }
-  }, [isOpen, game]);
-
-  const handleChange = (field: keyof GameFormData, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  }, [isOpen, game, setFormData, setError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!formData.title.trim()) {
-      setError('Title is required');
-      return;
-    }
-
-    if (!formData.description.trim()) {
-      setError('Description is required');
+    const { payload, error: validationError } = buildApiPayload();
+    if (!payload) {
+      setError(validationError);
       return;
     }
 
     try {
       setLoading(true);
-
-      const hasSchedule =
-        formData.common_room_open_day !== '' &&
-        formData.common_room_open_time !== '' &&
-        formData.common_room_close_day !== '' &&
-        formData.common_room_close_time !== '';
-
       const updateData: UpdateGameRequest = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        genre: formData.genre.trim() || undefined,
-        max_players: formData.max_players === '' ? undefined : Number(formData.max_players),
-        recruitment_deadline: convertToISO8601(formData.recruitment_deadline) || undefined,
-        start_date: convertToISO8601(formData.start_date) || undefined,
-        end_date: convertToISO8601(formData.end_date) || undefined,
+        ...payload,
         is_public: true,
-        is_anonymous: formData.is_anonymous,
-        auto_accept_audience: formData.auto_accept_audience,
-        allow_group_conversations: formData.allow_group_conversations ?? true,
-        portrait_avatars: formData.portrait_avatars ?? false,
-        common_room_open_day: hasSchedule ? Number(formData.common_room_open_day) : null,
-        common_room_open_time: hasSchedule ? formData.common_room_open_time : null,
-        common_room_close_day: hasSchedule ? Number(formData.common_room_close_day) : null,
-        common_room_close_time: hasSchedule ? formData.common_room_close_time : null,
-        schedule_timezone: hasSchedule ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       };
-
       await apiClient.games.updateGame(game.id, updateData);
       onGameUpdated();
       onClose();
-    } catch (_err) {
-      setError(_err instanceof Error ? _err.message : 'Failed to update game');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update game');
     } finally {
       setLoading(false);
     }
@@ -131,7 +73,6 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         <HelpTooltip text="A wide horizontal image shown at the top of your game page. Best at 6:1 aspect ratio (e.g. 1200×200px) — images will be cropped to fit." />
       </div>
 
-      {/* Preview: pending selection takes priority over existing banner */}
       {(bannerPreviewUrl || game.banner_url) && (
         <div className="w-full rounded overflow-hidden" style={{ aspectRatio: '6/1' }}>
           <img
@@ -142,7 +83,6 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         </div>
       )}
 
-      {/* Pending selection: confirm or discard before uploading */}
       {bannerPreviewUrl ? (
         <div className="flex gap-2">
           <Button
@@ -153,15 +93,11 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
               if (pendingBannerFile) {
                 uploadBanner.mutate({ gameId: game.id, file: pendingBannerFile }, {
                   onSuccess: () => {
-                    URL.revokeObjectURL(bannerPreviewUrl);
-                    setBannerPreviewUrl(null);
-                    setPendingBannerFile(null);
+                    discardPendingBanner();
                     onGameUpdated();
                   },
                   onError: () => {
-                    URL.revokeObjectURL(bannerPreviewUrl);
-                    setBannerPreviewUrl(null);
-                    setPendingBannerFile(null);
+                    discardPendingBanner();
                   },
                 });
               }
@@ -175,11 +111,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
             variant="secondary"
             size="sm"
             disabled={uploadBanner.isPending}
-            onClick={() => {
-              URL.revokeObjectURL(bannerPreviewUrl);
-              setBannerPreviewUrl(null);
-              setPendingBannerFile(null);
-            }}
+            onClick={discardPendingBanner}
           >
             Choose different
           </Button>
@@ -216,11 +148,7 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) {
-            if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
-            setBannerPreviewUrl(URL.createObjectURL(file));
-            setPendingBannerFile(file);
-          }
+          if (file) handleBannerFileSelect(file);
           e.target.value = '';
         }}
       />

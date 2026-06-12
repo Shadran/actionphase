@@ -82,6 +82,31 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
 	}
 
+	var openDay, closeDay pgtype.Int2
+	if req.CommonRoomOpenDay != nil {
+		openDay = pgtype.Int2{Int16: *req.CommonRoomOpenDay, Valid: true}
+	}
+	if req.CommonRoomCloseDay != nil {
+		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
+	}
+
+	var openTime, closeTime pgtype.Time
+	if req.CommonRoomOpenTime != nil {
+		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
+			openTime = t
+		}
+	}
+	if req.CommonRoomCloseTime != nil {
+		if t, err := parseHHMM(*req.CommonRoomCloseTime); err == nil {
+			closeTime = t
+		}
+	}
+
+	var scheduleTimezone pgtype.Text
+	if req.ScheduleTimezone != nil {
+		scheduleTimezone = pgtype.Text{String: *req.ScheduleTimezone, Valid: true}
+	}
+
 	game, err := queries.CreateGame(ctx, models.CreateGameParams{
 		Title:                   req.Title,
 		Description:             pgtype.Text{String: req.Description, Valid: req.Description != ""},
@@ -97,6 +122,11 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		AllowGroupConversations: req.AllowGroupConversations,
 		PortraitAvatars:         req.PortraitAvatars,
 		BannerUrl:               bannerURL,
+		CommonRoomOpenDay:       openDay,
+		CommonRoomOpenTime:      openTime,
+		CommonRoomCloseDay:      closeDay,
+		CommonRoomCloseTime:     closeTime,
+		ScheduleTimezone:        scheduleTimezone,
 	})
 
 	if err != nil {

@@ -63,6 +63,11 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		AllowGroupConversations: data.AllowGroupConversations,
 		PortraitAvatars:         data.PortraitAvatars,
 		BannerURL:               data.BannerURL,
+		CommonRoomOpenDay:       data.CommonRoomOpenDay,
+		CommonRoomOpenTime:      data.CommonRoomOpenTime,
+		CommonRoomCloseDay:      data.CommonRoomCloseDay,
+		CommonRoomCloseTime:     data.CommonRoomCloseTime,
+		ScheduleTimezone:        data.ScheduleTimezone,
 	})
 
 	if err != nil {
@@ -113,6 +118,25 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if game.BannerUrl.Valid {
 		response.BannerURL = &game.BannerUrl.String
+	}
+	if game.CommonRoomOpenDay.Valid {
+		v := game.CommonRoomOpenDay.Int16
+		response.CommonRoomOpenDay = &v
+	}
+	if game.CommonRoomOpenTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomOpenTime)
+		response.CommonRoomOpenTime = &s
+	}
+	if game.CommonRoomCloseDay.Valid {
+		v := game.CommonRoomCloseDay.Int16
+		response.CommonRoomCloseDay = &v
+	}
+	if game.CommonRoomCloseTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomCloseTime)
+		response.CommonRoomCloseTime = &s
+	}
+	if game.ScheduleTimezone.Valid {
+		response.ScheduleTimezone = &game.ScheduleTimezone.String
 	}
 
 	render.Status(r, http.StatusCreated)

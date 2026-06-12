@@ -1,14 +1,41 @@
 import { describe, it, expect } from 'vitest';
 import { formatScheduleDay } from './scheduleFormat';
 
-// Helper: build the expected display string for a given UTC ms in the viewer's local timezone.
-// This mirrors what formatScheduleDay does for its output step.
+// Mirrors the anchor logic in formatScheduleDay: Sunday of the current UTC week.
+function currentSundayUtcMs(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - now.getUTCDay());
+}
+
+// Computes the expected UTC instant for (day, HH:MM) in a given IANA timezone,
+// using the same current-week anchor as formatScheduleDay.
+function expectedUtcMs(day: number, time: string, tz: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  const sundayMs = currentSundayUtcMs();
+  const estimateUtcMs = sundayMs + day * 86400_000 + hours * 3600_000 + minutes * 60_000;
+
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date(estimateUtcMs));
+  const p: Record<string, string> = {};
+  for (const { type, value } of parts) p[type] = value;
+
+  const storedLocalMs = Date.UTC(
+    parseInt(p.year, 10), parseInt(p.month, 10) - 1, parseInt(p.day, 10),
+    parseInt(p.hour, 10) % 24, parseInt(p.minute, 10), parseInt(p.second, 10)
+  );
+  const offsetMs = estimateUtcMs - storedLocalMs;
+  const targetLocalMs = sundayMs + day * 86400_000 + hours * 3600_000 + minutes * 60_000;
+  return targetLocalMs + offsetMs;
+}
+
 function expectedDisplay(utcMs: number): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
+    weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true,
   });
   const parts = formatter.formatToParts(new Date(utcMs));
   const p: Record<string, string> = {};
@@ -18,38 +45,33 @@ function expectedDisplay(utcMs: number): string {
 
 describe('formatScheduleDay', () => {
   it('displays UTC timezone schedule without any shift', () => {
-    // Saturday (6) at 10:00 UTC — UTC instant = 2024-01-13T10:00:00Z
-    const utcMs = Date.UTC(2024, 0, 13, 10, 0, 0);
-    expect(formatScheduleDay(6, '10:00', 'UTC')).toBe(expectedDisplay(utcMs));
+    expect(formatScheduleDay(6, '10:00', 'UTC')).toBe(expectedDisplay(expectedUtcMs(6, '10:00', 'UTC')));
   });
 
-  it('converts America/New_York (UTC-5 in January) correctly', () => {
-    // Saturday (6) at 10:00 Eastern = Saturday at 15:00 UTC in January (EST = UTC-5)
-    const utcMs = Date.UTC(2024, 0, 13, 15, 0, 0);
-    expect(formatScheduleDay(6, '10:00', 'America/New_York')).toBe(expectedDisplay(utcMs));
+  it('converts America/New_York correctly', () => {
+    expect(formatScheduleDay(6, '10:00', 'America/New_York')).toBe(
+      expectedDisplay(expectedUtcMs(6, '10:00', 'America/New_York'))
+    );
   });
 
-  it('converts America/Los_Angeles (UTC-8 in January) correctly', () => {
-    // Saturday (6) at 10:00 Pacific = Saturday at 18:00 UTC
-    const utcMs = Date.UTC(2024, 0, 13, 18, 0, 0);
-    expect(formatScheduleDay(6, '10:00', 'America/Los_Angeles')).toBe(expectedDisplay(utcMs));
+  it('converts America/Los_Angeles correctly', () => {
+    expect(formatScheduleDay(6, '10:00', 'America/Los_Angeles')).toBe(
+      expectedDisplay(expectedUtcMs(6, '10:00', 'America/Los_Angeles'))
+    );
   });
 
   it('handles midnight (00:00) correctly', () => {
-    // Sunday (0) at 00:00 UTC = 2024-01-07T00:00:00Z
-    const utcMs = Date.UTC(2024, 0, 7, 0, 0, 0);
-    expect(formatScheduleDay(0, '00:00', 'UTC')).toBe(expectedDisplay(utcMs));
+    expect(formatScheduleDay(0, '00:00', 'UTC')).toBe(expectedDisplay(expectedUtcMs(0, '00:00', 'UTC')));
   });
 
   it('handles non-zero minutes correctly', () => {
-    // Wednesday (3) at 09:05 UTC = 2024-01-10T09:05:00Z
-    const utcMs = Date.UTC(2024, 0, 10, 9, 5, 0);
-    expect(formatScheduleDay(3, '09:05', 'UTC')).toBe(expectedDisplay(utcMs));
+    expect(formatScheduleDay(3, '09:05', 'UTC')).toBe(expectedDisplay(expectedUtcMs(3, '09:05', 'UTC')));
   });
 
   it('shifts the day when timezone offset crosses midnight', () => {
-    // Saturday (6) at 22:00 America/New_York = Sunday at 03:00 UTC (EST UTC-5)
-    const utcMs = Date.UTC(2024, 0, 14, 3, 0, 0);
-    expect(formatScheduleDay(6, '22:00', 'America/New_York')).toBe(expectedDisplay(utcMs));
+    // Saturday 22:00 in America/New_York crosses into Sunday UTC
+    expect(formatScheduleDay(6, '22:00', 'America/New_York')).toBe(
+      expectedDisplay(expectedUtcMs(6, '22:00', 'America/New_York'))
+    );
   });
 });
