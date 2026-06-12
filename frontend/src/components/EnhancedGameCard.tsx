@@ -137,7 +137,7 @@ export function EnhancedGameCard({
             </div>
           )}
 
-          {deadline && (
+          {deadline && game.state !== 'completed' && game.state !== 'cancelled' && (
             <div className="col-span-2">
               <span className="font-medium">
                 {game.current_phase_type ? 'Phase Deadline' : 'Application Deadline'}:
