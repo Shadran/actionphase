@@ -90,6 +90,7 @@ func (gs *GameService) CreateGame(ctx context.Context, req core.CreateGameReques
 		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
 	}
 
+	// validateScheduleFields in the handler layer guarantees HH:MM format, so parseHHMM cannot fail here.
 	var openTime, closeTime pgtype.Time
 	if req.CommonRoomOpenTime != nil {
 		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
@@ -396,6 +397,7 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
 	}
 
+	// validateScheduleFields in the handler layer guarantees HH:MM format, so parseHHMM cannot fail here.
 	var openTime, closeTime pgtype.Time
 	if req.CommonRoomOpenTime != nil {
 		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
