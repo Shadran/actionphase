@@ -68,15 +68,16 @@ func (r *UpdateGameRequest) Bind(req *http.Request) error {
 }
 
 func validateScheduleFields(openDay, closeDay *int16, openTime, closeTime *string, tz *string) error {
-	// All four fields must be set together or all omitted — no partial schedules.
+	// All five fields must be set together or all omitted — no partial schedules.
+	// The frontend tracks 4 visible fields; schedule_timezone is auto-appended from the browser on submit.
 	filledCount := 0
-	for _, v := range []bool{openDay != nil, closeDay != nil, openTime != nil, closeTime != nil} {
+	for _, v := range []bool{openDay != nil, closeDay != nil, openTime != nil, closeTime != nil, tz != nil} {
 		if v {
 			filledCount++
 		}
 	}
-	if filledCount > 0 && filledCount < 4 {
-		return errors.New("all schedule fields (open_day, open_time, close_day, close_time) must be set together or all omitted")
+	if filledCount > 0 && filledCount < 5 {
+		return errors.New("all schedule fields (open_day, open_time, close_day, close_time, schedule_timezone) must be set together or all omitted")
 	}
 
 	for _, day := range []*int16{openDay, closeDay} {

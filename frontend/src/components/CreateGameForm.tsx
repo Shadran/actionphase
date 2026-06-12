@@ -115,7 +115,7 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
         }}
       />
       {uploadBanner.isError && (
-        <p className="text-sm text-red-600">Failed to upload banner. Please try again.</p>
+        <p className="text-sm text-danger-text">Failed to upload banner. Please try again.</p>
       )}
       {bannerPreviewUrl && (
         <p className="text-xs text-content-secondary">

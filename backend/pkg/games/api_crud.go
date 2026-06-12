@@ -196,6 +196,25 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	if game.BannerUrl.Valid {
 		response.BannerURL = &game.BannerUrl.String
 	}
+	if game.CommonRoomOpenDay.Valid {
+		v := game.CommonRoomOpenDay.Int16
+		response.CommonRoomOpenDay = &v
+	}
+	if game.CommonRoomOpenTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomOpenTime)
+		response.CommonRoomOpenTime = &s
+	}
+	if game.CommonRoomCloseDay.Valid {
+		v := game.CommonRoomCloseDay.Int16
+		response.CommonRoomCloseDay = &v
+	}
+	if game.CommonRoomCloseTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomCloseTime)
+		response.CommonRoomCloseTime = &s
+	}
+	if game.ScheduleTimezone.Valid {
+		response.ScheduleTimezone = &game.ScheduleTimezone.String
+	}
 
 	render.Render(w, r, response)
 }
@@ -637,6 +656,23 @@ func (h *Handler) GetRecruitingGames(w http.ResponseWriter, r *http.Request) {
 		}
 		if game.MaxPlayers.Valid {
 			gameData["max_players"] = game.MaxPlayers.Int32
+		}
+		if game.CommonRoomOpenDay.Valid {
+			v := game.CommonRoomOpenDay.Int16
+			gameData["common_room_open_day"] = v
+		}
+		if game.CommonRoomOpenTime.Valid {
+			gameData["common_room_open_time"] = formatPgtypeTime(game.CommonRoomOpenTime)
+		}
+		if game.CommonRoomCloseDay.Valid {
+			v := game.CommonRoomCloseDay.Int16
+			gameData["common_room_close_day"] = v
+		}
+		if game.CommonRoomCloseTime.Valid {
+			gameData["common_room_close_time"] = formatPgtypeTime(game.CommonRoomCloseTime)
+		}
+		if game.ScheduleTimezone.Valid {
+			gameData["schedule_timezone"] = game.ScheduleTimezone.String
 		}
 
 		response = append(response, gameData)

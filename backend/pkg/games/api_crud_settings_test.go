@@ -398,24 +398,46 @@ func TestUpdateGame_CommonRoomSchedule_PartialFill(t *testing.T) {
 	core.AssertNoError(t, err, "Should create game")
 
 	openDay := int16(1)
+	closeDay := int16(2)
 	openTime := "09:00"
-	// Intentionally omit close_day, close_time, and schedule_timezone
+	closeTime := "17:00"
 
-	updateBody := UpdateGameRequest{
-		Title:              game.Title,
-		Description:        game.Description.String,
-		IsPublic:           true,
-		CommonRoomOpenDay:  &openDay,
-		CommonRoomOpenTime: &openTime,
-	}
-	bodyBytes, _ := json.Marshal(updateBody)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	t.Run("rejects when only open fields present", func(t *testing.T) {
+		updateBody := UpdateGameRequest{
+			Title:              game.Title,
+			Description:        game.Description.String,
+			IsPublic:           true,
+			CommonRoomOpenDay:  &openDay,
+			CommonRoomOpenTime: &openTime,
+		}
+		bodyBytes, _ := json.Marshal(updateBody)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		core.AssertEqual(t, http.StatusBadRequest, w.Code, "Should return 400 for partial schedule fields")
+	})
 
-	core.AssertEqual(t, http.StatusBadRequest, w.Code, "Should return 400 for partial schedule fields")
+	t.Run("rejects when all day/time fields present but timezone missing", func(t *testing.T) {
+		updateBody := UpdateGameRequest{
+			Title:               game.Title,
+			Description:         game.Description.String,
+			IsPublic:            true,
+			CommonRoomOpenDay:   &openDay,
+			CommonRoomOpenTime:  &openTime,
+			CommonRoomCloseDay:  &closeDay,
+			CommonRoomCloseTime: &closeTime,
+			// Intentionally omit ScheduleTimezone
+		}
+		bodyBytes, _ := json.Marshal(updateBody)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		core.AssertEqual(t, http.StatusBadRequest, w.Code, "Should return 400 when timezone is missing")
+	})
 }
 
 // TestUpdateGame_CommonRoomSchedule verifies that schedule fields persist and can be cleared.
