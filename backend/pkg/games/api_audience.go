@@ -149,6 +149,7 @@ func (h *Handler) UpdateAutoAcceptAudience(w http.ResponseWriter, r *http.Reques
 
 	data := &UpdateAutoAcceptAudienceRequest{}
 	if err := render.Bind(r, data); err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid update auto-accept audience request", "error", err, "game_id", gameID)
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}

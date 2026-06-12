@@ -26,6 +26,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 
 	data := &ApplyToGameRequest{}
 	if err := render.Bind(r, data); err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid apply to game request", "error", err, "game_id", gameID)
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}
@@ -274,6 +275,7 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 
 	data := &ReviewApplicationRequest{}
 	if err := render.Bind(r, data); err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid review application request", "error", err, "game_id", gameID, "application_id", applicationID)
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}

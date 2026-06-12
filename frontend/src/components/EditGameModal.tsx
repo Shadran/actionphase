@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { isAxiosError } from 'axios';
 import type { GameWithDetails, UpdateGameRequest } from '../types/games';
 import { apiClient } from '../lib/api';
 import { Button, Alert } from './ui';
@@ -60,7 +61,11 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
       onGameUpdated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update game');
+      if (isAxiosError(err) && err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to update game');
+      }
     } finally {
       setLoading(false);
     }

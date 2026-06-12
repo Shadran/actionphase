@@ -233,6 +233,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 
 	data := &UpdateGameStateRequest{}
 	if err := render.Bind(r, data); err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid update game state request", "error", err, "game_id", gameID)
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}
@@ -356,12 +357,14 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid game ID in update request", "game_id_str", gameIDStr)
 		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
 		return
 	}
 
 	data := &UpdateGameRequest{}
 	if err := render.Bind(r, data); err != nil {
+		h.App.ObsLogger.Warn(ctx, "Invalid update game request", "error", err, "game_id", gameID)
 		render.Render(w, r, core.ErrInvalidRequest(err))
 		return
 	}
