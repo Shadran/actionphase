@@ -92,11 +92,11 @@ export function GameTabContent({
   // Game Info Tab (Recruitment & other states)
   if (activeTab === 'info') {
     const hasSchedule =
-      game.common_room_open_day != null &&
-      game.common_room_open_time != null &&
-      game.common_room_close_day != null &&
-      game.common_room_close_time != null &&
-      game.schedule_timezone != null;
+      game.common_room_open_day !== null && game.common_room_open_day !== undefined &&
+      game.common_room_open_time !== null && game.common_room_open_time !== undefined &&
+      game.common_room_close_day !== null && game.common_room_close_day !== undefined &&
+      game.common_room_close_time !== null && game.common_room_close_time !== undefined &&
+      game.schedule_timezone !== null && game.schedule_timezone !== undefined;
 
     return (
       <>

@@ -539,8 +539,8 @@ func TestUpdateGame_CommonRoomSchedule(t *testing.T) {
 	})
 	core.AssertNoError(t, err, "Should create game")
 
-	openDay := int16(6)   // Saturday
-	closeDay := int16(0)  // Sunday
+	openDay := int16(6)  // Saturday
+	closeDay := int16(0) // Sunday
 	openTime := "10:00"
 	closeTime := "22:00"
 	tz := "America/New_York"
