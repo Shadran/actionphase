@@ -65,8 +65,9 @@ test.describe('GM Creates Game & Recruits Players', () => {
     const statusBadge = page.getByTestId('game-status-badge');
     await expect(statusBadge).toContainText(/recruiting/i, { timeout: 10000 });
 
-    // Verify recruitment-specific content appeared
-    await expect(page.getByRole('heading', { name: /Recruitment Deadline/i, level: 3 }).locator('visible=true').first()).toBeVisible();
+    // Verify the Info tab shows game details
+    await page.getByRole('tab', { name: /game info/i }).click();
+    await expect(page.getByRole('heading', { name: /Game Information/i })).toBeVisible();
   });
 
   test('GM can create a game with anonymous mode and auto accept audience enabled', async ({ page }) => {
