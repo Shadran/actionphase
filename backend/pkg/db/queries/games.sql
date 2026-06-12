@@ -142,27 +142,6 @@ SELECT * FROM games
 WHERE (state = 'recruitment' AND recruitment_deadline IS NOT NULL AND recruitment_deadline < NOW())
    OR (state = 'in_progress' AND end_date IS NOT NULL AND end_date < NOW());
 
--- name: UpdateGameAndAddGM :one
-WITH game_update AS (
-    UPDATE games
-    SET title = $2, description = $3, genre = $4, start_date = $5,
-        end_date = $6, recruitment_deadline = $7, max_players = $8,
-        is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13,
-        common_room_open_day = $14, common_room_open_time = $15,
-        common_room_close_day = $16, common_room_close_time = $17,
-        schedule_timezone = $18,
-        updated_at = NOW()
-    WHERE games.id = $1
-    RETURNING *
-),
-gm_participant AS (
-    INSERT INTO game_participants (game_id, user_id, role)
-    VALUES ($1, (SELECT gu.gm_user_id FROM game_update gu), 'co_gm')
-    ON CONFLICT (game_id, user_id) DO NOTHING
-    RETURNING *
-)
-SELECT gu.* FROM game_update gu;
-
 -- Player Management Queries
 
 -- name: RemoveParticipant :exec
