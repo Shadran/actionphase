@@ -103,7 +103,6 @@ export function GameTabContent({
         <h2 className="text-2xl font-bold text-content-primary mb-6">Game Information</h2>
 
         <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-          {/* Players always shown */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-content-secondary mb-1">Players</p>
             <p className="text-content-primary">{game.current_players} / {game.max_players || 'Unlimited'}</p>
