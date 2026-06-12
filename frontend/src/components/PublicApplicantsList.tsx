@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import type { PublicGameApplicant } from '../types/games';
 import { Spinner, Alert, Badge } from './ui';
@@ -109,9 +110,9 @@ export function PublicApplicantsList({ gameId }: PublicApplicantsListProps) {
 
                   {/* Username and Badge */}
                   <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
-                    <span className="font-medium text-content-primary truncate">
+                    <Link to={`/users/${applicant.username}`} className="font-medium text-content-primary hover:underline truncate">
                       {applicant.username}
-                    </span>
+                    </Link>
                     <Badge variant="primary" size="sm">Player</Badge>
                   </div>
                 </div>
@@ -149,9 +150,9 @@ export function PublicApplicantsList({ gameId }: PublicApplicantsListProps) {
 
                   {/* Username and Badge */}
                   <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
-                    <span className="font-medium text-content-primary truncate">
+                    <Link to={`/users/${applicant.username}`} className="font-medium text-content-primary hover:underline truncate">
                       {applicant.username}
-                    </span>
+                    </Link>
                     <Badge variant="secondary" size="sm">Audience</Badge>
                   </div>
                 </div>
