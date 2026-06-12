@@ -7,6 +7,7 @@ import (
 )
 
 // formatPgtypeTime converts a pgtype.Time (microseconds since midnight) to "HH:MM" string.
+// Seconds are intentionally truncated; schedule times are always written as whole minutes by parseHHMM.
 func formatPgtypeTime(t pgtype.Time) string {
 	total := t.Microseconds / 1e6
 	h := total / 3600

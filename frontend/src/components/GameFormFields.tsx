@@ -26,6 +26,19 @@ interface GameFormFieldsProps {
   bannerUpload?: ReactNode;
 }
 
+const DAY_OPTIONS = (
+  <>
+    <option value="">-- Day --</option>
+    <option value="0">Sunday</option>
+    <option value="1">Monday</option>
+    <option value="2">Tuesday</option>
+    <option value="3">Wednesday</option>
+    <option value="4">Thursday</option>
+    <option value="5">Friday</option>
+    <option value="6">Saturday</option>
+  </>
+);
+
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-3 pt-1">
@@ -126,7 +139,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
       <SectionHeading>Common Room Schedule</SectionHeading>
 
       <p className="text-sm text-content-secondary -mt-1">
-        Set the recurring weekly window when Common Room is open. Times are stored in your current timezone (<span className="font-medium">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>) and shown to players in their own local timezone.
+        Set the recurring weekly window when Common Room is open. Times are stored in your current timezone (<span className="font-medium">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>) and shown to players in their own local timezone. Saving will update the stored timezone to match your current browser timezone.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -139,14 +152,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
               value={formData.common_room_open_day === '' ? '' : String(formData.common_room_open_day)}
               onChange={(e) => onChange('common_room_open_day', e.target.value === '' ? '' : parseInt(e.target.value))}
             >
-              <option value="">-- Day --</option>
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
+              {DAY_OPTIONS}
             </Select>
           </div>
           <div className="flex-1">
@@ -170,14 +176,7 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
               value={formData.common_room_close_day === '' ? '' : String(formData.common_room_close_day)}
               onChange={(e) => onChange('common_room_close_day', e.target.value === '' ? '' : parseInt(e.target.value))}
             >
-              <option value="">-- Day --</option>
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
+              {DAY_OPTIONS}
             </Select>
           </div>
           <div className="flex-1">

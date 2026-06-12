@@ -126,12 +126,13 @@ export function useGameForm(initialData?: GameWithDetails) {
       return { payload: null, error: 'Game description is required' };
     }
 
+    // Sunday is day 0 — use explicit empty-string check so falsy 0 is not treated as absent
     const scheduleFieldsFilled = [
       formData.common_room_open_day,
       formData.common_room_open_time,
       formData.common_room_close_day,
       formData.common_room_close_time,
-    ].filter(v => v !== '').length;
+    ].filter(v => v !== '' && v !== null && v !== undefined).length;
 
     if (scheduleFieldsFilled > 0 && scheduleFieldsFilled < 4) {
       return {
@@ -142,6 +143,14 @@ export function useGameForm(initialData?: GameWithDetails) {
     }
 
     const hasSchedule = scheduleFieldsFilled === 4;
+
+    // Timezone is captured from the browser at submission time rather than stored in form state.
+    // On re-edit the stored timezone is discarded — the next save uses whatever the GM's browser reports.
+    // This is intentional: we assume GMs configure schedules from their home timezone.
+    const scheduleTimezone = hasSchedule ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+    if (hasSchedule && !scheduleTimezone) {
+      return { payload: null, error: 'Could not detect your timezone. Please try again.' };
+    }
 
     const payload: CreateGameRequest = {
       title: formData.title.trim(),
@@ -156,14 +165,11 @@ export function useGameForm(initialData?: GameWithDetails) {
       allow_group_conversations: formData.allow_group_conversations ?? true,
       portrait_avatars: formData.portrait_avatars ?? false,
       common_room_open_day: hasSchedule ? Number(formData.common_room_open_day) : null,
-      common_room_open_time: hasSchedule ? formData.common_room_open_time : null,
+      common_room_open_time: hasSchedule ? String(formData.common_room_open_time) : null,
       common_room_close_day: hasSchedule ? Number(formData.common_room_close_day) : null,
-      common_room_close_time: hasSchedule ? formData.common_room_close_time : null,
-      // Timezone is captured from the browser at submission time rather than stored in form state.
-      // On re-edit the stored timezone is discarded — the next save uses whatever the GM's browser reports.
-      // This is intentional: we assume GMs configure schedules from their home timezone.
-      schedule_timezone: hasSchedule ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
-    } as CreateGameRequest;
+      common_room_close_time: hasSchedule ? String(formData.common_room_close_time) : null,
+      schedule_timezone: scheduleTimezone,
+    };
 
     return { payload, error: null };
   }, [formData]);

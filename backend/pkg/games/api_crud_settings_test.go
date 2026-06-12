@@ -374,6 +374,82 @@ func TestCreateGame_SettingsPersistAfterRefresh(t *testing.T) {
 	core.AssertEqual(t, false, updatedGame.AutoAcceptAudience, "auto_accept_audience should update and persist")
 }
 
+// TestCreateGame_CommonRoomSchedule verifies that schedule fields can be set at creation time.
+func TestCreateGame_CommonRoomSchedule(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	testDB.CleanupTables(t, "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+	fixtures := testDB.SetupFixtures(t)
+
+	accessToken, err := core.CreateTestJWTTokenForUser(app, fixtures.TestUser)
+	core.AssertNoError(t, err, "Test token creation should succeed")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	openDay := int16(6)  // Saturday
+	closeDay := int16(0) // Sunday
+	openTime := "10:00"
+	closeTime := "22:00"
+	tz := "America/Chicago"
+
+	t.Run("saves schedule fields on create", func(t *testing.T) {
+		body := CreateGameRequest{
+			Title:               "Schedule Create Test",
+			Description:         "Testing schedule fields at creation",
+			CommonRoomOpenDay:   &openDay,
+			CommonRoomOpenTime:  &openTime,
+			CommonRoomCloseDay:  &closeDay,
+			CommonRoomCloseTime: &closeTime,
+			ScheduleTimezone:    &tz,
+		}
+		bodyBytes, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/games/", bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusCreated, w.Code, "Should return 201")
+
+		var response GameResponse
+		json.NewDecoder(w.Body).Decode(&response)
+		core.AssertEqual(t, int16(6), *response.CommonRoomOpenDay, "open day should be Saturday (6)")
+		core.AssertEqual(t, "10:00", *response.CommonRoomOpenTime, "open time should be 10:00")
+		core.AssertEqual(t, int16(0), *response.CommonRoomCloseDay, "close day should be Sunday (0)")
+		core.AssertEqual(t, "22:00", *response.CommonRoomCloseTime, "close time should be 22:00")
+		core.AssertEqual(t, "America/Chicago", *response.ScheduleTimezone, "timezone should persist")
+
+		saved, err := gameService.GetGame(context.Background(), response.ID)
+		core.AssertNoError(t, err, "Should retrieve saved game")
+		core.AssertEqual(t, true, saved.CommonRoomOpenDay.Valid, "open day should be set in DB")
+		core.AssertEqual(t, int16(6), saved.CommonRoomOpenDay.Int16, "open day value in DB")
+		core.AssertEqual(t, "America/Chicago", saved.ScheduleTimezone.String, "timezone in DB")
+	})
+
+	t.Run("rejects partial schedule fields on create", func(t *testing.T) {
+		body := CreateGameRequest{
+			Title:              "Partial Schedule Create Test",
+			Description:        "Testing partial schedule rejection on create",
+			CommonRoomOpenDay:  &openDay,
+			CommonRoomOpenTime: &openTime,
+			// Missing close fields and timezone
+		}
+		bodyBytes, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/games/", bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusBadRequest, w.Code, "Should return 400 for partial schedule fields on create")
+	})
+}
+
 // TestUpdateGame_CommonRoomSchedule_PartialFill verifies that submitting only some schedule fields is rejected.
 func TestUpdateGame_CommonRoomSchedule_PartialFill(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
