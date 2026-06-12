@@ -149,6 +149,12 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
           </ul>
         </Alert>
 
+        {error && (
+          <Alert variant="danger">
+            {error}
+          </Alert>
+        )}
+
         <div className="flex gap-4 pt-4">
           <Button
             type="submit"

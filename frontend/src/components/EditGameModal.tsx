@@ -176,6 +176,12 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
           bannerUpload={bannerUpload}
         />
 
+        {error && (
+          <Alert variant="danger">
+            {error}
+          </Alert>
+        )}
+
         <div className="flex gap-3 pt-4">
           <Button
             type="submit"
