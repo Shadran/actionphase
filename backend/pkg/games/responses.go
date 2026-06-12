@@ -22,6 +22,11 @@ type GameResponse struct {
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
 	BannerURL               *string    `json:"banner_url,omitempty"`
+	CommonRoomOpenDay       *int16     `json:"common_room_open_day,omitempty"`
+	CommonRoomOpenTime      *string    `json:"common_room_open_time,omitempty"`
+	CommonRoomCloseDay      *int16     `json:"common_room_close_day,omitempty"`
+	CommonRoomCloseTime     *string    `json:"common_room_close_time,omitempty"`
+	ScheduleTimezone        *string    `json:"schedule_timezone,omitempty"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 }
@@ -48,6 +53,11 @@ type GameWithDetailsResponse struct {
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
 	BannerURL               *string    `json:"banner_url,omitempty"`
+	CommonRoomOpenDay       *int16     `json:"common_room_open_day,omitempty"`
+	CommonRoomOpenTime      *string    `json:"common_room_open_time,omitempty"`
+	CommonRoomCloseDay      *int16     `json:"common_room_close_day,omitempty"`
+	CommonRoomCloseTime     *string    `json:"common_room_close_time,omitempty"`
+	ScheduleTimezone        *string    `json:"schedule_timezone,omitempty"`
 	CurrentPlayers          int64      `json:"current_players"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`

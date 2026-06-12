@@ -23,6 +23,10 @@ export const CreateGameForm = ({ onSuccess, onCancel }: CreateGameFormProps) => 
     auto_accept_audience: false,
     allow_group_conversations: true,
     portrait_avatars: true,
+    common_room_open_day: '',
+    common_room_open_time: '',
+    common_room_close_day: '',
+    common_room_close_time: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);

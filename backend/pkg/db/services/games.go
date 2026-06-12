@@ -358,6 +358,31 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		bannerURL = pgtype.Text{String: *req.BannerURL, Valid: true}
 	}
 
+	var openDay, closeDay pgtype.Int2
+	if req.CommonRoomOpenDay != nil {
+		openDay = pgtype.Int2{Int16: *req.CommonRoomOpenDay, Valid: true}
+	}
+	if req.CommonRoomCloseDay != nil {
+		closeDay = pgtype.Int2{Int16: *req.CommonRoomCloseDay, Valid: true}
+	}
+
+	var openTime, closeTime pgtype.Time
+	if req.CommonRoomOpenTime != nil {
+		if t, err := parseHHMM(*req.CommonRoomOpenTime); err == nil {
+			openTime = t
+		}
+	}
+	if req.CommonRoomCloseTime != nil {
+		if t, err := parseHHMM(*req.CommonRoomCloseTime); err == nil {
+			closeTime = t
+		}
+	}
+
+	var scheduleTimezone pgtype.Text
+	if req.ScheduleTimezone != nil {
+		scheduleTimezone = pgtype.Text{String: *req.ScheduleTimezone, Valid: true}
+	}
+
 	updatedGame, err := queries.UpdateGame(ctx, models.UpdateGameParams{
 		ID:                      req.ID,
 		Title:                   req.Title,
@@ -373,6 +398,11 @@ func (gs *GameService) UpdateGame(ctx context.Context, req core.UpdateGameReques
 		AllowGroupConversations: req.AllowGroupConversations,
 		PortraitAvatars:         req.PortraitAvatars,
 		BannerUrl:               bannerURL,
+		CommonRoomOpenDay:       openDay,
+		CommonRoomOpenTime:      openTime,
+		CommonRoomCloseDay:      closeDay,
+		CommonRoomCloseTime:     closeTime,
+		ScheduleTimezone:        scheduleTimezone,
 	})
 
 	return &updatedGame, err
@@ -1188,4 +1218,14 @@ func (gs *GameService) TransitionPlayerToAudience(ctx context.Context, gameID, u
 	)
 
 	return nil
+}
+
+// parseHHMM parses a "HH:MM" string into a pgtype.Time.
+func parseHHMM(s string) (pgtype.Time, error) {
+	t, err := time.Parse("15:04", s)
+	if err != nil {
+		return pgtype.Time{}, fmt.Errorf("invalid time %q: %w", s, err)
+	}
+	microseconds := int64(t.Hour())*3600*1e6 + int64(t.Minute())*60*1e6
+	return pgtype.Time{Microseconds: microseconds, Valid: true}, nil
 }

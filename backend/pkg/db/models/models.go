@@ -241,6 +241,11 @@ type Game struct {
 	AllowGroupConversations bool               `json:"allow_group_conversations"`
 	PortraitAvatars         bool               `json:"portrait_avatars"`
 	BannerUrl               pgtype.Text        `json:"banner_url"`
+	CommonRoomOpenDay       pgtype.Int2        `json:"common_room_open_day"`
+	CommonRoomOpenTime      pgtype.Time        `json:"common_room_open_time"`
+	CommonRoomCloseDay      pgtype.Int2        `json:"common_room_close_day"`
+	CommonRoomCloseTime     pgtype.Time        `json:"common_room_close_time"`
+	ScheduleTimezone        pgtype.Text        `json:"schedule_timezone"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 }

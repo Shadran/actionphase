@@ -363,6 +363,11 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 		AllowGroupConversations: data.AllowGroupConversations,
 		PortraitAvatars:         data.PortraitAvatars,
 		BannerURL:               data.BannerURL,
+		CommonRoomOpenDay:       data.CommonRoomOpenDay,
+		CommonRoomOpenTime:      data.CommonRoomOpenTime,
+		CommonRoomCloseDay:      data.CommonRoomCloseDay,
+		CommonRoomCloseTime:     data.CommonRoomCloseTime,
+		ScheduleTimezone:        data.ScheduleTimezone,
 	})
 
 	if err != nil {
@@ -403,6 +408,25 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	if updatedGame.BannerUrl.Valid {
 		response.BannerURL = &updatedGame.BannerUrl.String
+	}
+	if updatedGame.CommonRoomOpenDay.Valid {
+		v := updatedGame.CommonRoomOpenDay.Int16
+		response.CommonRoomOpenDay = &v
+	}
+	if updatedGame.CommonRoomOpenTime.Valid {
+		s := formatPgtypeTime(updatedGame.CommonRoomOpenTime)
+		response.CommonRoomOpenTime = &s
+	}
+	if updatedGame.CommonRoomCloseDay.Valid {
+		v := updatedGame.CommonRoomCloseDay.Int16
+		response.CommonRoomCloseDay = &v
+	}
+	if updatedGame.CommonRoomCloseTime.Valid {
+		s := formatPgtypeTime(updatedGame.CommonRoomCloseTime)
+		response.CommonRoomCloseTime = &s
+	}
+	if updatedGame.ScheduleTimezone.Valid {
+		response.ScheduleTimezone = &updatedGame.ScheduleTimezone.String
 	}
 
 	render.Render(w, r, response)
@@ -523,6 +547,25 @@ func (h *Handler) GetGameWithDetails(w http.ResponseWriter, r *http.Request) {
 	}
 	if game.BannerUrl.Valid {
 		response.BannerURL = &game.BannerUrl.String
+	}
+	if game.CommonRoomOpenDay.Valid {
+		v := game.CommonRoomOpenDay.Int16
+		response.CommonRoomOpenDay = &v
+	}
+	if game.CommonRoomOpenTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomOpenTime)
+		response.CommonRoomOpenTime = &s
+	}
+	if game.CommonRoomCloseDay.Valid {
+		v := game.CommonRoomCloseDay.Int16
+		response.CommonRoomCloseDay = &v
+	}
+	if game.CommonRoomCloseTime.Valid {
+		s := formatPgtypeTime(game.CommonRoomCloseTime)
+		response.CommonRoomCloseTime = &s
+	}
+	if game.ScheduleTimezone.Valid {
+		response.ScheduleTimezone = &game.ScheduleTimezone.String
 	}
 
 	render.Render(w, r, response)

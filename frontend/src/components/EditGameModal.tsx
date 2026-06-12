@@ -32,6 +32,10 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
     auto_accept_audience: false,
     allow_group_conversations: true,
     portrait_avatars: false,
+    common_room_open_day: '',
+    common_room_open_time: '',
+    common_room_close_day: '',
+    common_room_close_time: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,10 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         auto_accept_audience: game.auto_accept_audience || false,
         allow_group_conversations: game.allow_group_conversations ?? true,
         portrait_avatars: game.portrait_avatars ?? false,
+        common_room_open_day: game.common_room_open_day ?? '',
+        common_room_open_time: game.common_room_open_time ? game.common_room_open_time.slice(0, 5) : '',
+        common_room_close_day: game.common_room_close_day ?? '',
+        common_room_close_time: game.common_room_close_time ? game.common_room_close_time.slice(0, 5) : '',
       });
       setError(null);
       setPendingBannerFile(null);
@@ -80,6 +88,12 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
     try {
       setLoading(true);
 
+      const hasSchedule =
+        formData.common_room_open_day !== '' &&
+        formData.common_room_open_time !== '' &&
+        formData.common_room_close_day !== '' &&
+        formData.common_room_close_time !== '';
+
       const updateData: UpdateGameRequest = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -93,6 +107,11 @@ export function EditGameModal({ game, isOpen, onClose, onGameUpdated }: EditGame
         auto_accept_audience: formData.auto_accept_audience,
         allow_group_conversations: formData.allow_group_conversations ?? true,
         portrait_avatars: formData.portrait_avatars ?? false,
+        common_room_open_day: hasSchedule ? Number(formData.common_room_open_day) : null,
+        common_room_open_time: hasSchedule ? formData.common_room_open_time : null,
+        common_room_close_day: hasSchedule ? Number(formData.common_room_close_day) : null,
+        common_room_close_time: hasSchedule ? formData.common_room_close_time : null,
+        schedule_timezone: hasSchedule ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       };
 
       await apiClient.games.updateGame(game.id, updateData);

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { formatScheduleDay } from '../lib/scheduleFormat';
 import type { Character } from '../types/characters';
 import { GameApplicationsList } from './GameApplicationsList';
 import { PublicApplicantsList } from './PublicApplicantsList';
@@ -117,6 +118,26 @@ export function GameTabContent({
             <p className="text-content-secondary">{formatDate(game.end_date)}</p>
           </div>
         </div>
+
+        {/* Common Room Schedule */}
+        {game.common_room_open_day != null &&
+          game.common_room_open_time != null &&
+          game.common_room_close_day != null &&
+          game.common_room_close_time != null &&
+          game.schedule_timezone != null && (
+          <div className="mb-8">
+            <h3 className="font-semibold text-content-primary mb-2">Common Room Schedule</h3>
+            <p className="text-content-secondary text-sm">
+              <span className="font-medium text-content-primary">Opens:</span>{' '}
+              {formatScheduleDay(game.common_room_open_day, game.common_room_open_time, game.schedule_timezone)}
+            </p>
+            <p className="text-content-secondary text-sm mt-1">
+              <span className="font-medium text-content-primary">Closes:</span>{' '}
+              {formatScheduleDay(game.common_room_close_day, game.common_room_close_time, game.schedule_timezone)}
+            </p>
+            <p className="text-content-tertiary text-xs mt-1">Times shown in your local timezone</p>
+          </div>
+        )}
 
         {/* Show public applicants list during recruitment */}
         {game.state === 'recruitment' && (

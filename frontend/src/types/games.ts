@@ -14,6 +14,11 @@ export interface Game {
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
   banner_url?: string | null;
+  common_room_open_day?: number | null;
+  common_room_open_time?: string | null;
+  common_room_close_day?: number | null;
+  common_room_close_time?: string | null;
+  schedule_timezone?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +78,11 @@ export interface UpdateGameRequest extends CreateGameRequest {
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
+  common_room_open_day?: number | null;
+  common_room_open_time?: string | null;
+  common_room_close_day?: number | null;
+  common_room_close_time?: string | null;
+  schedule_timezone?: string | null;
 }
 
 export interface ApplyToGameRequest {

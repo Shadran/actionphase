@@ -50,6 +50,11 @@ type UpdateGameRequest struct {
 	AllowGroupConversations bool       `json:"allow_group_conversations"`
 	PortraitAvatars         bool       `json:"portrait_avatars"`
 	BannerURL               *string    `json:"banner_url,omitempty"`
+	CommonRoomOpenDay       *int16     `json:"common_room_open_day,omitempty"`
+	CommonRoomOpenTime      *string    `json:"common_room_open_time,omitempty"`
+	CommonRoomCloseDay      *int16     `json:"common_room_close_day,omitempty"`
+	CommonRoomCloseTime     *string    `json:"common_room_close_time,omitempty"`
+	ScheduleTimezone        *string    `json:"schedule_timezone,omitempty"`
 }
 
 func (r *UpdateGameRequest) Bind(req *http.Request) error {

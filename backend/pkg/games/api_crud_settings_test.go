@@ -373,3 +373,93 @@ func TestCreateGame_SettingsPersistAfterRefresh(t *testing.T) {
 	core.AssertEqual(t, false, updatedGame.IsAnonymous, "is_anonymous should update and persist")
 	core.AssertEqual(t, false, updatedGame.AutoAcceptAudience, "auto_accept_audience should update and persist")
 }
+
+// TestUpdateGame_CommonRoomSchedule verifies that schedule fields persist and can be cleared.
+func TestUpdateGame_CommonRoomSchedule(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	testDB.CleanupTables(t, "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+	fixtures := testDB.SetupFixtures(t)
+
+	accessToken, err := core.CreateTestJWTTokenForUser(app, fixtures.TestUser)
+	core.AssertNoError(t, err, "Test token creation should succeed")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game, err := gameService.CreateGame(context.Background(), core.CreateGameRequest{
+		Title:       "Schedule Test Game",
+		Description: "Testing common room schedule persistence",
+		GMUserID:    int32(fixtures.TestUser.ID),
+	})
+	core.AssertNoError(t, err, "Should create game")
+
+	openDay := int16(6)   // Saturday
+	closeDay := int16(0)  // Sunday
+	openTime := "10:00"
+	closeTime := "22:00"
+	tz := "America/New_York"
+
+	t.Run("saves schedule fields", func(t *testing.T) {
+		updateBody := UpdateGameRequest{
+			Title:               game.Title,
+			Description:         game.Description.String,
+			IsPublic:            true,
+			CommonRoomOpenDay:   &openDay,
+			CommonRoomOpenTime:  &openTime,
+			CommonRoomCloseDay:  &closeDay,
+			CommonRoomCloseTime: &closeTime,
+			ScheduleTimezone:    &tz,
+		}
+		bodyBytes, _ := json.Marshal(updateBody)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusOK, w.Code, "Should return 200")
+
+		var response GameResponse
+		json.NewDecoder(w.Body).Decode(&response)
+		core.AssertEqual(t, int16(6), *response.CommonRoomOpenDay, "open day should be Saturday (6)")
+		core.AssertEqual(t, "10:00", *response.CommonRoomOpenTime, "open time should be 10:00")
+		core.AssertEqual(t, int16(0), *response.CommonRoomCloseDay, "close day should be Sunday (0)")
+		core.AssertEqual(t, "22:00", *response.CommonRoomCloseTime, "close time should be 22:00")
+		core.AssertEqual(t, "America/New_York", *response.ScheduleTimezone, "timezone should persist")
+
+		saved, err := gameService.GetGame(context.Background(), game.ID)
+		core.AssertNoError(t, err, "Should retrieve saved game")
+		core.AssertEqual(t, true, saved.CommonRoomOpenDay.Valid, "open day should be set in DB")
+		core.AssertEqual(t, int16(6), saved.CommonRoomOpenDay.Int16, "open day value in DB")
+		core.AssertEqual(t, "America/New_York", saved.ScheduleTimezone.String, "timezone in DB")
+	})
+
+	t.Run("clears schedule when fields omitted", func(t *testing.T) {
+		updateBody := UpdateGameRequest{
+			Title:       game.Title,
+			Description: game.Description.String,
+			IsPublic:    true,
+		}
+		bodyBytes, _ := json.Marshal(updateBody)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/games/"+strconv.Itoa(int(game.ID)), bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusOK, w.Code, "Should return 200")
+
+		var response GameResponse
+		json.NewDecoder(w.Body).Decode(&response)
+		if response.CommonRoomOpenDay != nil {
+			t.Errorf("CommonRoomOpenDay should be nil after clearing, got %v", *response.CommonRoomOpenDay)
+		}
+		if response.ScheduleTimezone != nil {
+			t.Errorf("ScheduleTimezone should be nil after clearing, got %v", *response.ScheduleTimezone)
+		}
+	})
+}

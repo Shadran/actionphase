@@ -115,6 +115,11 @@ CREATE TABLE games (
     allow_group_conversations BOOLEAN NOT NULL DEFAULT TRUE,
     portrait_avatars BOOLEAN NOT NULL DEFAULT FALSE,
     banner_url TEXT,
+    common_room_open_day   SMALLINT,
+    common_room_open_time  TIME,
+    common_room_close_day  SMALLINT,
+    common_room_close_time TIME,
+    schedule_timezone      VARCHAR(64),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

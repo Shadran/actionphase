@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Input, Textarea, DateTimeInput, Checkbox, Radio } from './ui';
+import { Input, Textarea, DateTimeInput, Checkbox, Radio, Select } from './ui';
 import { HelpTooltip } from './ui/HelpTooltip';
 
 export interface GameFormData {
@@ -14,6 +14,10 @@ export interface GameFormData {
   auto_accept_audience?: boolean;
   allow_group_conversations?: boolean;
   portrait_avatars?: boolean;
+  common_room_open_day: number | '';
+  common_room_open_time: string;
+  common_room_close_day: number | '';
+  common_room_close_time: string;
 }
 
 interface GameFormFieldsProps {
@@ -117,6 +121,74 @@ export const GameFormFields = ({ formData, onChange, bannerUpload }: GameFormFie
           value={formData.end_date}
           onChange={(e) => onChange('end_date', e.target.value)}
         />
+      </div>
+
+      <SectionHeading>Common Room Schedule</SectionHeading>
+
+      <p className="text-sm text-content-secondary -mt-1">
+        Set the recurring weekly window when Common Room is open. Players will see these times in their own local timezone.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <Select
+              label="Opens"
+              id="common_room_open_day"
+              optional
+              value={formData.common_room_open_day === '' ? '' : String(formData.common_room_open_day)}
+              onChange={(e) => onChange('common_room_open_day', e.target.value === '' ? '' : parseInt(e.target.value))}
+            >
+              <option value="">-- Day --</option>
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Input
+              label="at"
+              id="common_room_open_time"
+              type="time"
+              value={formData.common_room_open_time}
+              onChange={(e) => onChange('common_room_open_time', e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <Select
+              label="Closes"
+              id="common_room_close_day"
+              optional
+              value={formData.common_room_close_day === '' ? '' : String(formData.common_room_close_day)}
+              onChange={(e) => onChange('common_room_close_day', e.target.value === '' ? '' : parseInt(e.target.value))}
+            >
+              <option value="">-- Day --</option>
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Input
+              label="at"
+              id="common_room_close_time"
+              type="time"
+              value={formData.common_room_close_time}
+              onChange={(e) => onChange('common_room_close_time', e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <SectionHeading>Settings</SectionHeading>

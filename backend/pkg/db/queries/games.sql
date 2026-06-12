@@ -31,7 +31,11 @@ UPDATE games
 SET title = $2, description = $3, genre = $4, start_date = $5,
     end_date = $6, recruitment_deadline = $7, max_players = $8,
     is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13,
-    banner_url = COALESCE($14, banner_url), updated_at = NOW()
+    banner_url = COALESCE($14, banner_url),
+    common_room_open_day = $15, common_room_open_time = $16,
+    common_room_close_day = $17, common_room_close_time = $18,
+    schedule_timezone = $19,
+    updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 
@@ -141,7 +145,11 @@ WITH game_update AS (
     UPDATE games
     SET title = $2, description = $3, genre = $4, start_date = $5,
         end_date = $6, recruitment_deadline = $7, max_players = $8,
-        is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13, updated_at = NOW()
+        is_public = $9, is_anonymous = $10, auto_accept_audience = $11, allow_group_conversations = $12, portrait_avatars = $13,
+        common_room_open_day = $14, common_room_open_time = $15,
+        common_room_close_day = $16, common_room_close_time = $17,
+        schedule_timezone = $18,
+        updated_at = NOW()
     WHERE games.id = $1
     RETURNING *
 ),

@@ -567,6 +567,11 @@ describe('EditGameModal', () => {
           auto_accept_audience: true,
           allow_group_conversations: expect.any(Boolean),
           portrait_avatars: expect.any(Boolean),
+          common_room_open_day: null,
+          common_room_open_time: null,
+          common_room_close_day: null,
+          common_room_close_time: null,
+          schedule_timezone: null,
         });
         // banner_url must NOT be in the payload — the upload/delete mutations manage it
         // independently, and including it here would overwrite a freshly uploaded banner
