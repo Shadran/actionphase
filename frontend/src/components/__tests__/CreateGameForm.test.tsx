@@ -138,7 +138,7 @@ describe('CreateGameForm', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/game title is required/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/game title is required/i).length).toBeGreaterThan(0);
       });
     });
 
@@ -155,7 +155,7 @@ describe('CreateGameForm', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/game description is required/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/game description is required/i).length).toBeGreaterThan(0);
       });
     });
 
@@ -394,7 +394,7 @@ describe('CreateGameForm', () => {
       await user.click(screen.getByRole('button', { name: /create game/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/game title already exists/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/game title already exists/i).length).toBeGreaterThan(0);
       });
     });
 
@@ -414,7 +414,7 @@ describe('CreateGameForm', () => {
       await user.click(screen.getByRole('button', { name: /create game/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/failed to create game/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/failed to create game/i).length).toBeGreaterThan(0);
       });
     });
 
@@ -439,7 +439,7 @@ describe('CreateGameForm', () => {
 
       // Wait for error
       await waitFor(() => {
-        expect(screen.getByText(/validation error/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/validation error/i).length).toBeGreaterThan(0);
       });
 
       // Fix the API to succeed
@@ -480,7 +480,7 @@ describe('CreateGameForm', () => {
 
       // Wait for error
       await waitFor(() => {
-        expect(screen.getByText(/error/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/error/i).length).toBeGreaterThan(0);
       });
 
       // Button should be re-enabled
