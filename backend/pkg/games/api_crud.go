@@ -24,15 +24,13 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 
 	data := &CreateGameRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind create game request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create game request", "error", err)
 		return
 	}
 
 	// Validate required fields
 	if errResp := core.ValidateRequired(data.Title, "title"); errResp != nil {
-		h.App.ObsLogger.Warn(ctx, "Game creation rejected: missing title")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Game creation rejected: missing title")
 		return
 	}
 
@@ -40,8 +38,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 	h.App.ObsLogger.Info(ctx, "Authenticated user for game creation", "user_id", userID)
@@ -71,11 +68,11 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to create game",
+		h.App.Observability.Metrics.IncrementCounter("games_create_errors")
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create game",
+			"error", err,
 			"title", data.Title,
 			"user_id", userID)
-		h.App.Observability.Metrics.IncrementCounter("games_create_errors")
-		render.Render(w, r, core.ErrInternalError(err))
 		return
 	}
 
@@ -151,15 +148,14 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID parameter", "game_id_str", gameIDStr)
 		return
 	}
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err, "game_id", gameID)
-		render.Render(w, r, core.HandleDBErrorWithID(err, "game", gameID))
+		h.renderError(ctx, w, r, core.HandleDBErrorWithID(err, "game", gameID), "Failed to get game", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -227,22 +223,20 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid update game state request")
 		return
 	}
 
 	data := &UpdateGameStateRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid update game state request", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update game state request", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Get authenticated user
 	user := core.GetAuthenticatedUser(ctx)
 	if user == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -251,21 +245,19 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game for permission check", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can update this game state"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can update this game state"), "Update game state forbidden")
 		return
 	}
 
 	updatedGame, err := gameService.UpdateGameState(ctx, int32(gameID), data.State)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update game state", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update game state", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -357,23 +349,20 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid game ID in update request", "game_id_str", gameIDStr)
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID in update request", "game_id_str", gameIDStr)
 		return
 	}
 
 	data := &UpdateGameRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid update game request", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update game request", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Get authenticated user
 	user := core.GetAuthenticatedUser(ctx)
 	if user == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -382,14 +371,13 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game for permission check", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can update this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can update this game"), "Update game forbidden")
 		return
 	}
 
@@ -417,8 +405,7 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update game", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update game", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -486,15 +473,14 @@ func (h *Handler) DeleteGame(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid delete game request")
 		return
 	}
 
 	// Get authenticated user
 	user := core.GetAuthenticatedUser(ctx)
 	if user == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -503,14 +489,13 @@ func (h *Handler) DeleteGame(w http.ResponseWriter, r *http.Request) {
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game for permission check", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can delete this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can delete this game"), "Delete game forbidden")
 		return
 	}
 
@@ -522,14 +507,14 @@ func (h *Handler) DeleteGame(w http.ResponseWriter, r *http.Request) {
 		errMsg := err.Error()
 		switch {
 		case errMsg == "game not found":
-			render.Render(w, r, core.ErrNotFound(errMsg))
+			h.renderError(ctx, w, r, core.ErrNotFound(errMsg), "Delete game not found")
 		case errMsg == "only the game master can delete this game":
-			render.Render(w, r, core.ErrForbidden(errMsg))
+			h.renderError(ctx, w, r, core.ErrForbidden(errMsg), "Delete game forbidden")
 		case errMsg == "only cancelled games can be deleted" ||
 			errMsg[:len("only cancelled games can be deleted")] == "only cancelled games can be deleted":
-			render.Render(w, r, core.ErrBadRequest(err))
+			h.renderError(ctx, w, r, core.ErrBadRequest(err), "Bad delete game request", "error", err)
 		default:
-			render.Render(w, r, core.ErrInternalError(err))
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete game", "error", err)
 		}
 		return
 	}
@@ -545,15 +530,14 @@ func (h *Handler) GetGameWithDetails(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game with details request")
 		return
 	}
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGameWithDetails(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game with details", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game with details", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -625,8 +609,7 @@ func (h *Handler) GetRecruitingGames(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	games, err := gameService.GetRecruitingGames(ctx)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get recruiting games", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get recruiting games", "error", err)
 		return
 	}
 
@@ -753,8 +736,7 @@ func (h *Handler) GetFilteredGames(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	result, err := gameService.GetFilteredGames(ctx, filters)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get filtered games", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get filtered games", "error", err)
 		return
 	}
 

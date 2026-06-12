@@ -16,8 +16,7 @@ func (h *Handler) ipBanCheck(w http.ResponseWriter, r *http.Request) bool {
 	svc := db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	banned, _ := svc.IsIPBanned(ctx, clientIP)
 	if banned {
-		h.App.ObsLogger.Warn(ctx, "Blocked request from banned IP", "ip", clientIP)
-		render.Render(w, r, core.ErrForbidden("Access from this location is not allowed."))
+		h.renderError(ctx, w, r, core.ErrForbidden("Access from this location is not allowed."), "Blocked request from banned IP", "ip", clientIP)
 		return true
 	}
 	return false
@@ -32,8 +31,7 @@ func (h *Handler) fingerprintBanCheck(w http.ResponseWriter, r *http.Request, fi
 	svc := db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	banned, _ := svc.IsFingerprintBanned(ctx, fingerprint)
 	if banned {
-		h.App.ObsLogger.Warn(ctx, "Blocked request from banned device fingerprint")
-		render.Render(w, r, core.ErrForbidden("Access from this device is not allowed."))
+		h.renderError(ctx, w, r, core.ErrForbidden("Access from this device is not allowed."), "Blocked request from banned device fingerprint")
 		return true
 	}
 	return false
@@ -45,8 +43,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 
 	data := &Request{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid login request", "error", err)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid login request", "error", err)
 		return
 	}
 
@@ -74,8 +71,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if usernameOrEmail == "" {
-		h.App.ObsLogger.Info(ctx, "Login attempt with no username or email provided")
-		render.Render(w, r, core.ErrUnauthorized("Invalid username or password"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("Invalid username or password"), "Login attempt with no username or email provided")
 		return
 	}
 
@@ -90,7 +86,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Info(ctx, "Login attempt for non-existent user",
 			"username", data.User.Username,
 			"email", data.User.Email)
-		render.Render(w, r, core.ErrUnauthorized("Invalid username or password"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("Invalid username or password"), "Unauthorized")
 		return
 	}
 
@@ -100,7 +96,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 			"username", user.Username,
 			"user_id", user.ID,
 			"banned_at", user.BannedAt)
-		render.Render(w, r, core.ErrForbidden("Your account has been banned. Please contact support."))
+		h.renderError(ctx, w, r, core.ErrForbidden("Your account has been banned. Please contact support."), "V1 login forbidden")
 		return
 	}
 
@@ -109,13 +105,12 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Info(ctx, "Login attempt by pending-approval user",
 			"username", user.Username,
 			"user_id", user.ID)
-		render.Render(w, r, core.ErrForbidden("Your account is pending admin approval."))
+		h.renderError(ctx, w, r, core.ErrForbidden("Your account is pending admin approval."), "V1 login forbidden")
 		return
 	}
 
 	if !user.CheckPasswordHash(data.User.Password) {
-		h.App.ObsLogger.Info(ctx, "Login failed: invalid password", "username", user.Username)
-		render.Render(w, r, core.ErrInvalidRequest(LoginError{"invalid username or password"}))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(LoginError{"invalid username or password"}), "Login failed: invalid password", "username", user.Username)
 		return
 	}
 	h.App.ObsLogger.Info(ctx, "User logged in successfully", "username", user.Username, "user_id", user.ID)
@@ -128,8 +123,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		Fingerprint: fingerprintPtr(data.Fingerprint),
 	})
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create JWT token", "error", err, "user_id", user.ID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create JWT token", "error", err, "user_id", user.ID)
 		return
 	}
 

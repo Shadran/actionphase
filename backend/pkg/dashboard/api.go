@@ -5,8 +5,6 @@ import (
 	services "actionphase/pkg/db/services"
 	"encoding/json"
 	"net/http"
-
-	"github.com/go-chi/render"
 )
 
 // Handler handles HTTP requests for dashboard endpoints
@@ -26,8 +24,7 @@ func (h *Handler) GetUserDashboard(w http.ResponseWriter, r *http.Request) {
 	userService := &services.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 	h.App.ObsLogger.Info(ctx, "Authenticated user for dashboard retrieval", "user_id", userID)
@@ -38,8 +35,7 @@ func (h *Handler) GetUserDashboard(w http.ResponseWriter, r *http.Request) {
 	// Get dashboard data from service
 	dashboard, err := dashboardService.GetUserDashboard(ctx, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get dashboard data", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get dashboard data", "error", err, "user_id", userID)
 		return
 	}
 

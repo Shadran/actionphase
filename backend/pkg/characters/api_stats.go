@@ -36,23 +36,21 @@ func (h *Handler) GetCharacterStats(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid get character stats request")
 		return
 	}
 
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character for stats", "error", err, "character_id", characterID)
-		render.Render(w, r, core.ErrNotFound("character not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character for stats", "error", err, "character_id", characterID)
 		return
 	}
 
 	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game for stats", "error", err, "game_id", character.GameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for stats", "error", err, "game_id", character.GameID)
 		return
 	}
 
@@ -70,8 +68,7 @@ func (h *Handler) GetCharacterStats(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := characterService.GetCharacterActivityStats(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character activity stats", "error", err, "character_id", characterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character activity stats", "error", err, "character_id", characterID)
 		return
 	}
 

@@ -67,7 +67,7 @@ func TestHandleDBError(t *testing.T) {
 			resourceName:       "game",
 			expectedStatusCode: 500,
 			expectedStatusText: "Internal server error.",
-			expectedErrorText:  "connection timeout",
+			expectedErrorText:  "An unexpected error occurred. Please try again later.",
 			expectNil:          false,
 		},
 		{
@@ -76,7 +76,7 @@ func TestHandleDBError(t *testing.T) {
 			resourceName:       "data",
 			expectedStatusCode: 500,
 			expectedStatusText: "Internal server error.",
-			expectedErrorText:  "unexpected error",
+			expectedErrorText:  "An unexpected error occurred. Please try again later.",
 			expectNil:          false,
 		},
 	}
@@ -195,7 +195,7 @@ func TestHandleDBErrorWithID(t *testing.T) {
 			id:                 222,
 			expectedStatusCode: 500,
 			expectedStatusText: "Internal server error.",
-			expectedErrorText:  "constraint violation",
+			expectedErrorText:  "An unexpected error occurred. Please try again later.",
 			expectNil:          false,
 		},
 		{
@@ -205,7 +205,7 @@ func TestHandleDBErrorWithID(t *testing.T) {
 			id:                 0,
 			expectedStatusCode: 500,
 			expectedStatusText: "Internal server error.",
-			expectedErrorText:  "some error",
+			expectedErrorText:  "An unexpected error occurred. Please try again later.",
 			expectNil:          false,
 		},
 	}

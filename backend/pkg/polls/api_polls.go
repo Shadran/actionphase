@@ -253,16 +253,14 @@ func (h *Handler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
 	// Parse request body
 	data := &CreatePollRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind create poll request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind create poll request", "error", err)
 		return
 	}
 
@@ -270,15 +268,13 @@ func (h *Handler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Verify user is GM
 	if err := h.verifyUserIsGM(ctx, int32(gameID), userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not GM of the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+		h.renderError(ctx, w, r, core.ErrForbidden(err.Error()), "User is not GM of the game", "error", err)
 		return
 	}
 
@@ -307,8 +303,7 @@ func (h *Handler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	pollWithOptions, err := pollService.CreatePollWithOptions(ctx, serviceReq)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to create poll")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create poll", "error", err)
 		return
 	}
 
@@ -375,8 +370,7 @@ func (h *Handler) ListGamePolls(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
@@ -384,20 +378,18 @@ func (h *Handler) ListGamePolls(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Check access (completed games are public)
 	access, err := h.checkPollViewAccess(ctx, int32(gameID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check poll view access", "error", err)
 		return
 	}
 	if !access.allowed {
-		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("user is not a participant in this game"), "List game polls forbidden")
 		return
 	}
 
@@ -408,8 +400,7 @@ func (h *Handler) ListGamePolls(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	polls, err := pollService.ListPollsByGame(ctx, int32(gameID), includeExpired)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to list polls")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list polls", "error", err)
 		return
 	}
 
@@ -442,8 +433,7 @@ func (h *Handler) GetPoll(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := chi.URLParam(r, "pollId")
 	pollID, err := strconv.ParseInt(pollIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid poll ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")), "Invalid poll ID", "error", err)
 		return
 	}
 
@@ -451,8 +441,7 @@ func (h *Handler) GetPoll(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -460,25 +449,22 @@ func (h *Handler) GetPoll(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	pollWithOptions, err := pollService.GetPollWithOptions(ctx, int32(pollID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll", "error", err)
 		return
 	}
 
 	// Check access (completed games are public)
 	if access, err := h.checkPollViewAccess(ctx, pollWithOptions.Poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check poll view access", "error", err)
 		return
 	} else if !access.allowed {
-		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("user is not a participant in this game"), "Get poll forbidden")
 		return
 	}
 
 	hasVoted, err := pollService.HasUserVoted(ctx, int32(pollID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check if user voted")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check if user voted", "error", err)
 		return
 	}
 
@@ -518,8 +504,7 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := chi.URLParam(r, "pollId")
 	pollID, err := strconv.ParseInt(pollIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid poll ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")), "Invalid poll ID", "error", err)
 		return
 	}
 
@@ -527,8 +512,7 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -538,28 +522,25 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	// Get poll to find game ID
 	poll, err := pollService.GetPoll(ctx, int32(pollID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll", "error", err)
 		return
 	}
 
 	// Check access (completed games are public) — also gives us canSeeIndividualVotes
 	access, err := h.checkPollViewAccess(ctx, poll.GameID, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check poll view access", "error", err)
 		return
 	}
 	if !access.allowed {
-		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("user is not a participant in this game"), "Get poll results forbidden")
 		return
 	}
 
 	// Get poll results; privileged users (GM, co-GM, audience, completed-game viewers) see individual votes
 	results, err := pollService.GetPollResults(ctx, int32(pollID), access.canSeeIndividualVotes)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll results")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll results", "error", err)
 		return
 	}
 
@@ -569,8 +550,7 @@ func (h *Handler) GetPollResults(w http.ResponseWriter, r *http.Request) {
 	// Regular players can only see results after poll expires; privileged users can always view
 	if !access.canSeeIndividualVotes {
 		if !pollExpired {
-			h.App.ObsLogger.Error(ctx, "Cannot view results - poll still active")
-			render.Render(w, r, core.ErrForbidden("poll results not available until voting closes"))
+			h.renderError(ctx, w, r, core.ErrForbidden("poll results not available until voting closes"), "Cannot view results - poll still active")
 			return
 		}
 	}
@@ -642,8 +622,7 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := chi.URLParam(r, "pollId")
 	pollID, err := strconv.ParseInt(pollIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid poll ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")), "Invalid poll ID", "error", err)
 		return
 	}
 
@@ -651,16 +630,14 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Parse request body
 	data := &SubmitVoteRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind submit vote request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind submit vote request", "error", err)
 		return
 	}
 
@@ -668,15 +645,13 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	poll, err := pollService.GetPoll(ctx, int32(pollID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll", "error", err)
 		return
 	}
 
 	// Verify user is in game
 	if err := h.verifyUserInGame(ctx, poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not in the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+		h.renderError(ctx, w, r, core.ErrForbidden(err.Error()), "User is not in the game", "error", err)
 		return
 	}
 
@@ -684,8 +659,7 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	gameService := &dbservices.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, poll.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
@@ -694,14 +668,12 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 	isAudience := core.IsUserAudience(ctx, h.App.Pool, poll.GameID, userID)
 
 	if isGM || isCoGM {
-		h.App.ObsLogger.Error(ctx, "GMs and co-GMs cannot vote on polls")
-		render.Render(w, r, core.ErrForbidden("GMs and co-GMs cannot vote on polls"))
+		h.renderError(ctx, w, r, core.ErrForbidden("GMs and co-GMs cannot vote on polls"), "GMs and co-GMs cannot vote on polls")
 		return
 	}
 
 	if isAudience {
-		h.App.ObsLogger.Error(ctx, "Audience members cannot vote on polls")
-		render.Render(w, r, core.ErrForbidden("Audience members cannot vote on polls"))
+		h.renderError(ctx, w, r, core.ErrForbidden("Audience members cannot vote on polls"), "Audience members cannot vote on polls")
 		return
 	}
 
@@ -712,20 +684,17 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 		UserID: pgtype.Int4{Int32: userID, Valid: true},
 	})
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check character status")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check character status", "error", err)
 		return
 	}
 	if !hasCharacter {
-		h.App.ObsLogger.Error(ctx, "Player does not have an approved character in this game")
-		render.Render(w, r, core.ErrForbidden("you must have an approved character to vote"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you must have an approved character to vote"), "Player does not have an approved character in this game")
 		return
 	}
 
 	// Check if deadline has passed
 	if poll.Deadline.Time.Before(time.Now()) {
-		h.App.ObsLogger.Error(ctx, "Cannot vote - poll deadline has passed")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("voting closed - poll deadline has passed")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("voting closed - poll deadline has passed")), "Cannot vote - poll deadline has passed")
 		return
 	}
 
@@ -739,8 +708,7 @@ func (h *Handler) SubmitVote(w http.ResponseWriter, r *http.Request) {
 
 	vote, err := pollService.SubmitVote(ctx, serviceReq)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to submit vote")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to submit vote", "error", err)
 		return
 	}
 
@@ -758,8 +726,7 @@ func (h *Handler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := chi.URLParam(r, "pollId")
 	pollID, err := strconv.ParseInt(pollIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid poll ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")), "Invalid poll ID", "error", err)
 		return
 	}
 
@@ -767,16 +734,14 @@ func (h *Handler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Parse request body
 	data := &UpdatePollRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind update poll request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind update poll request", "error", err)
 		return
 	}
 
@@ -784,15 +749,13 @@ func (h *Handler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	poll, err := pollService.GetPoll(ctx, int32(pollID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll", "error", err)
 		return
 	}
 
 	// Verify user is GM
 	if err := h.verifyUserIsGM(ctx, poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not GM of the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+		h.renderError(ctx, w, r, core.ErrForbidden(err.Error()), "User is not GM of the game", "error", err)
 		return
 	}
 
@@ -807,8 +770,7 @@ func (h *Handler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 
 	updatedPoll, err := pollService.UpdatePoll(ctx, int32(pollID), serviceReq)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to update poll")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update poll", "error", err)
 		return
 	}
 
@@ -826,8 +788,7 @@ func (h *Handler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := chi.URLParam(r, "pollId")
 	pollID, err := strconv.ParseInt(pollIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid poll ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid poll ID")), "Invalid poll ID", "error", err)
 		return
 	}
 
@@ -835,8 +796,7 @@ func (h *Handler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -844,22 +804,19 @@ func (h *Handler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	poll, err := pollService.GetPoll(ctx, int32(pollID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get poll")
-		render.Render(w, r, core.ErrNotFound("poll"))
+		h.renderError(ctx, w, r, core.ErrNotFound("poll"), "Failed to get poll", "error", err)
 		return
 	}
 
 	// Verify user is GM
 	if err := h.verifyUserIsGM(ctx, poll.GameID, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "User is not GM of the game")
-		render.Render(w, r, core.ErrForbidden(err.Error()))
+		h.renderError(ctx, w, r, core.ErrForbidden(err.Error()), "User is not GM of the game", "error", err)
 		return
 	}
 
 	// Delete poll
 	if err := pollService.DeletePoll(ctx, int32(pollID)); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete poll")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete poll", "error", err)
 		return
 	}
 
@@ -875,8 +832,7 @@ func (h *Handler) ListPollsByPhase(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
@@ -884,8 +840,7 @@ func (h *Handler) ListPollsByPhase(w http.ResponseWriter, r *http.Request) {
 	phaseIDStr := chi.URLParam(r, "phaseId")
 	phaseID, err := strconv.ParseInt(phaseIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid phase ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")), "Invalid phase ID", "error", err)
 		return
 	}
 
@@ -893,20 +848,18 @@ func (h *Handler) ListPollsByPhase(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Check access (completed games are public)
 	access, err := h.checkPollViewAccess(ctx, int32(gameID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to check poll view access")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check poll view access", "error", err)
 		return
 	}
 	if !access.allowed {
-		render.Render(w, r, core.ErrForbidden("user is not a participant in this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("user is not a participant in this game"), "List polls by phase forbidden")
 		return
 	}
 
@@ -914,8 +867,7 @@ func (h *Handler) ListPollsByPhase(w http.ResponseWriter, r *http.Request) {
 	pollService := &dbservices.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	polls, err := pollService.ListPollsByPhase(ctx, int32(gameID), int32(phaseID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to list polls by phase", "game_id", gameID, "phase_id", phaseID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list polls by phase", "error", err, "game_id", gameID, "phase_id", phaseID)
 		return
 	}
 

@@ -59,8 +59,7 @@ func (h *Handler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid user ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid user ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid user ID")), "Invalid user ID", "error", err)
 		return
 	}
 
@@ -68,8 +67,7 @@ func (h *Handler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	_, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -92,8 +90,7 @@ func (h *Handler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	profileService := &UserProfileService{DB: h.App.Pool}
 	profile, err := profileService.GetUserProfile(ctx, int32(userID), page, pageSize)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get user profile", "user_id", userID)
-		render.Render(w, r, core.ErrNotFound("user profile"))
+		h.renderError(ctx, w, r, core.ErrNotFound("user profile"), "Failed to get user profile", "error", err, "user_id", userID)
 		return
 	}
 
@@ -110,8 +107,7 @@ func (h *Handler) GetUserProfileByUsername(w http.ResponseWriter, r *http.Reques
 	// Extract username from URL
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		h.App.ObsLogger.Error(ctx, "Missing username parameter")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("username is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("username is required")), "Missing username parameter")
 		return
 	}
 
@@ -119,16 +115,14 @@ func (h *Handler) GetUserProfileByUsername(w http.ResponseWriter, r *http.Reques
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	_, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Look up user by username
 	user, err := userService.UserByUsername(username)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to find user", "username", username)
-		render.Render(w, r, core.ErrNotFound("user"))
+		h.renderError(ctx, w, r, core.ErrNotFound("user"), "Failed to find user", "error", err, "username", username)
 		return
 	}
 
@@ -151,8 +145,7 @@ func (h *Handler) GetUserProfileByUsername(w http.ResponseWriter, r *http.Reques
 	profileService := &UserProfileService{DB: h.App.Pool}
 	profile, err := profileService.GetUserProfile(ctx, int32(user.ID), page, pageSize)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get user profile", "user_id", user.ID)
-		render.Render(w, r, core.ErrNotFound("user profile"))
+		h.renderError(ctx, w, r, core.ErrNotFound("user profile"), "Failed to get user profile", "error", err, "user_id", user.ID)
 		return
 	}
 
@@ -172,16 +165,14 @@ func (h *Handler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Parse request body
 	data := &UpdateUserProfileRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind update profile request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind update profile request", "error", err)
 		return
 	}
 
@@ -189,16 +180,14 @@ func (h *Handler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	profileService := &UserProfileService{DB: h.App.Pool}
 	err := profileService.UpdateUserProfile(ctx, userID, data.DisplayName, data.Bio)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to update user profile", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update user profile", "error", err, "user_id", userID)
 		return
 	}
 
 	// Return updated profile (first page with default page size)
 	profile, err := profileService.GetUserProfile(ctx, userID, 1, 12)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get updated profile", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get updated profile", "error", err, "user_id", userID)
 		return
 	}
 
@@ -217,24 +206,21 @@ func (h *Handler) UploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Parse multipart form (max 10MB for total upload)
 	err := r.ParseMultipartForm(10 << 20) // 10MB
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to parse multipart form")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("failed to parse form data")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("failed to parse form data")), "Failed to parse multipart form", "error", err)
 		return
 	}
 
 	// Get file from form
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get avatar file from form")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("avatar file is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("avatar file is required")), "Failed to get avatar file from form", "error", err)
 		return
 	}
 	defer file.Close()
@@ -254,8 +240,7 @@ func (h *Handler) UploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	// Read file into memory for upload service
 	fileData, err := io.ReadAll(file)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to read file data")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("failed to read file")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("failed to read file")), "Failed to read file data", "error", err)
 		return
 	}
 
@@ -268,8 +253,7 @@ func (h *Handler) UploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		contentType,
 	)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to upload user avatar", "user_id", userID)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to upload user avatar", "error", err, "user_id", userID)
 		return
 	}
 
@@ -292,8 +276,7 @@ func (h *Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request) {
 	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -305,8 +288,7 @@ func (h *Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request) {
 
 	err := avatarService.DeleteUserAvatar(ctx, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete user avatar", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete user avatar", "error", err, "user_id", userID)
 		return
 	}
 

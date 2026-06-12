@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 
 	"actionphase/pkg/core"
 	messagesvc "actionphase/pkg/db/services/messages"
@@ -23,21 +22,20 @@ func (h *Handler) MarkPostRead(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid mark post read request")
 		return
 	}
 
 	postIDStr := chi.URLParam(r, "postId")
 	postID, err := strconv.ParseInt(postIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid post ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid post ID")), "Invalid mark post read request")
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Failed to get user from token", "error", err)
 		return
 	}
 
@@ -45,15 +43,14 @@ func (h *Handler) MarkPostRead(w http.ResponseWriter, r *http.Request) {
 		LastReadCommentID *int32 `json:"last_read_comment_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil && err != io.EOF {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")), "Invalid mark post read request")
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	readMarker, err := messageService.MarkPostAsRead(ctx, userID, int32(gameID), int32(postID), requestBody.LastReadCommentID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to mark post as read", "error", err, "game_id", gameID, "post_id", postID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to mark post as read", "error", err, "game_id", gameID, "post_id", postID, "user_id", userID)
 		return
 	}
 
@@ -79,22 +76,20 @@ func (h *Handler) GetGameReadMarkers(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game read markers request")
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Failed to get user from token", "error", err)
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	readMarkers, err := messageService.GetUserReadMarkersForGame(ctx, userID, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get read markers", "error", err, "game_id", gameID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get read markers", "error", err, "game_id", gameID, "user_id", userID)
 		return
 	}
 
@@ -125,15 +120,14 @@ func (h *Handler) GetPostsUnreadInfo(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get posts unread info request")
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	postsInfo, err := messageService.GetPostsWithUnreadInfo(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get posts unread info", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get posts unread info", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -165,22 +159,20 @@ func (h *Handler) GetUnreadCommentIDs(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get unread comment i ds request")
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Failed to get user from token", "error", err)
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	unreadComments, err := messageService.GetUnreadCommentIDsForPosts(ctx, userID, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get unread comment IDs", "error", err, "game_id", gameID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get unread comment IDs", "error", err, "game_id", gameID, "user_id", userID)
 		return
 	}
 
@@ -205,28 +197,27 @@ func (h *Handler) ToggleCommentRead(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid toggle comment read request")
 		return
 	}
 
 	postIDStr := chi.URLParam(r, "postId")
 	postID, err := strconv.ParseInt(postIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid post ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid post ID")), "Invalid toggle comment read request")
 		return
 	}
 
 	commentIDStr := chi.URLParam(r, "commentId")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")), "Invalid toggle comment read request")
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Failed to get user from token", "error", err)
 		return
 	}
 
@@ -234,7 +225,7 @@ func (h *Handler) ToggleCommentRead(w http.ResponseWriter, r *http.Request) {
 		Read bool `json:"read"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil && err != io.EOF {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")), "Invalid toggle comment read request")
 		return
 	}
 
@@ -242,7 +233,7 @@ func (h *Handler) ToggleCommentRead(w http.ResponseWriter, r *http.Request) {
 	if err := messageService.ToggleCommentRead(ctx, userID, int32(gameID), int32(postID), int32(commentID), requestBody.Read); err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to toggle comment read", "error", err,
 			"game_id", gameID, "post_id", postID, "comment_id", commentID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to toggle comment read", "error", err)
 		return
 	}
 
@@ -258,22 +249,20 @@ func (h *Handler) GetManualReadCommentIDs(w http.ResponseWriter, r *http.Request
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get manual read comment i ds request")
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Failed to get user from token", "error", err)
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	manualReads, err := messageService.GetManualReadCommentIDsForGame(ctx, userID, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get manual read comment IDs", "error", err, "game_id", gameID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get manual read comment IDs", "error", err, "game_id", gameID, "user_id", userID)
 		return
 	}
 

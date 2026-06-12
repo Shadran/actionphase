@@ -44,16 +44,14 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &CreateHandoutRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind create handout request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind create handout request", "error", err)
 		return
 	}
 
@@ -61,8 +59,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -70,13 +67,12 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if errResp := h.verifyUserIsGM(ctx, game, userID); errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in create handout")
 		return
 	}
 
@@ -84,8 +80,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	handout, err := handoutService.CreateHandout(ctx, int32(gameID), data.Title, data.Content, data.Status, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to create handout")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create handout", "error", err)
 		return
 	}
 
@@ -116,8 +111,7 @@ func (h *Handler) GetHandout(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
@@ -125,8 +119,7 @@ func (h *Handler) GetHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -134,8 +127,7 @@ func (h *Handler) GetHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -163,8 +155,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
@@ -172,8 +163,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -181,8 +171,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
@@ -193,8 +182,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	handouts, err := handoutService.ListHandouts(ctx, int32(gameID), userID, isGM)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to list handouts")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list handouts", "error", err)
 		return
 	}
 
@@ -226,16 +214,14 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &UpdateHandoutRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind update handout request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind update handout request", "error", err)
 		return
 	}
 
@@ -243,8 +229,7 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -252,8 +237,7 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -261,21 +245,19 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if errResp := h.verifyUserIsGM(ctx, game, userID); errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in update handout")
 		return
 	}
 
 	// Update handout
 	handout, err := handoutService.UpdateHandout(ctx, int32(handoutID), data.Title, data.Content, data.Status, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to update handout")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update handout", "error", err)
 		return
 	}
 
@@ -305,8 +287,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
@@ -314,8 +295,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -323,8 +303,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -332,21 +311,19 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if errResp := h.verifyUserIsGM(ctx, game, userID); errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in delete handout")
 		return
 	}
 
 	// Delete handout
 	err = handoutService.DeleteHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete handout")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete handout", "error", err)
 		return
 	}
 
@@ -366,8 +343,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
@@ -375,8 +351,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -384,8 +359,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -393,21 +367,19 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if errResp := h.verifyUserIsGM(ctx, game, userID); errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in publish handout")
 		return
 	}
 
 	// Publish handout
 	handout, err := handoutService.PublishHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to publish handout")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to publish handout", "error", err)
 		return
 	}
 
@@ -486,8 +458,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
@@ -495,8 +466,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -504,8 +474,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -513,21 +482,19 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if errResp := h.verifyUserIsGM(ctx, game, userID); errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in unpublish handout")
 		return
 	}
 
 	// Unpublish handout
 	handout, err := handoutService.UnpublishHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to unpublish handout")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to unpublish handout", "error", err)
 		return
 	}
 

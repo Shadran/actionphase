@@ -97,8 +97,7 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -180,8 +179,7 @@ func (h *Handler) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -215,8 +213,7 @@ func (h *Handler) GetNotification(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -280,8 +277,7 @@ func (h *Handler) MarkNotificationAsRead(w http.ResponseWriter, r *http.Request)
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -331,8 +327,7 @@ func (h *Handler) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -372,8 +367,7 @@ func (h *Handler) DeleteNotification(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 

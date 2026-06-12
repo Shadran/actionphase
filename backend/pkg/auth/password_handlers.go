@@ -15,7 +15,7 @@ func (h *Handler) V1ChangePassword(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -24,7 +24,7 @@ func (h *Handler) V1ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req ChangePasswordRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid v1 change password request", "error", err)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *Handler) V1ChangePassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.App.Logger.Error("Failed to change password", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to v1 change password", "error", err)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *Handler) V1RequestPasswordReset(w http.ResponseWriter, r *http.Request)
 	// Parse request body
 	var req RequestPasswordResetRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid v1 request password reset request", "error", err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *Handler) V1ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req ResetPasswordRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid v1 reset password request", "error", err)
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *Handler) V1ResetPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.App.Logger.Error("Failed to reset password", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to v1 reset password", "error", err)
 		return
 	}
 

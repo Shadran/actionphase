@@ -15,12 +15,12 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 
 	data := &Request{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 register request", "error", err)
 		return
 	}
 
 	if err := data.User.Validate(); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 register request", "error", err)
 		return
 	}
 
@@ -35,7 +35,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 register request", "error", err)
 		return
 	}
 
@@ -64,8 +64,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 
 	result, err := botService.CheckRegistrationAttempt(ctx, checkRequest)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Bot prevention check failed", "error", err, "email", data.User.Email)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Bot prevention check failed", "error", err, "email", data.User.Email)
 		return
 	}
 
@@ -92,7 +91,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 			errorMsg = "Registration not allowed at this time"
 		}
 
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("%s", errorMsg)))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("%s", errorMsg)), "Invalid v1 register request")
 		return
 	}
 
@@ -100,7 +99,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 	h.App.ObsLogger.Info(ctx, "Creating user", "username", data.User.Username)
 	returnUser, err := UserService.CreateUser(data.User)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 register request", "error", err)
 		return
 	}
 
@@ -134,7 +133,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 		Fingerprint: fingerprintPtr(data.Fingerprint),
 	})
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to v1 register", "error", err)
 		return
 	}
 

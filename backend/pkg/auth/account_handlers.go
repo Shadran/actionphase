@@ -17,8 +17,7 @@ func (h *Handler) V1VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req VerifyEmailRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid verify email request", "error", err)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid verify email request", "error", err)
 		return
 	}
 
@@ -47,8 +46,7 @@ func (h *Handler) V1VerifyEmail(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to verify email", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to verify email", "error", err)
 		return
 	}
 
@@ -69,8 +67,7 @@ func (h *Handler) V1ResendVerificationEmail(w http.ResponseWriter, r *http.Reque
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -79,8 +76,7 @@ func (h *Handler) V1ResendVerificationEmail(w http.ResponseWriter, r *http.Reque
 	// Create account service
 	emailService, err := email.NewEmailServiceFromEnv()
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create email service", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create email service", "error", err)
 		return
 	}
 
@@ -93,8 +89,7 @@ func (h *Handler) V1ResendVerificationEmail(w http.ResponseWriter, r *http.Reque
 	// Resend verification email
 	err = accountService.ResendVerificationEmail(ctx, userID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to resend verification email", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to resend verification email", "error", err, "user_id", userID)
 		return
 	}
 
@@ -115,8 +110,7 @@ func (h *Handler) V1ChangeUsername(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -125,7 +119,7 @@ func (h *Handler) V1ChangeUsername(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req ChangeUsernameRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 change username request", "error", err)
 		return
 	}
 
@@ -147,8 +141,7 @@ func (h *Handler) V1ChangeUsername(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to change username", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to change username", "error", err, "user_id", userID)
 		return
 	}
 
@@ -169,8 +162,7 @@ func (h *Handler) V1RequestEmailChange(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -179,15 +171,14 @@ func (h *Handler) V1RequestEmailChange(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req ChangeEmailRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 request email change request", "error", err)
 		return
 	}
 
 	// Create account service
 	emailService, err := email.NewEmailServiceFromEnv()
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create email service", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create email service", "error", err)
 		return
 	}
 
@@ -209,8 +200,7 @@ func (h *Handler) V1RequestEmailChange(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to request email change", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to request email change", "error", err, "user_id", userID)
 		return
 	}
 
@@ -231,8 +221,7 @@ func (h *Handler) V1CompleteEmailChange(w http.ResponseWriter, r *http.Request) 
 	// Parse request body
 	var req VerifyEmailRequest
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid complete email change request", "error", err)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid complete email change request", "error", err)
 		return
 	}
 
@@ -261,8 +250,7 @@ func (h *Handler) V1CompleteEmailChange(w http.ResponseWriter, r *http.Request) 
 			})
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to complete email change", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to complete email change", "error", err)
 		return
 	}
 
@@ -283,8 +271,7 @@ func (h *Handler) V1DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -299,8 +286,7 @@ func (h *Handler) V1DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	// Soft delete account
 	err := accountService.SoftDeleteAccount(ctx, userID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to delete account", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete account", "error", err, "user_id", userID)
 		return
 	}
 
@@ -321,8 +307,7 @@ func (h *Handler) V1RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -331,16 +316,14 @@ func (h *Handler) V1RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
 	// Get current token to identify current session
 	token, _, err := jwtauth.FromContext(ctx)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get token from context", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Failed to get token from context", "error", err)
 		return
 	}
 
 	// Get current session ID from token
 	sessionIDFloat, ok := token.Get("session_id")
 	if !ok {
-		h.App.ObsLogger.Error(ctx, "session_id not found in token")
-		render.Render(w, r, core.ErrUnauthorized("session_id not found in token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("session_id not found in token"), "session_id not found in token")
 		return
 	}
 
@@ -355,8 +338,7 @@ func (h *Handler) V1RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
 	// Revoke all sessions except current
 	err = accountService.RevokeAllSessions(ctx, userID, currentSessionID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to revoke all sessions", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to revoke all sessions", "error", err, "user_id", userID)
 		return
 	}
 

@@ -23,21 +23,20 @@ func (h *Handler) CreateActionResult(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid create action result request")
 		return
 	}
 
 	data := &CreateActionResultRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create action result request", "error", err)
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -47,26 +46,24 @@ func (h *Handler) CreateActionResult(w http.ResponseWriter, r *http.Request) {
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(gmUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return
 	}
 
 	if !canManage {
-		render.Render(w, r, core.ErrForbidden("only the GM can create action results"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can create action results"), "Create action result forbidden")
 		return
 	}
 
 	// Get active phase
 	activePhase, err := phaseService.GetActivePhase(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get active phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get active phase", "error", err)
 		return
 	}
 
 	if activePhase == nil {
-		render.Render(w, r, core.ErrBadRequest(fmt.Errorf("no active phase for this game")))
+		h.renderError(ctx, w, r, core.ErrBadRequest(fmt.Errorf("no active phase for this game")), "Bad create action result request")
 		return
 	}
 
@@ -85,8 +82,7 @@ func (h *Handler) CreateActionResult(w http.ResponseWriter, r *http.Request) {
 
 	result, err := actionService.CreateActionResult(ctx, req)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create action result", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create action result", "error", err)
 		return
 	}
 
@@ -117,23 +113,21 @@ func (h *Handler) GetUserActionResults(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get user action results request")
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	results, err := actionService.GetUserResults(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user action results", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user action results", "error", err)
 		return
 	}
 
@@ -179,15 +173,14 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game action results request")
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -195,8 +188,7 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return
 	}
 
@@ -204,8 +196,7 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 	gameService := &gamesvc.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
@@ -214,15 +205,14 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 
 	// Allow access if: GM, audience, or game is completed (public archive)
 	if !canManage && !isAudience && game.State.String != "completed" {
-		render.Render(w, r, core.ErrForbidden("only the GM, audience, or participants of completed games can view all action results"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM, audience, or participants of completed games can view all action results"), "Get game action results forbidden")
 		return
 	}
 
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	results, err := actionService.GetGameResults(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game action results", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game action results", "error", err)
 		return
 	}
 
@@ -279,14 +269,14 @@ func (h *Handler) UpdateActionResult(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid update action result request")
 		return
 	}
 
 	resultIDStr := chi.URLParam(r, "resultId")
 	resultID, err := strconv.ParseInt(resultIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")), "Invalid update action result request")
 		return
 	}
 
@@ -296,15 +286,14 @@ func (h *Handler) UpdateActionResult(w http.ResponseWriter, r *http.Request) {
 
 	data := &UpdateResultRequest{}
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update action result request", "error", err)
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -312,13 +301,12 @@ func (h *Handler) UpdateActionResult(w http.ResponseWriter, r *http.Request) {
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return
 	}
 
 	if !canManage {
-		render.Render(w, r, core.ErrForbidden("only the GM can update action results"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can update action results"), "Update action result forbidden")
 		return
 	}
 
@@ -326,8 +314,7 @@ func (h *Handler) UpdateActionResult(w http.ResponseWriter, r *http.Request) {
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	result, err := actionService.UpdateActionResult(ctx, int32(resultID), data.Content)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update action result", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update action result", "error", err)
 		return
 	}
 
@@ -357,22 +344,21 @@ func (h *Handler) PublishActionResult(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid publish action result request")
 		return
 	}
 
 	resultIDStr := chi.URLParam(r, "resultId")
 	resultID, err := strconv.ParseInt(resultIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")), "Invalid publish action result request")
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -380,13 +366,12 @@ func (h *Handler) PublishActionResult(w http.ResponseWriter, r *http.Request) {
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return
 	}
 
 	if !canManage {
-		render.Render(w, r, core.ErrForbidden("only the GM can publish action results"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can publish action results"), "Publish action result forbidden")
 		return
 	}
 
@@ -394,8 +379,7 @@ func (h *Handler) PublishActionResult(w http.ResponseWriter, r *http.Request) {
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	err = actionService.PublishActionResult(ctx, int32(resultID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to publish action result", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to publish action result", "error", err)
 		return
 	}
 

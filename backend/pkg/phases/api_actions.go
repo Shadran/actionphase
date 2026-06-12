@@ -23,21 +23,20 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid submit action request")
 		return
 	}
 
 	data := &SubmitActionRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid submit action request", "error", err)
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -47,33 +46,29 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 	// Check if user can submit actions
 	canSubmit, err := phaseService.CanUserSubmitActions(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check action submission permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check action submission permission", "error", err)
 		return
 	}
 
 	if !canSubmit {
-		h.App.ObsLogger.Warn(ctx, "Action submission permission denied", "game_id", gameID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("you cannot submit actions for this game"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you cannot submit actions for this game"), "Action submission permission denied", "game_id", gameID, "user_id", authUser.ID)
 		return
 	}
 
 	// Get active phase
 	activePhase, err := phaseService.GetActivePhase(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get active phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get active phase", "error", err)
 		return
 	}
 
 	if activePhase == nil {
-		render.Render(w, r, core.ErrBadRequest(fmt.Errorf("no active phase for this game")))
+		h.renderError(ctx, w, r, core.ErrBadRequest(fmt.Errorf("no active phase for this game")), "Bad submit action request")
 		return
 	}
 
 	if activePhase.PhaseType != core.PhaseTypeAction {
-		h.App.ObsLogger.Warn(ctx, "Action submission rejected: not an action phase", "game_id", gameID, "phase_type", activePhase.PhaseType)
-		render.Render(w, r, core.ErrForbidden("actions can only be submitted during an action phase"))
+		h.renderError(ctx, w, r, core.ErrForbidden("actions can only be submitted during an action phase"), "Action submission rejected: not an action phase", "game_id", gameID, "phase_type", activePhase.PhaseType)
 		return
 	}
 
@@ -92,10 +87,10 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Error(ctx, "Failed to submit action", "error", err)
 		// Check if error is due to archived game
 		if core.IsArchivedGameError(err) {
-			render.Render(w, r, core.ErrGameArchived())
+			h.renderError(ctx, w, r, core.ErrGameArchived(), "Error in submit action")
 			return
 		}
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to submit action", "error", err)
 		return
 	}
 
@@ -166,23 +161,21 @@ func (h *Handler) GetUserActions(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get user actions request")
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	actions, err := actionService.GetUserActions(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user actions", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user actions", "error", err)
 		return
 	}
 
@@ -224,15 +217,14 @@ func (h *Handler) GetGameActions(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game actions request")
 		return
 	}
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -240,21 +232,19 @@ func (h *Handler) GetGameActions(w http.ResponseWriter, r *http.Request) {
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return
 	}
 
 	if !canManage {
-		render.Render(w, r, core.ErrForbidden("only the GM can view all actions"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can view all actions"), "Get game actions forbidden")
 		return
 	}
 
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	actions, err := actionService.GetGameActions(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game actions", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game actions", "error", err)
 		return
 	}
 

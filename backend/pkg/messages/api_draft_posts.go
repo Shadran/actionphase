@@ -26,31 +26,30 @@ func (h *Handler) GetDraftPost(w http.ResponseWriter, r *http.Request) {
 
 	phaseID, err := parsePhaseID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid get draft post request", "error", err)
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
 	}
 
 	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
-		render.Render(w, r, err)
+		h.renderError(ctx, w, r, err, "GM required for draft post access", "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	draft, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get draft post", "error", err, "phase_id", phaseID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get draft post", "error", err, "phase_id", phaseID)
 		return
 	}
 
 	if draft == nil {
-		render.Render(w, r, core.ErrNotFound("no draft post for this phase"))
+		h.renderError(ctx, w, r, core.ErrNotFound("no draft post for this phase"), "Get draft post not found")
 		return
 	}
 
@@ -66,36 +65,36 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 
 	phaseID, err := parsePhaseID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create draft post request", "error", err)
 		return
 	}
 
 	data := &CreateDraftPostRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create draft post request", "error", err)
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
 	}
 
 	// Validate content length
 	if err := validation.ValidatePost(data.Content); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create draft post request", "error", err)
 		return
 	}
 
 	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
-		render.Render(w, r, err)
+		h.renderError(ctx, w, r, err, "GM required for draft post creation", "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
 	gameID, err := getGameIDForPhase(ctx, h.App, phaseID)
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("phase not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("phase not found"), "Create draft post not found")
 		return
 	}
 
@@ -110,15 +109,14 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, core.ErrDraftPostExists) {
-			render.Render(w, r, core.ErrConflict("a draft post already exists for this phase"))
+			h.renderError(ctx, w, r, core.ErrConflict("a draft post already exists for this phase"), "Create draft post conflict")
 			return
 		}
 		if core.IsArchivedGameError(err) {
-			render.Render(w, r, core.ErrGameArchived())
+			h.renderError(ctx, w, r, core.ErrGameArchived(), "Error in create draft post")
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to create draft post", "error", err, "phase_id", phaseID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create draft post", "error", err, "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
@@ -136,29 +134,29 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 
 	phaseID, err := parsePhaseID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update draft post request", "error", err)
 		return
 	}
 
 	data := &UpdateDraftPostRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update draft post request", "error", err)
 		return
 	}
 
 	if err := validation.ValidatePost(data.Content); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update draft post request", "error", err)
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
 	}
 
 	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
-		render.Render(w, r, err)
+		h.renderError(ctx, w, r, err, "GM required for draft post update", "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
@@ -167,18 +165,17 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 	// Find existing draft to get its ID
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update draft post", "error", err)
 		return
 	}
 	if existing == nil {
-		render.Render(w, r, core.ErrNotFound("no draft post for this phase"))
+		h.renderError(ctx, w, r, core.ErrNotFound("no draft post for this phase"), "Update draft post not found")
 		return
 	}
 
 	updated, err := messageService.UpdateDraftPost(ctx, existing.ID, data.Content)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update draft post", "error", err, "phase_id", phaseID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update draft post", "error", err, "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
@@ -195,18 +192,18 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 
 	phaseID, err := parsePhaseID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid delete draft post request", "error", err)
 		return
 	}
 
 	userID, err := getUserIDFromToken(r, h.App)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized(err.Error()))
+		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
 	}
 
 	if err := requireGMForPhase(ctx, h.App, phaseID, userID); err != nil {
-		render.Render(w, r, err)
+		h.renderError(ctx, w, r, err, "GM required for draft post deletion", "phase_id", phaseID, "user_id", userID)
 		return
 	}
 
@@ -214,17 +211,16 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete draft post", "error", err)
 		return
 	}
 	if existing == nil {
-		render.Render(w, r, core.ErrNotFound("no draft post for this phase"))
+		h.renderError(ctx, w, r, core.ErrNotFound("no draft post for this phase"), "Delete draft post not found")
 		return
 	}
 
 	if err := messageService.DeleteDraftPost(ctx, existing.ID); err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to delete draft post", "error", err, "phase_id", phaseID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete draft post", "error", err, "phase_id", phaseID, "user_id", userID)
 		return
 	}
 

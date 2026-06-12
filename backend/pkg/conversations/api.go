@@ -53,7 +53,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -62,23 +62,23 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid create conversation request")
 		return
 	}
 
 	data := &CreateConversationRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create conversation request", "error", err)
 		return
 	}
 
 	if data.Title == "" {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("conversation title is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("conversation title is required")), "Invalid create conversation request")
 		return
 	}
 
 	if len(data.CharacterIDs) < 2 {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("at least 2 characters required for a conversation")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("at least 2 characters required for a conversation")), "Invalid create conversation request")
 		return
 	}
 
@@ -86,11 +86,11 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get game for conversation validation", "error", err, "game_id", gameID)
-		render.Render(w, r, core.HandleDBErrorWithID(err, "game", gameID))
+		h.renderError(ctx, w, r, core.HandleDBErrorWithID(err, "game", gameID), "Error in create conversation")
 		return
 	}
 	if !game.AllowGroupConversations && len(data.CharacterIDs) > 2 {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("group conversations are not allowed in this game")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("group conversations are not allowed in this game")), "Invalid create conversation request")
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.App.Logger.Error("Failed to create conversation", "error", err, "game_id", gameID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create conversation", "error", err)
 		return
 	}
 
@@ -121,7 +121,7 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get user conversations request")
 		return
 	}
 
@@ -138,7 +138,7 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 	conversations, err := conversationService.GetUserConversations(ctx, int32(gameID), userID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get user conversations", "error", err, "game_id", gameID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user conversations", "error", err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid get conversation request")
 		return
 	}
 
@@ -179,11 +179,11 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
 	if err != nil {
 		h.App.Logger.Error("Failed to check conversation access", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation", "error", err)
 		return
 	}
 	if !canAccess {
-		render.Render(w, r, core.ErrForbidden("you don't have access to this conversation"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you don't have access to this conversation"), "Get conversation forbidden")
 		return
 	}
 
@@ -191,7 +191,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	conv, err := conversationService.Queries.GetConversation(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation", "error", err, "conversation_id", conversationID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation", "error", err)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	participants, err := conversationService.GetConversationParticipants(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get participants", "error", err, "conversation_id", conversationID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation", "error", err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -226,7 +226,7 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid get conversation messages request")
 		return
 	}
 
@@ -236,18 +236,18 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
 	if err != nil {
 		h.App.Logger.Error("Failed to check conversation access", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation messages", "error", err)
 		return
 	}
 	if !canAccess {
-		render.Render(w, r, core.ErrForbidden("you don't have access to this conversation"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you don't have access to this conversation"), "Get conversation messages forbidden")
 		return
 	}
 
 	messages, err := conversationService.GetConversationMessages(ctx, int32(conversationID), userID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation messages", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation messages", "error", err)
 		return
 	}
 
@@ -279,7 +279,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -288,18 +288,18 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid send message request")
 		return
 	}
 
 	data := &SendMessageRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid send message request", "error", err)
 		return
 	}
 
 	if data.Content == "" {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("message content is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("message content is required")), "Invalid send message request")
 		return
 	}
 
@@ -309,7 +309,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	participants, err := conversationService.GetConversationParticipants(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation participants", "error", err, "conversation_id", conversationID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
 		return
 	}
 
@@ -327,14 +327,14 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	if !isCharacterInConversation {
 		h.App.Logger.Warn("Character not in conversation", "character_id", data.CharacterID, "conversation_id", conversationID)
-		render.Render(w, r, core.ErrForbidden("character is not a participant in this conversation"))
+		h.renderError(ctx, w, r, core.ErrForbidden("character is not a participant in this conversation"), "Send message forbidden")
 		return
 	}
 
 	// Verify the user can control this character (either owns it or can control it as NPC)
 	if !core.CanUserControlNPC(ctx, h.App.Pool, data.CharacterID, userID) {
 		h.App.Logger.Warn("User cannot control character", "character_id", data.CharacterID, "user_id", userID)
-		render.Render(w, r, core.ErrForbidden("you cannot send messages as this character"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you cannot send messages as this character"), "Send message forbidden")
 		return
 	}
 
@@ -343,7 +343,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	character, err := characterService.GetCharacter(ctx, data.CharacterID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get character", "error", err, "character_id", data.CharacterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
 		return
 	}
 
@@ -352,13 +352,13 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	activePhase, err := phaseService.GetActivePhase(ctx, character.GameID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get active phase", "error", err, "game_id", character.GameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
 		return
 	}
 
 	if activePhase == nil || (activePhase.PhaseType != core.PhaseTypeCommonRoom && activePhase.PhaseType != core.PhaseTypeInterlude) {
 		h.App.Logger.Warn("Cannot send private messages outside common room or interlude phase", "game_id", character.GameID, "phase_type", activePhase.PhaseType)
-		render.Render(w, r, core.ErrForbidden("private messages can only be sent during common room or interlude phases"))
+		h.renderError(ctx, w, r, core.ErrForbidden("private messages can only be sent during common room or interlude phases"), "Send message forbidden")
 		return
 	}
 
@@ -370,7 +370,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.App.Logger.Error("Failed to send message", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
 		return
 	}
 
@@ -388,7 +388,7 @@ func (h *Handler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -397,14 +397,14 @@ func (h *Handler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid mark as read request")
 		return
 	}
 
 	conversationService := db.NewConversationService(h.App.Pool)
 	if err := conversationService.MarkConversationAsRead(ctx, int32(conversationID), userID); err != nil {
 		h.App.Logger.Error("Failed to mark conversation as read", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to mark as read", "error", err)
 		return
 	}
 
@@ -430,7 +430,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -439,7 +439,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid add participant request")
 		return
 	}
 
@@ -449,23 +449,23 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
 	if err != nil {
 		h.App.Logger.Error("Failed to check conversation access", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to add participant", "error", err)
 		return
 	}
 	if !canAccess {
-		render.Render(w, r, core.ErrForbidden("you don't have access to this conversation"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you don't have access to this conversation"), "Add participant forbidden")
 		return
 	}
 
 	data := &AddParticipantRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid add participant request", "error", err)
 		return
 	}
 
 	if err := conversationService.AddParticipant(ctx, int32(conversationID), data.CharacterID); err != nil {
 		h.App.Logger.Error("Failed to add participant", "error", err, "conversation_id", conversationID, "character_id", data.CharacterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to add participant", "error", err)
 		return
 	}
 
@@ -492,7 +492,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -501,25 +501,25 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid update message request")
 		return
 	}
 
 	messageIDStr := chi.URLParam(r, "messageId")
 	messageID, err := strconv.ParseInt(messageIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid message ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid message ID")), "Invalid update message request")
 		return
 	}
 
 	data := &UpdateMessageRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update message request", "error", err)
 		return
 	}
 
 	if data.Content == "" {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("message content is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("message content is required")), "Invalid update message request")
 		return
 	}
 
@@ -529,18 +529,18 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
 	if err != nil {
 		h.App.Logger.Error("Failed to check conversation access", "error", err, "conversation_id", conversationID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
 		return
 	}
 	if !canAccess {
-		render.Render(w, r, core.ErrForbidden("you don't have access to this conversation"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you don't have access to this conversation"), "Update message forbidden")
 		return
 	}
 
 	// Get the message to find the character/game for phase validation
 	msg, err := conversationService.Queries.GetPrivateMessage(ctx, int32(messageID))
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("message not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("message not found"), "Update message not found")
 		return
 	}
 
@@ -548,7 +548,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	conv, err := conversationService.Queries.GetConversation(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation", "error", err, "conversation_id", conversationID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
 		return
 	}
 
@@ -556,32 +556,32 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	activePhase, err := phaseService.GetActivePhase(ctx, conv.GameID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get active phase", "error", err, "game_id", conv.GameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
 		return
 	}
 
 	if activePhase == nil || (activePhase.PhaseType != core.PhaseTypeCommonRoom && activePhase.PhaseType != core.PhaseTypeInterlude) {
 		h.App.Logger.Warn("Cannot edit private message outside common room or interlude phase", "game_id", conv.GameID, "phase_type", activePhase.PhaseType)
-		render.Render(w, r, core.ErrForbidden("private messages can only be edited during common room or interlude phases"))
+		h.renderError(ctx, w, r, core.ErrForbidden("private messages can only be edited during common room or interlude phases"), "Update message forbidden")
 		return
 	}
 
 	updated, err := conversationService.UpdatePrivateMessage(ctx, int32(messageID), userID, data.Content)
 	if err != nil {
 		if err.Error() == "message not found" {
-			render.Render(w, r, core.ErrNotFound("message not found"))
+			h.renderError(ctx, w, r, core.ErrNotFound("message not found"), "Update message not found")
 			return
 		}
 		if err.Error() == "forbidden: you can only edit your own messages" {
-			render.Render(w, r, core.ErrForbidden("you can only edit your own messages"))
+			h.renderError(ctx, w, r, core.ErrForbidden("you can only edit your own messages"), "Update message forbidden")
 			return
 		}
 		if err.Error() == "cannot edit a deleted message" {
-			render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("cannot edit a deleted message")))
+			h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("cannot edit a deleted message")), "Invalid update message request")
 			return
 		}
 		h.App.Logger.Error("Failed to update message", "error", err, "message_id", messageID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
 		return
 	}
 
@@ -598,7 +598,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
 		h.App.Logger.Error("No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "Unauthorized")
 		return
 	}
 
@@ -607,14 +607,14 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid conversation ID")), "Invalid delete message request")
 		return
 	}
 
 	messageIDStr := chi.URLParam(r, "messageId")
 	messageID, err := strconv.ParseInt(messageIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid message ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid message ID")), "Invalid delete message request")
 		return
 	}
 
@@ -624,15 +624,15 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	err = conversationService.DeletePrivateMessage(ctx, int32(messageID), userID)
 	if err != nil {
 		if err.Error() == "message not found" {
-			render.Render(w, r, core.ErrNotFound("message not found"))
+			h.renderError(ctx, w, r, core.ErrNotFound("message not found"), "Delete message not found")
 			return
 		}
 		if err.Error() == "forbidden: you can only delete your own messages" {
-			render.Render(w, r, core.ErrForbidden("you can only delete your own messages"))
+			h.renderError(ctx, w, r, core.ErrForbidden("you can only delete your own messages"), "Delete message forbidden")
 			return
 		}
 		h.App.Logger.Error("Failed to delete message", "error", err, "message_id", messageID, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete message", "error", err)
 		return
 	}
 

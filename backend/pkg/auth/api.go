@@ -137,15 +137,13 @@ func (h *Handler) V1GetPreferences(w http.ResponseWriter, r *http.Request) {
 	// Get user_id from JWT token (stored in "sub" claim)
 	token, _, err := jwtauth.FromContext(ctx)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get token from context", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Failed to get token from context", "error", err)
 		return
 	}
 
 	userIDStr, ok := token.Get("sub")
 	if !ok {
-		h.App.ObsLogger.Error(ctx, "User ID not found in token")
-		render.Render(w, r, core.ErrUnauthorized("user id not found in token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("user id not found in token"), "User ID not found in token")
 		return
 	}
 
@@ -157,8 +155,7 @@ func (h *Handler) V1GetPreferences(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	user, err := userService.GetUserByID(userID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrUnauthorized("user not found"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("user not found"), "Failed to find user", "error", err, "user_id", userID)
 		return
 	}
 
@@ -166,8 +163,7 @@ func (h *Handler) V1GetPreferences(w http.ResponseWriter, r *http.Request) {
 	prefsService := db.NewUserPreferencesService(h.App.Pool)
 	prefs, err := prefsService.GetUserPreferences(ctx, int32(user.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user preferences", "error", err, "user_id", user.ID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user preferences", "error", err, "user_id", user.ID)
 		return
 	}
 
@@ -188,15 +184,13 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	// Get user_id from JWT token (stored in "sub" claim)
 	token, _, err := jwtauth.FromContext(ctx)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get token from context", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Failed to get token from context", "error", err)
 		return
 	}
 
 	userIDStr, ok := token.Get("sub")
 	if !ok {
-		h.App.ObsLogger.Error(ctx, "User ID not found in token")
-		render.Render(w, r, core.ErrUnauthorized("user id not found in token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("user id not found in token"), "User ID not found in token")
 		return
 	}
 
@@ -208,16 +202,14 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	user, err := userService.GetUserByID(userID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrUnauthorized("user not found"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("user not found"), "Failed to find user", "error", err, "user_id", userID)
 		return
 	}
 
 	// Parse request
 	data := &PreferencesRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.Warn(ctx, "Invalid request body", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid request body", "error", err, "user_id", userID)
 		return
 	}
 
@@ -225,8 +217,7 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	prefsService := db.NewUserPreferencesService(h.App.Pool)
 	prefs, err := prefsService.UpdateUserPreferences(ctx, int32(user.ID), *data.Preferences)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update user preferences", "error", err, "user_id", user.ID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update user preferences", "error", err, "user_id", user.ID)
 		return
 	}
 
@@ -264,8 +255,7 @@ func (h *Handler) V1SearchUsers(w http.ResponseWriter, r *http.Request) {
 	// Get search query from URL parameters
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		h.App.ObsLogger.Warn(ctx, "Search query parameter missing")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("search query parameter 'q' is required")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("search query parameter 'q' is required")), "Search query parameter missing")
 		return
 	}
 
@@ -273,8 +263,7 @@ func (h *Handler) V1SearchUsers(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	users, err := userService.SearchUsers(ctx, query)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to search users", "error", err, "query", query)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to search users", "error", err, "query", query)
 		return
 	}
 

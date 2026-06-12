@@ -26,16 +26,14 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &CreateDeadlineRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind create deadline request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind create deadline request", "error", err)
 		return
 	}
 
@@ -43,15 +41,14 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Check if user is GM of the game
 	_, errResp = h.verifyUserIsGM(ctx, int32(gameID), userID)
 	if errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in create deadline")
 		return
 	}
 
@@ -66,8 +63,7 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 	deadline, err := deadlineService.CreateDeadline(ctx, req)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to create deadline")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create deadline", "error", err)
 		return
 	}
 
@@ -90,8 +86,7 @@ func (h *Handler) GetGameDeadlines(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid game ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid game ID", "error", err)
 		return
 	}
 
@@ -102,8 +97,7 @@ func (h *Handler) GetGameDeadlines(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	_, err = gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Game not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Failed to get game", "error", err)
 		return
 	}
 
@@ -111,8 +105,7 @@ func (h *Handler) GetGameDeadlines(w http.ResponseWriter, r *http.Request) {
 	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	deadlines, err := deadlineService.GetAllGameDeadlines(ctx, int32(gameID), includeExpired)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get all game deadlines")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get all game deadlines", "error", err)
 		return
 	}
 
@@ -136,16 +129,14 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 	deadlineIDStr := chi.URLParam(r, "deadlineId")
 	deadlineID, err := strconv.ParseInt(deadlineIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid deadline ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid deadline ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid deadline ID")), "Invalid deadline ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &UpdateDeadlineRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind update deadline request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind update deadline request", "error", err)
 		return
 	}
 
@@ -153,8 +144,7 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -162,15 +152,14 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	existingDeadline, err := deadlineService.GetDeadline(ctx, int32(deadlineID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get deadline")
-		render.Render(w, r, core.ErrNotFound("Deadline not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Deadline not found"), "Failed to get deadline", "error", err)
 		return
 	}
 
 	// Check if user is GM of the game
 	_, errResp = h.verifyUserIsGM(ctx, existingDeadline.GameID, userID)
 	if errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in update deadline")
 		return
 	}
 
@@ -182,8 +171,7 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 	deadline, err := deadlineService.UpdateDeadline(ctx, int32(deadlineID), updateReq)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to update deadline")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update deadline", "error", err)
 		return
 	}
 
@@ -205,8 +193,7 @@ func (h *Handler) DeleteDeadline(w http.ResponseWriter, r *http.Request) {
 	deadlineIDStr := chi.URLParam(r, "deadlineId")
 	deadlineID, err := strconv.ParseInt(deadlineIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid deadline ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid deadline ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid deadline ID")), "Invalid deadline ID", "error", err)
 		return
 	}
 
@@ -214,8 +201,7 @@ func (h *Handler) DeleteDeadline(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -223,23 +209,21 @@ func (h *Handler) DeleteDeadline(w http.ResponseWriter, r *http.Request) {
 	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	existingDeadline, err := deadlineService.GetDeadline(ctx, int32(deadlineID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get deadline")
-		render.Render(w, r, core.ErrNotFound("Deadline not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Deadline not found"), "Failed to get deadline", "error", err)
 		return
 	}
 
 	// Check if user is GM of the game
 	_, errResp = h.verifyUserIsGM(ctx, existingDeadline.GameID, userID)
 	if errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in delete deadline")
 		return
 	}
 
 	// Delete deadline
 	err = deadlineService.DeleteDeadline(ctx, int32(deadlineID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete deadline")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete deadline", "error", err)
 		return
 	}
 
@@ -259,8 +243,7 @@ func (h *Handler) GetUpcomingDeadlines(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -278,8 +261,7 @@ func (h *Handler) GetUpcomingDeadlines(w http.ResponseWriter, r *http.Request) {
 	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	deadlines, err := deadlineService.GetUpcomingDeadlines(ctx, userID, int32(limit))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get upcoming deadlines")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get upcoming deadlines", "error", err)
 		return
 	}
 

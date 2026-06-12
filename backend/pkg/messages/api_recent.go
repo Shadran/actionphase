@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
@@ -23,7 +22,7 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid list recent comments with parents request")
 		return
 	}
 
@@ -34,7 +33,7 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 	if limitStr != "" {
 		parsedLimit, err := strconv.Atoi(limitStr)
 		if err != nil || parsedLimit < 1 {
-			render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid limit parameter")))
+			h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid limit parameter")), "Invalid list recent comments with parents request")
 			return
 		}
 		if parsedLimit > 50 {
@@ -47,7 +46,7 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 	if offsetStr != "" {
 		parsedOffset, err := strconv.Atoi(offsetStr)
 		if err != nil || parsedOffset < 0 {
-			render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid offset parameter")))
+			h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid offset parameter")), "Invalid list recent comments with parents request")
 			return
 		}
 		offset = parsedOffset
@@ -56,8 +55,7 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 	queries := models.New(h.App.Pool)
 	game, err := queries.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -67,15 +65,13 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 	comments, err := messageService.ListRecentCommentsWithParents(ctx, int32(gameID), int32(limit), int32(offset))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to list recent comments", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list recent comments", "error", err, "game_id", gameID)
 		return
 	}
 
 	totalCount, err := messageService.GetTotalCommentCount(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get total comment count", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get total comment count", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -107,7 +103,7 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid get character comments request")
 		return
 	}
 
@@ -118,7 +114,7 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 	if limitStr != "" {
 		parsedLimit, err := strconv.Atoi(limitStr)
 		if err != nil || parsedLimit < 1 {
-			render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid limit parameter")))
+			h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid limit parameter")), "Invalid get character comments request")
 			return
 		}
 		if parsedLimit > 50 {
@@ -131,7 +127,7 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 	if offsetStr != "" {
 		parsedOffset, err := strconv.Atoi(offsetStr)
 		if err != nil || parsedOffset < 0 {
-			render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid offset parameter")))
+			h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid offset parameter")), "Invalid get character comments request")
 			return
 		}
 		offset = parsedOffset
@@ -141,15 +137,13 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 
 	character, err := queries.GetCharacter(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character", "error", err, "character_id", characterID)
-		render.Render(w, r, core.ErrNotFound("character not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character", "error", err, "character_id", characterID)
 		return
 	}
 
 	game, err := queries.GetGame(ctx, character.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game for character", "error", err, "game_id", character.GameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for character", "error", err, "game_id", character.GameID)
 		return
 	}
 
@@ -160,15 +154,13 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := messageService.ListCharacterPostsAndComments(ctx, int32(characterID), int32(limit), int32(offset))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to list character messages", "error", err, "character_id", characterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list character messages", "error", err, "character_id", characterID)
 		return
 	}
 
 	totalCount, err := messageService.CountCharacterPostsAndComments(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to count character messages", "error", err, "character_id", characterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to count character messages", "error", err, "character_id", characterID)
 		return
 	}
 

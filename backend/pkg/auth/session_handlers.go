@@ -37,8 +37,7 @@ func (h *Handler) V1ListSessions(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -49,8 +48,7 @@ func (h *Handler) V1ListSessions(w http.ResponseWriter, r *http.Request) {
 	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	sessions, err := sessionService.GetUserSessions(ctx, authUser.ID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user sessions", "error", err, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err, "user_id", authUser.ID)
 		return
 	}
 
@@ -82,8 +80,7 @@ func (h *Handler) V1RevokeSession(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return
 	}
 
@@ -91,7 +88,7 @@ func (h *Handler) V1RevokeSession(w http.ResponseWriter, r *http.Request) {
 	sessionIDStr := chi.URLParam(r, "sessionID")
 	sessionID, err := strconv.ParseInt(sessionIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(errors.New("invalid session ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(errors.New("invalid session ID")), "Invalid v1 revoke session request")
 		return
 	}
 
@@ -99,8 +96,7 @@ func (h *Handler) V1RevokeSession(w http.ResponseWriter, r *http.Request) {
 	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	sessions, err := sessionService.GetUserSessions(ctx, authUser.ID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get user sessions", "error", err, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err, "user_id", authUser.ID)
 		return
 	}
 
@@ -114,15 +110,14 @@ func (h *Handler) V1RevokeSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !found {
-		render.Render(w, r, core.ErrNotFound("session not found or does not belong to user"))
+		h.renderError(ctx, w, r, core.ErrNotFound("session not found or does not belong to user"), "V1 revoke session not found")
 		return
 	}
 
 	// Delete the session
 	err = sessionService.DeleteSession(ctx, int32(sessionID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to delete session", "error", err, "session_id", sessionID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete session", "error", err, "session_id", sessionID)
 		return
 	}
 

@@ -14,7 +14,7 @@ import (
 func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 	token, claims, _ := jwtauth.FromContext(r.Context())
 	if token == nil || jwt.Validate(token) != nil {
-		render.Render(w, r, core.ErrUnauthorized("Invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("Invalid token"), "Unauthorized")
 		return
 	}
 
@@ -22,7 +22,7 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 	sub, ok := claims["sub"]
 	if !ok {
 		h.App.Logger.Warn("Refresh token: sub (user_id) not found in token")
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -32,7 +32,7 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 		h.App.Logger.Error("Refresh token: invalid user_id in token",
 			"error", err,
 			"sub", sub)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -41,7 +41,7 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 	user, err := UserService.GetUserByID(userID)
 	if err != nil {
 		h.App.Logger.Error("Error getting user", "error", err, "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to v1 refresh", "error", err)
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 		UserAgent: r.UserAgent(),
 	})
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to v1 refresh", "error", err)
 		return
 	}
 	SetJWTCookie(w, tokenString)

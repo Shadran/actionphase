@@ -36,7 +36,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	users, total, err := userService.ListAllUsersAdmin(ctx, page, pageSize, search)
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list users", "error", err)
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *Handler) ListPendingApprovalUsers(w http.ResponseWriter, r *http.Reques
 
 	users, err := userService.ListPendingApprovalUsers(ctx)
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list pending approval users", "error", err)
 		return
 	}
 
@@ -71,23 +71,23 @@ func (h *Handler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid approve user request", "error", err)
 		return
 	}
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	user, err := userService.GetUserByID(int(id))
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("user not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("user not found"), "Approve user not found")
 		return
 	}
 	if !user.PendingApproval {
-		render.Render(w, r, core.ErrInvalidRequest(errMsg("user is not pending approval")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(errMsg("user is not pending approval")), "Invalid approve user request")
 		return
 	}
 
 	if err := userService.ApproveUser(ctx, int32(id)); err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to approve user", "error", err)
 		return
 	}
 
@@ -103,23 +103,23 @@ func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid reject user request", "error", err)
 		return
 	}
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	user, err := userService.GetUserByID(int(id))
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("user not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("user not found"), "Reject user not found")
 		return
 	}
 	if !user.PendingApproval {
-		render.Render(w, r, core.ErrInvalidRequest(errMsg("user is not pending approval")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(errMsg("user is not pending approval")), "Invalid reject user request")
 		return
 	}
 
 	if err := userService.RejectUser(ctx, int32(id)); err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to reject user", "error", err)
 		return
 	}
 
@@ -135,14 +135,14 @@ func (h *Handler) GetUserSessions(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid get user sessions request", "error", err)
 		return
 	}
 
 	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	sessions, err := sessionService.GetUserSessionsWithDetails(ctx, int32(id))
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err)
 		return
 	}
 

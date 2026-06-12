@@ -19,27 +19,26 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid approve character request")
 		return
 	}
 
 	data := &ApproveCharacterRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid approve character request", "error", err)
 		return
 	}
 
 	// Validate status
 	if data.Status != "approved" {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("status must be 'approved'")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("status must be 'approved'")), "Invalid approve character request")
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -47,22 +46,20 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character", "error", err)
 		return
 	}
 
 	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can approve characters"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can approve characters"), "Approve character forbidden")
 		return
 	}
 
@@ -70,8 +67,7 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 	updatedCharacter, err := characterService.ApproveCharacter(ctx, int32(characterID))
 
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update character status", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update character status", "error", err)
 		return
 	}
 
@@ -102,13 +98,13 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid assign NPC request")
 		return
 	}
 
 	data := &AssignNPCRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid assign NPC request", "error", err)
 		return
 	}
 
@@ -116,8 +112,7 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -125,22 +120,20 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character", "error", err)
 		return
 	}
 
 	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can assign NPCs"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can assign NPCs"), "Assign NPC forbidden")
 		return
 	}
 
@@ -149,8 +142,7 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	if data.AssignedUserID != authUser.ID {
 		participants, err := gameService.GetGameParticipants(ctx, character.GameID)
 		if err != nil {
-			h.App.ObsLogger.Error(ctx, "Failed to get game participants", "error", err)
-			render.Render(w, r, core.ErrInternalError(err))
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game participants", "error", err)
 			return
 		}
 
@@ -164,7 +156,7 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !isAudience {
-			render.Render(w, r, core.ErrBadRequest(fmt.Errorf("NPCs can only be assigned to audience members")))
+			h.renderError(ctx, w, r, core.ErrBadRequest(fmt.Errorf("NPCs can only be assigned to audience members")), "Bad assign NPC request")
 			return
 		}
 	}
@@ -172,8 +164,7 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	// Assign NPC
 	err = characterService.AssignNPCToUser(ctx, int32(characterID), data.AssignedUserID, authUser.ID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to assign NPC", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to assign NPC", "error", err)
 		return
 	}
 
@@ -188,21 +179,20 @@ func (h *Handler) ReassignCharacter(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid reassign character request")
 		return
 	}
 
 	data := &ReassignCharacterRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid reassign character request", "error", err)
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -210,8 +200,7 @@ func (h *Handler) ReassignCharacter(w http.ResponseWriter, r *http.Request) {
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get character", "error", err)
-		render.Render(w, r, core.ErrNotFound("character not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character", "error", err)
 		return
 	}
 
@@ -219,28 +208,26 @@ func (h *Handler) ReassignCharacter(w http.ResponseWriter, r *http.Request) {
 	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can reassign characters"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can reassign characters"), "Reassign character forbidden")
 		return
 	}
 
 	// Verify character is inactive
 	if character.IsActive {
-		render.Render(w, r, core.ErrConflict("can only reassign inactive characters"))
+		h.renderError(ctx, w, r, core.ErrConflict("can only reassign inactive characters"), "Reassign character conflict")
 		return
 	}
 
 	// Reassign character
 	updatedCharacter, err := characterService.ReassignCharacter(ctx, int32(characterID), data.NewOwnerUserID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to reassign character", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to reassign character", "error", err)
 		return
 	}
 
@@ -273,15 +260,14 @@ func (h *Handler) ListInactiveCharacters(w http.ResponseWriter, r *http.Request)
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid list inactive characters request")
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -289,14 +275,13 @@ func (h *Handler) ListInactiveCharacters(w http.ResponseWriter, r *http.Request)
 	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrNotFound("game not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("game not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	// Check GM permissions (considers admin mode)
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		render.Render(w, r, core.ErrForbidden("only the GM can view inactive characters"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can view inactive characters"), "List inactive characters forbidden")
 		return
 	}
 
@@ -304,8 +289,7 @@ func (h *Handler) ListInactiveCharacters(w http.ResponseWriter, r *http.Request)
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	characters, err := characterService.ListInactiveCharacters(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to list inactive characters", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list inactive characters", "error", err)
 		return
 	}
 
@@ -347,21 +331,20 @@ func (h *Handler) RenameCharacter(w http.ResponseWriter, r *http.Request) {
 	characterIDStr := chi.URLParam(r, "id")
 	characterID, err := strconv.ParseInt(characterIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid character ID")), "Invalid rename character request")
 		return
 	}
 
 	data := &RenameCharacterRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid rename character request", "error", err)
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -369,14 +352,12 @@ func (h *Handler) RenameCharacter(w http.ResponseWriter, r *http.Request) {
 	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canEdit, err := characterService.CanUserEditCharacter(ctx, int32(characterID), authUser.ID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to check character edit permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check character edit permission", "error", err)
 		return
 	}
 
 	if !canEdit {
-		h.App.ObsLogger.Warn(ctx, "Character rename permission denied", "character_id", characterID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("you do not have permission to rename this character"))
+		h.renderError(ctx, w, r, core.ErrForbidden("you do not have permission to rename this character"), "Character rename permission denied", "character_id", characterID, "user_id", authUser.ID)
 		return
 	}
 
@@ -385,11 +366,10 @@ func (h *Handler) RenameCharacter(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Check if it's a duplicate name error
 		if err.Error() == fmt.Sprintf("a character named '%s' already exists in this game", data.Name) {
-			render.Render(w, r, core.ErrConflict(err.Error()))
+			h.renderError(ctx, w, r, core.ErrConflict(err.Error()), "Rename character conflict", "error", err.Error())
 			return
 		}
-		h.App.ObsLogger.Error(ctx, "Failed to rename character", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to rename character", "error", err)
 		return
 	}
 

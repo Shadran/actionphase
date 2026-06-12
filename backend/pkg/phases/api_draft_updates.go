@@ -22,7 +22,7 @@ func (h *Handler) validateGMAccessAndResult(w http.ResponseWriter, r *http.Reque
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid validate g m access and result request")
 		return 0, 0, nil, err
 	}
 
@@ -30,15 +30,14 @@ func (h *Handler) validateGMAccessAndResult(w http.ResponseWriter, r *http.Reque
 	resultIDStr := chi.URLParam(r, "resultId")
 	resultID, err := strconv.ParseInt(resultIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")), "Invalid validate g m access and result request")
 		return 0, 0, nil, err
 	}
 
 	// Get authenticated user from context
 	authUser := core.GetAuthenticatedUser(r.Context())
 	if authUser == nil {
-		h.App.ObsLogger.Error(r.Context(), "No authenticated user in context")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
 		return 0, 0, nil, fmt.Errorf("no authenticated user")
 	}
 
@@ -46,13 +45,12 @@ func (h *Handler) validateGMAccessAndResult(w http.ResponseWriter, r *http.Reque
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	canManage, err := phaseService.CanUserManagePhases(r.Context(), int32(gameID), int32(authUser.ID))
 	if err != nil {
-		h.App.ObsLogger.Error(r.Context(), "Failed to check phase management permission", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
 		return 0, 0, nil, err
 	}
 
 	if !canManage {
-		render.Render(w, r, core.ErrForbidden("only the GM can manage draft character updates"))
+		h.renderError(r.Context(), w, r, core.ErrForbidden("only the GM can manage draft character updates"), "Validate g m access and result forbidden")
 		return 0, 0, nil, fmt.Errorf("insufficient permissions")
 	}
 
@@ -60,13 +58,12 @@ func (h *Handler) validateGMAccessAndResult(w http.ResponseWriter, r *http.Reque
 	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
 	result, err := actionService.GetActionResult(r.Context(), int32(resultID))
 	if err != nil {
-		h.App.ObsLogger.Error(r.Context(), "Failed to get action result", "error", err)
-		render.Render(w, r, core.ErrNotFound("action result not found"))
+		h.renderError(r.Context(), w, r, core.ErrNotFound("action result not found"), "Failed to get action result", "error", err)
 		return 0, 0, nil, err
 	}
 
 	if result.GameID != int32(gameID) {
-		render.Render(w, r, core.ErrBadRequest(fmt.Errorf("action result does not belong to this game")))
+		h.renderError(r.Context(), w, r, core.ErrBadRequest(fmt.Errorf("action result does not belong to this game")), "Bad validate g m access and result request")
 		return 0, 0, nil, fmt.Errorf("game mismatch")
 	}
 
@@ -87,15 +84,14 @@ func (h *Handler) CreateDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 	// Parse request body
 	data := &CreateDraftCharacterUpdateRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create draft character update request", "error", err)
 		return
 	}
 
 	// Get result to access user_id for validation
 	result, err := actionService.GetActionResult(ctx, resultID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get action result", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get action result", "error", err)
 		return
 	}
 
@@ -106,8 +102,7 @@ func (h *Handler) CreateDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 	query := `SELECT id FROM characters WHERE id = $1 AND user_id = $2 AND game_id = $3`
 	err = h.App.Pool.QueryRow(ctx, query, characterID, result.UserID, gameID).Scan(&validatedCharacterID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Character validation failed", "error", err, "character_id", characterID, "user_id", result.UserID, "game_id", gameID)
-		render.Render(w, r, core.ErrBadRequest(fmt.Errorf("character not found or does not belong to this user/game")))
+		h.renderError(ctx, w, r, core.ErrBadRequest(fmt.Errorf("character not found or does not belong to this user/game")), "Character validation failed", "error", err, "character_id", characterID, "user_id", result.UserID, "game_id", gameID)
 		return
 	}
 
@@ -124,8 +119,7 @@ func (h *Handler) CreateDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 
 	draft, err := actionService.CreateDraftCharacterUpdate(ctx, req)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create draft character update", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create draft character update", "error", err)
 		return
 	}
 
@@ -161,8 +155,7 @@ func (h *Handler) GetDraftCharacterUpdates(w http.ResponseWriter, r *http.Reques
 	// Get all draft updates for the action result
 	drafts, err := actionService.GetDraftCharacterUpdates(ctx, resultID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get draft character updates", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get draft character updates", "error", err)
 		return
 	}
 
@@ -202,7 +195,7 @@ func (h *Handler) UpdateDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 	draftIDStr := chi.URLParam(r, "draftId")
 	draftID, err := strconv.ParseInt(draftIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid draft ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid draft ID")), "Invalid update draft character update request")
 		return
 	}
 
@@ -212,15 +205,14 @@ func (h *Handler) UpdateDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 
 	data := &UpdateDraftRequest{}
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update draft character update request", "error", err)
 		return
 	}
 
 	// Update the draft
 	draft, err := actionService.UpdateDraftCharacterUpdate(ctx, int32(draftID), data.FieldValue)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update draft character update", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update draft character update", "error", err)
 		return
 	}
 
@@ -255,15 +247,14 @@ func (h *Handler) DeleteDraftCharacterUpdate(w http.ResponseWriter, r *http.Requ
 	draftIDStr := chi.URLParam(r, "draftId")
 	draftID, err := strconv.ParseInt(draftIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid draft ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid draft ID")), "Invalid delete draft character update request")
 		return
 	}
 
 	// Delete the draft
 	err = actionService.DeleteDraftCharacterUpdate(ctx, int32(draftID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to delete draft character update", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete draft character update", "error", err)
 		return
 	}
 
@@ -284,8 +275,7 @@ func (h *Handler) GetDraftUpdateCount(w http.ResponseWriter, r *http.Request) {
 	// Get the count
 	count, err := actionService.GetDraftUpdateCount(ctx, resultID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get draft update count", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get draft update count", "error", err)
 		return
 	}
 

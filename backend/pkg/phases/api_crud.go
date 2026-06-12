@@ -22,13 +22,13 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid create phase request")
 		return
 	}
 
 	data := &CreatePhaseRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create phase request", "error", err)
 		return
 	}
 
@@ -41,15 +41,14 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !isValid {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase type: must be one of common_room, action, interlude")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase type: must be one of common_room, action, interlude")), "Invalid create phase request")
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -58,14 +57,12 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		h.App.ObsLogger.Warn(ctx, "Phase create permission denied", "game_id", gameID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("only the GM can create phases"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can create phases"), "Phase create permission denied", "game_id", gameID, "user_id", authUser.ID)
 		return
 	}
 
@@ -85,10 +82,10 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 		h.App.ObsLogger.Error(ctx, "Failed to create phase", "error", err)
 		// Check if error is due to archived game
 		if core.IsArchivedGameError(err) {
-			render.Render(w, r, core.ErrGameArchived())
+			h.renderError(ctx, w, r, core.ErrGameArchived(), "Error in create phase")
 			return
 		}
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create phase", "error", err)
 		return
 	}
 
@@ -119,15 +116,14 @@ func (h *Handler) GetCurrentPhase(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get current phase request")
 		return
 	}
 
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	phase, err := phaseService.GetActivePhase(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get active phase", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get active phase", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -164,15 +160,14 @@ func (h *Handler) GetGamePhases(w http.ResponseWriter, r *http.Request) {
 	gameIDStr := chi.URLParam(r, "gameId")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game phases request")
 		return
 	}
 
 	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	phases, err := phaseService.GetGamePhases(ctx, int32(gameID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game phases", "error", err, "game_id", gameID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game phases", "error", err, "game_id", gameID)
 		return
 	}
 
@@ -207,21 +202,20 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 	phaseIDStr := chi.URLParam(r, "id")
 	phaseID, err := strconv.ParseInt(phaseIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")), "Invalid update phase deadline request")
 		return
 	}
 
 	data := &UpdateDeadlineRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update phase deadline request", "error", err)
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -230,8 +224,7 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get phase", "error", err)
 		return
 	}
 
@@ -239,22 +232,19 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		h.App.ObsLogger.Warn(ctx, "Phase deadline update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("only the GM can update phase deadlines"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can update phase deadlines"), "Phase deadline update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		return
 	}
 
 	// Update deadline
 	updatedPhase, err := phaseService.ExtendPhaseDeadline(ctx, int32(phaseID), data.Deadline.Time)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update phase deadline", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update phase deadline", "error", err)
 		return
 	}
 
@@ -284,21 +274,20 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 	phaseIDStr := chi.URLParam(r, "id")
 	phaseID, err := strconv.ParseInt(phaseIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")), "Invalid update phase request")
 		return
 	}
 
 	data := &UpdatePhaseRequest{}
 	if err := render.Bind(r, data); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update phase request", "error", err)
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -307,8 +296,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get phase", "error", err)
 		return
 	}
 
@@ -316,14 +304,12 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		h.App.ObsLogger.Warn(ctx, "Phase update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("only the GM can update phases"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can update phases"), "Phase update permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		return
 	}
 
@@ -344,8 +330,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 
 	updatedPhase, err := phaseService.UpdatePhase(ctx, req)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to update phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update phase", "error", err)
 		return
 	}
 
@@ -375,15 +360,14 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 	phaseIDStr := chi.URLParam(r, "id")
 	phaseID, err := strconv.ParseInt(phaseIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid phase ID")), "Invalid delete phase request")
 		return
 	}
 
 	// Get authenticated user
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
-		h.App.ObsLogger.Error(ctx, "No authenticated user found")
-		render.Render(w, r, core.ErrUnauthorized("authentication required"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
 		return
 	}
 
@@ -392,8 +376,7 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get phase", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get phase", "error", err)
 		return
 	}
 
@@ -401,21 +384,18 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to get game", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
 		return
 	}
 
 	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		h.App.ObsLogger.Warn(ctx, "Phase delete permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
-		render.Render(w, r, core.ErrForbidden("only the GM can delete phases"))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can delete phases"), "Phase delete permission denied", "phase_id", phaseID, "game_id", phase.GameID, "user_id", authUser.ID)
 		return
 	}
 
 	// Delete phase (validation happens in service layer)
 	if err := phaseService.DeletePhase(ctx, int32(phaseID)); err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to delete phase", "error", err)
-		render.Render(w, r, core.ErrBadRequest(err))
+		h.renderError(ctx, w, r, core.ErrBadRequest(err), "Failed to delete phase", "error", err)
 		return
 	}
 

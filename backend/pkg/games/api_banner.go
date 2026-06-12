@@ -30,36 +30,36 @@ func (h *Handler) UploadGameBanner(w http.ResponseWriter, r *http.Request) {
 
 	gameID, err := parseBannerGameID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid upload game banner request", "error", err)
 		return
 	}
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in upload game banner")
 		return
 	}
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, gameID)
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("Game not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Upload game banner not found")
 		return
 	}
 	if game.GmUserID != userID {
-		render.Render(w, r, core.ErrForbidden("Only the GM can update the game banner"))
+		h.renderError(ctx, w, r, core.ErrForbidden("Only the GM can update the game banner"), "Upload game banner forbidden")
 		return
 	}
 
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("failed to parse multipart form: %w", err)))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("failed to parse multipart form: %w", err)), "Invalid upload game banner request")
 		return
 	}
 
 	file, header, err := r.FormFile("banner")
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("missing 'banner' file in request")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("missing 'banner' file in request")), "Invalid upload game banner request")
 		return
 	}
 	defer file.Close()
@@ -70,13 +70,13 @@ func (h *Handler) UploadGameBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !allowedBannerMimeTypes[contentType] {
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid file type %s. Only JPG, PNG, and WebP images are allowed", contentType)))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid file type %s. Only JPG, PNG, and WebP images are allowed", contentType)), "Invalid upload game banner request")
 		return
 	}
 
 	fileData, err := readAndValidateBannerSize(file)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid upload game banner request", "error", err)
 		return
 	}
 
@@ -94,13 +94,13 @@ func (h *Handler) UploadGameBanner(w http.ResponseWriter, r *http.Request) {
 
 	bannerURL, err := h.App.Storage.Upload(ctx, storagePath, fileData, contentType)
 	if err != nil {
-		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to upload banner: %w", err)))
+		h.renderError(ctx, w, r, core.ErrInternalError(fmt.Errorf("failed to upload banner: %w", err)), "Failed to upload game banner")
 		return
 	}
 
 	if err := gameService.UpdateGameBannerURL(ctx, gameID, &bannerURL); err != nil {
 		_ = h.App.Storage.Delete(ctx, storagePath)
-		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to save banner URL: %w", err)))
+		h.renderError(ctx, w, r, core.ErrInternalError(fmt.Errorf("failed to save banner URL: %w", err)), "Failed to upload game banner")
 		return
 	}
 
@@ -114,25 +114,25 @@ func (h *Handler) DeleteGameBanner(w http.ResponseWriter, r *http.Request) {
 
 	gameID, err := parseBannerGameID(r)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid delete game banner request", "error", err)
 		return
 	}
 
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Request rejected in delete game banner")
 		return
 	}
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, gameID)
 	if err != nil {
-		render.Render(w, r, core.ErrNotFound("Game not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Delete game banner not found")
 		return
 	}
 	if game.GmUserID != userID {
-		render.Render(w, r, core.ErrForbidden("Only the GM can remove the game banner"))
+		h.renderError(ctx, w, r, core.ErrForbidden("Only the GM can remove the game banner"), "Delete game banner forbidden")
 		return
 	}
 
@@ -142,7 +142,7 @@ func (h *Handler) DeleteGameBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := gameService.UpdateGameBannerURL(ctx, gameID, nil); err != nil {
-		render.Render(w, r, core.ErrInternalError(fmt.Errorf("failed to remove banner: %w", err)))
+		h.renderError(ctx, w, r, core.ErrInternalError(fmt.Errorf("failed to remove banner: %w", err)), "Failed to delete game banner")
 		return
 	}
 

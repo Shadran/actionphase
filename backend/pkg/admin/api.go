@@ -35,7 +35,7 @@ func (h *Handler) ListAdmins(w http.ResponseWriter, r *http.Request) {
 	admins, err := userService.ListAdmins(ctx)
 	if err != nil {
 		h.App.Logger.Error("Failed to list admins", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list admins", "error", err)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *Handler) GrantAdminStatus(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid grant admin status request", "error", err)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *Handler) GrantAdminStatus(w http.ResponseWriter, r *http.Request) {
 	requesterID, err := h.getUserIDFromContext(r)
 	if err != nil {
 		h.App.Logger.Error("Failed to get requester from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *Handler) GrantAdminStatus(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"target_user_id", userID,
 			"requester_id", requesterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to grant admin status", "error", err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) RevokeAdminStatus(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid revoke admin status request", "error", err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *Handler) RevokeAdminStatus(w http.ResponseWriter, r *http.Request) {
 	requesterID, err := h.getUserIDFromContext(r)
 	if err != nil {
 		h.App.Logger.Error("Failed to get requester from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *Handler) RevokeAdminStatus(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"target_user_id", userID,
 			"requester_id", requesterID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to revoke admin status", "error", err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *Handler) BanUser(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid ban user request", "error", err)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *Handler) BanUser(w http.ResponseWriter, r *http.Request) {
 	adminID, err := h.getUserIDFromContext(r)
 	if err != nil {
 		h.App.Logger.Error("Failed to get admin from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -148,7 +148,7 @@ func (h *Handler) BanUser(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"target_user_id", userID,
 			"admin_id", adminID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to ban user", "error", err)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid unban user request", "error", err)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 	adminID, err := h.getUserIDFromContext(r)
 	if err != nil {
 		h.App.Logger.Error("Failed to get admin from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -195,7 +195,7 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"target_user_id", userID,
 			"admin_id", adminID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to unban user", "error", err)
 		return
 	}
 
@@ -215,7 +215,7 @@ func (h *Handler) ListBannedUsers(w http.ResponseWriter, r *http.Request) {
 	bannedUsers, err := userService.ListBannedUsers(ctx)
 	if err != nil {
 		h.App.Logger.Error("Failed to list banned users", "error", err)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list banned users", "error", err)
 		return
 	}
 
@@ -229,7 +229,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	messageIDStr := chi.URLParam(r, "messageId")
 	messageID, err := strconv.ParseInt(messageIDStr, 10, 32)
 	if err != nil {
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(r.Context(), w, r, core.ErrInvalidRequest(err), "Invalid delete message request", "error", err)
 		return
 	}
 
@@ -237,7 +237,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	adminID, err := h.getUserIDFromContext(r)
 	if err != nil {
 		h.App.Logger.Error("Failed to get admin from token", "error", err)
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(r.Context(), w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -251,7 +251,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"message_id", messageID,
 			"admin_id", adminID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete message", "error", err)
 		return
 	}
 
@@ -259,7 +259,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		h.App.Logger.Warn("Admin attempted to delete already-deleted message",
 			"message_id", messageID,
 			"admin_id", adminID)
-		render.Render(w, r, core.ErrForbidden("Message is already deleted"))
+		h.renderError(ctx, w, r, core.ErrForbidden("Message is already deleted"), "Delete message forbidden")
 		return
 	}
 
@@ -270,7 +270,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"message_id", messageID,
 			"admin_id", adminID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete message", "error", err)
 		return
 	}
 

@@ -139,8 +139,11 @@ func TestErrInternalError(t *testing.T) {
 	if result.StatusText != "Internal server error." {
 		t.Errorf("Expected 'Internal server error.', got '%s'", result.StatusText)
 	}
-	if result.ErrorText != "database query failed" {
-		t.Errorf("Expected error text to match, got '%s'", result.ErrorText)
+	if result.ErrorText != "An unexpected error occurred. Please try again later." {
+		t.Errorf("Expected generic error text, got '%s'", result.ErrorText)
+	}
+	if result.Err == nil || result.Err.Error() != "database query failed" {
+		t.Errorf("Expected internal error to be preserved on Err field, got '%v'", result.Err)
 	}
 }
 

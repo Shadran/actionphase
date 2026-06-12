@@ -112,7 +112,7 @@ func (h *Handler) V1DiscordConnect(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := getUserIDFromJWT(r)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
@@ -139,15 +139,14 @@ func (h *Handler) V1DiscordStatus(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := getUserIDFromJWT(r)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
 	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	acct, err := discordSvc.GetDiscordAccount(ctx, userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get Discord account", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get Discord account", "error", err, "user_id", userID)
 		return
 	}
 
@@ -168,14 +167,13 @@ func (h *Handler) V1DiscordDisconnect(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := getUserIDFromJWT(r)
 	if err != nil {
-		render.Render(w, r, core.ErrUnauthorized("invalid token"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("invalid token"), "Unauthorized")
 		return
 	}
 
 	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	if err := discordSvc.DeleteDiscordAccount(ctx, userID); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete Discord account", "user_id", userID)
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete Discord account", "error", err, "user_id", userID)
 		return
 	}
 

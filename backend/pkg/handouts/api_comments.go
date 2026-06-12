@@ -22,16 +22,14 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &CreateHandoutCommentRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind create comment request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind create comment request", "error", err)
 		return
 	}
 
@@ -39,8 +37,7 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -48,8 +45,7 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout or comment not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get handout", "error", err)
 		return
 	}
 
@@ -57,22 +53,19 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	game, err := gameService.GetGame(ctx, handout.GameID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
-		render.Render(w, r, core.ErrNotFound("Handout or comment not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	if game.GmUserID != userID && !core.IsUserCoGM(ctx, h.App.Pool, game.ID, userID) {
-		h.App.ObsLogger.Warn(ctx, "User is not GM of game", "user_id", userID, "game_id", game.ID)
-		render.Render(w, r, core.ErrUnauthorized("Only GM can comment on handouts"))
+		h.renderError(ctx, w, r, core.ErrUnauthorized("Only GM can comment on handouts"), "User is not GM of game", "user_id", userID, "game_id", game.ID)
 		return
 	}
 
 	// Create comment
 	comment, err := handoutService.CreateHandoutComment(ctx, int32(handoutID), userID, data.ParentCommentID, data.Content)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to create comment")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create comment", "error", err)
 		return
 	}
 
@@ -107,8 +100,7 @@ func (h *Handler) ListHandoutComments(w http.ResponseWriter, r *http.Request) {
 	handoutIDStr := chi.URLParam(r, "handoutId")
 	handoutID, err := strconv.ParseInt(handoutIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid handout ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid handout ID")), "Invalid handout ID", "error", err)
 		return
 	}
 
@@ -116,8 +108,7 @@ func (h *Handler) ListHandoutComments(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -125,16 +116,14 @@ func (h *Handler) ListHandoutComments(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to get handout")
-		render.Render(w, r, core.ErrNotFound("Handout or comment not found"))
+		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get handout", "error", err)
 		return
 	}
 
 	// List comments
 	comments, err := handoutService.ListHandoutComments(ctx, int32(handoutID))
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to list comments")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list comments", "error", err)
 		return
 	}
 
@@ -172,16 +161,14 @@ func (h *Handler) UpdateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	commentIDStr := chi.URLParam(r, "commentId")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid comment ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")), "Invalid comment ID", "error", err)
 		return
 	}
 
 	// Parse request
 	data := &UpdateHandoutCommentRequest{}
 	if err := render.Bind(r, data); err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to bind update comment request")
-		render.Render(w, r, core.ErrInvalidRequest(err))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Failed to bind update comment request", "error", err)
 		return
 	}
 
@@ -189,8 +176,7 @@ func (h *Handler) UpdateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -198,8 +184,7 @@ func (h *Handler) UpdateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	comment, err := handoutService.UpdateHandoutComment(ctx, int32(commentID), userID, data.Content)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to update comment")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update comment", "error", err)
 		return
 	}
 
@@ -233,8 +218,7 @@ func (h *Handler) DeleteHandoutComment(w http.ResponseWriter, r *http.Request) {
 	commentIDStr := chi.URLParam(r, "commentId")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 32)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Invalid comment ID")
-		render.Render(w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")))
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid comment ID")), "Invalid comment ID", "error", err)
 		return
 	}
 
@@ -242,8 +226,7 @@ func (h *Handler) DeleteHandoutComment(w http.ResponseWriter, r *http.Request) {
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to authenticate user from JWT")
-		render.Render(w, r, errResp)
+		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
@@ -252,8 +235,7 @@ func (h *Handler) DeleteHandoutComment(w http.ResponseWriter, r *http.Request) {
 	handoutService := &db.HandoutService{DB: h.App.Pool}
 	err = handoutService.DeleteHandoutComment(ctx, int32(commentID), userID, true)
 	if err != nil {
-		h.App.ObsLogger.LogError(ctx, err, "Failed to delete comment")
-		render.Render(w, r, core.ErrInternalError(err))
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete comment", "error", err)
 		return
 	}
 
