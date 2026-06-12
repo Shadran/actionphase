@@ -3,6 +3,7 @@ package games
 import (
 	"actionphase/pkg/core"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -94,7 +95,7 @@ func validateScheduleFields(openDay, closeDay *int16, openTime, closeTime *strin
 	}
 	if tz != nil {
 		if _, err := time.LoadLocation(*tz); err != nil {
-			return errors.New("schedule_timezone must be a valid IANA timezone name")
+			return fmt.Errorf("schedule_timezone %q is not a valid IANA timezone name", *tz)
 		}
 	}
 	return nil
