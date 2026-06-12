@@ -58,7 +58,7 @@ export function TabNavigation({ tabs, activeTab, onTabChange, getTabHref }: TabN
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const className = `
-            whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2
+            whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center gap-2
             transition-colors duration-200
             ${isActive
               ? 'border-interactive-primary text-interactive-primary'
