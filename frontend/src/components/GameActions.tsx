@@ -84,9 +84,9 @@ export function GameActions({
   const showApplyButton = !isGM && !isCheckingAuth && !isInGame && game.state === 'recruitment' && !userApplication;
   const showWithdrawButton = !isGM && userApplication && userApplication.status === 'pending' && game.state === 'recruitment';
 
-  // Audience can join at any time (not just recruitment)
+  // Audience can join during active game phases, but not after completion (completed games are open to all)
   const showJoinAsAudienceButton = !isGM && !isCheckingAuth && !isInGame &&
-    (game.state === 'character_creation' || game.state === 'in_progress' || game.state === 'completed') &&
+    (game.state === 'character_creation' || game.state === 'in_progress') &&
     !userApplication;
 
   const showPlayerActions = slot === 'all' || slot === 'player-actions';
