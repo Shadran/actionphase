@@ -22,6 +22,8 @@ const mockUserProfile: UserProfileResponse = {
       state: 'recruiting',
       user_role: 'player',
       is_anonymous: false,
+      start_date: null,
+      end_date: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       characters: [
@@ -40,6 +42,8 @@ const mockUserProfile: UserProfileResponse = {
       state: 'active',
       user_role: 'gm',
       is_anonymous: false,
+      start_date: null,
+      end_date: null,
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
       characters: [],
