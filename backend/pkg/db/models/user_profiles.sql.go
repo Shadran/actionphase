@@ -52,6 +52,8 @@ SELECT
     END::text as user_role,
     g.created_at,
     g.updated_at,
+    g.start_date,
+    g.end_date,
     -- Character details (NULL for anonymous games)
     CASE
         WHEN g.is_anonymous THEN NULL
@@ -104,6 +106,8 @@ type GetUserGamesRow struct {
 	UserRole           string             `json:"user_role"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	StartDate          pgtype.Timestamptz `json:"start_date"`
+	EndDate            pgtype.Timestamptz `json:"end_date"`
 	CharacterID        interface{}        `json:"character_id"`
 	CharacterName      interface{}        `json:"character_name"`
 	CharacterAvatarUrl interface{}        `json:"character_avatar_url"`
@@ -133,6 +137,8 @@ func (q *Queries) GetUserGames(ctx context.Context, arg GetUserGamesParams) ([]G
 			&i.UserRole,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StartDate,
+			&i.EndDate,
 			&i.CharacterID,
 			&i.CharacterName,
 			&i.CharacterAvatarUrl,

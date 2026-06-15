@@ -36,6 +36,8 @@ SELECT
     END::text as user_role,
     g.created_at,
     g.updated_at,
+    g.start_date,
+    g.end_date,
     -- Character details (NULL for anonymous games)
     CASE
         WHEN g.is_anonymous THEN NULL

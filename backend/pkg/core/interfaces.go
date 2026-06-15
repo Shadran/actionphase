@@ -1517,6 +1517,8 @@ type UserGame struct {
 	GMUsername  string              `json:"gm_username"`
 	CreatedAt   time.Time           `json:"created_at"`
 	UpdatedAt   time.Time           `json:"updated_at"`
+	StartDate   *time.Time          `json:"start_date"`
+	EndDate     *time.Time          `json:"end_date"`
 	Characters  []UserGameCharacter `json:"characters"` // Empty for anonymous games
 }
 

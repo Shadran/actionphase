@@ -71,16 +71,18 @@ function formatUserRole(role: string): string {
  * - Hover elevation effect
  */
 export function GameHistoryCard({ game }: GameHistoryCardProps) {
-  // Format dates
-  const createdDate = new Date(game.created_at).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+  const formatMonthYear = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-  const updatedDate = new Date(game.updated_at).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+  // Use actual start/end dates when available; fall back to created_at/updated_at
+  const startDateStr = game.start_date ?? game.created_at;
+  const startLabel = formatMonthYear(startDateStr);
+
+  // Only show an end label when the game is finished and has an explicit end_date
+  const endLabel =
+    game.end_date && (game.state === 'completed' || game.state === 'cancelled')
+      ? formatMonthYear(game.end_date)
+      : null;
 
   return (
     <Card
@@ -157,7 +159,7 @@ export function GameHistoryCard({ game }: GameHistoryCardProps) {
 
         {/* Date Range */}
         <div className="mt-4 pt-4 border-t border-border-primary text-xs text-content-secondary">
-          {createdDate} → {updatedDate}
+          {endLabel ? `${startLabel} → ${endLabel}` : startLabel}
         </div>
       </CardBody>
     </Card>

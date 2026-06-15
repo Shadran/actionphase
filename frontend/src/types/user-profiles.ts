@@ -42,6 +42,8 @@ export interface UserGame {
   gm_username: string;
   created_at: string; // ISO 8601 timestamp
   updated_at: string; // ISO 8601 timestamp
+  start_date: string | null;
+  end_date: string | null;
   characters: UserGameCharacter[]; // Empty array for anonymous games
 }
 

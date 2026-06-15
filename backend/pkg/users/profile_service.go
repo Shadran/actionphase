@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/models"
@@ -111,6 +112,15 @@ func (s *UserProfileService) GetUserGames(ctx context.Context, userID int32, lim
 		game, exists := gameMap[row.GameID]
 		if !exists {
 			// First time seeing this game, create entry
+			var startDate, endDate *time.Time
+			if row.StartDate.Valid {
+				t := row.StartDate.Time
+				startDate = &t
+			}
+			if row.EndDate.Valid {
+				t := row.EndDate.Time
+				endDate = &t
+			}
 			game = &core.UserGame{
 				GameID:      row.GameID,
 				Title:       row.Title,
@@ -120,6 +130,8 @@ func (s *UserProfileService) GetUserGames(ctx context.Context, userID int32, lim
 				GMUsername:  row.GmUsername,
 				CreatedAt:   row.CreatedAt.Time,
 				UpdatedAt:   row.UpdatedAt.Time,
+				StartDate:   startDate,
+				EndDate:     endDate,
 				Characters:  []core.UserGameCharacter{},
 			}
 			gameMap[row.GameID] = game
