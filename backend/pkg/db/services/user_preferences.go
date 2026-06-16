@@ -39,7 +39,7 @@ func (s *UserPreferencesService) GetUserPreferences(ctx context.Context, userID 
 		// Return default preferences if not found
 		return &PreferencesData{
 			Theme:           "auto",
-			CommentReadMode: "auto",
+			CommentReadMode: "manual",
 		}, nil
 	}
 
@@ -54,7 +54,7 @@ func (s *UserPreferencesService) GetUserPreferences(ctx context.Context, userID 
 		data.Theme = "auto"
 	}
 	if data.CommentReadMode == "" {
-		data.CommentReadMode = "auto"
+		data.CommentReadMode = "manual"
 	}
 
 	return &data, nil
@@ -67,7 +67,7 @@ func (s *UserPreferencesService) UpdateUserPreferences(ctx context.Context, user
 		prefs.Theme = "auto"
 	}
 	if prefs.CommentReadMode == "" {
-		prefs.CommentReadMode = "auto"
+		prefs.CommentReadMode = "manual"
 	}
 
 	// Validate theme value

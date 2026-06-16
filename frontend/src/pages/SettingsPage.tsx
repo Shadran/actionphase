@@ -311,20 +311,6 @@ export function SettingsPage() {
                 <div className="space-y-2">
                   <div
                     className="flex items-center p-3 border border-theme-default rounded-lg cursor-pointer hover:bg-surface-raised"
-                    data-testid="read-mode-auto"
-                  >
-                    <Radio
-                      name="comment_read_mode"
-                      value="auto"
-                      label="Automatic"
-                      helperText="Highlight new comments since your last visit"
-                      checked={(preferences?.comment_read_mode ?? 'auto') === 'auto'}
-                      onChange={() => handleCommentReadModeChange('auto')}
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center p-3 border border-theme-default rounded-lg cursor-pointer hover:bg-surface-raised"
                     data-testid="read-mode-manual"
                   >
                     <Radio
@@ -332,8 +318,22 @@ export function SettingsPage() {
                       value="manual"
                       label="Manual"
                       helperText="Mark individual comments as read yourself; read comments fade out"
-                      checked={(preferences?.comment_read_mode ?? 'auto') === 'manual'}
+                      checked={(preferences?.comment_read_mode ?? 'manual') === 'manual'}
                       onChange={() => handleCommentReadModeChange('manual')}
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center p-3 border border-theme-default rounded-lg cursor-pointer hover:bg-surface-raised"
+                    data-testid="read-mode-auto"
+                  >
+                    <Radio
+                      name="comment_read_mode"
+                      value="auto"
+                      label="Automatic"
+                      helperText="Highlight new comments since your last visit"
+                      checked={(preferences?.comment_read_mode ?? 'manual') === 'auto'}
+                      onChange={() => handleCommentReadModeChange('auto')}
                     />
                   </div>
                 </div>

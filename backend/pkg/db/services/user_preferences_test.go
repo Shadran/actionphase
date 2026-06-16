@@ -182,10 +182,10 @@ func TestUserPreferencesService_CommentReadMode_Default(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Preferences never set — should default to "auto"
+	// Preferences never set — should default to "manual"
 	prefs, err := service.GetUserPreferences(ctx, user.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "auto", prefs.CommentReadMode, "default comment_read_mode should be 'auto'")
+	assert.Equal(t, "manual", prefs.CommentReadMode, "default comment_read_mode should be 'manual'")
 }
 
 func TestUserPreferencesService_CommentReadMode_ValidValues(t *testing.T) {

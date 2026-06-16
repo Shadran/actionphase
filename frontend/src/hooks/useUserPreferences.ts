@@ -17,7 +17,7 @@ export function useUserPreferences() {
     // Supply defaults while loading so consumers can rely on the shape
     placeholderData: {
       theme: 'auto' as const,
-      comment_read_mode: 'auto' as CommentReadMode,
+      comment_read_mode: 'manual' as CommentReadMode,
     },
   });
 }
@@ -47,5 +47,5 @@ export function useUpdateUserPreferences() {
  */
 export function useCommentReadMode(): CommentReadMode {
   const { data } = useUserPreferences();
-  return data?.comment_read_mode ?? 'auto';
+  return data?.comment_read_mode ?? 'manual';
 }

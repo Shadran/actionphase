@@ -22,16 +22,16 @@ const SETTINGS_USER = { username: 'TestPlayer3', password: 'testpassword123' };
  */
 test.describe('Comment Read Mode Setting', () => {
   test.afterEach(async ({ page }) => {
-    await setCommentReadMode(page, 'auto');
+    await setCommentReadMode(page, 'manual');
   });
 
-  test('auto mode is selected by default', async ({ page }) => {
+  test('manual mode is selected by default', async ({ page }) => {
     await login(page, SETTINGS_USER.username, SETTINGS_USER.password);
     const settingsPage = new SettingsPage(page);
     await settingsPage.goto();
     await settingsPage.clickReadingSection();
 
-    await expect(settingsPage.getCommentReadModeRadio('auto')).toBeChecked();
+    await expect(settingsPage.getCommentReadModeRadio('manual')).toBeChecked();
   });
 
   test('preference persists after page reload', async ({ page }) => {
