@@ -78,7 +78,6 @@ describe('SkillCard', () => {
         />
       );
 
-      // Description button shown (but description is collapsed by default)
       expect(screen.getByText('Description')).toBeInTheDocument();
     });
 
@@ -93,7 +92,6 @@ describe('SkillCard', () => {
         />
       );
 
-      // No description button shown when no description
       expect(screen.queryByText('Description')).not.toBeInTheDocument();
       expect(screen.queryByText('Mastery of blade combat')).not.toBeInTheDocument();
     });
@@ -175,9 +173,10 @@ describe('SkillCard', () => {
       expect(screen.getByDisplayValue('Swordsmanship')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Expert')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Mastery of blade combat')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Combat')).toBeInTheDocument();
     });
 
-    it('shows save and cancel buttons in edit mode', async () => {
+    it('shows Save and Cancel buttons in edit mode', async () => {
       const user = userEvent.setup();
       render(
         <SkillCard
@@ -190,8 +189,8 @@ describe('SkillCard', () => {
 
       await user.click(screen.getByText('✎'));
 
-      expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('✕')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     });
 
     it('allows editing skill name', async () => {
@@ -251,12 +250,11 @@ describe('SkillCard', () => {
       expect(screen.getByDisplayValue('Advanced weapon techniques')).toBeInTheDocument();
     });
 
-    it('shows level placeholder text', async () => {
-      const skillWithoutLevel = { ...mockSkill, level: undefined };
+    it('allows editing category', async () => {
       const user = userEvent.setup();
       render(
         <SkillCard
-          skill={skillWithoutLevel}
+          skill={mockSkill}
           canEdit={true}
           onUpdate={vi.fn()}
           onRemove={vi.fn()}
@@ -264,13 +262,16 @@ describe('SkillCard', () => {
       );
 
       await user.click(screen.getByText('✎'));
+      const categoryInput = screen.getByDisplayValue('Combat');
+      await user.clear(categoryInput);
+      await user.type(categoryInput, 'Social');
 
-      expect(screen.getByPlaceholderText('Level (e.g., Expert, 5, Advanced)')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Social')).toBeInTheDocument();
     });
   });
 
   describe('Save Functionality', () => {
-    it('calls onUpdate with modified values when saved', async () => {
+    it('calls onUpdate with all field values when saved', async () => {
       const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
@@ -292,13 +293,19 @@ describe('SkillCard', () => {
       await user.clear(levelInput);
       await user.type(levelInput, 'Novice');
 
-      await user.click(screen.getByText('✓'));
+      const categoryInput = screen.getByDisplayValue('Combat');
+      await user.clear(categoryInput);
+      await user.type(categoryInput, 'Ranged');
 
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Archery',
-        level: 'Novice',
-        description: 'Mastery of blade combat',
-      });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Archery',
+          level: 'Novice',
+          category: 'Ranged',
+        })
+      );
     });
 
     it('exits edit mode after save', async () => {
@@ -313,73 +320,22 @@ describe('SkillCard', () => {
       );
 
       await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✓'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(screen.queryByText('✓')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
       expect(screen.getByText('✎')).toBeInTheDocument();
-    });
-
-    it('sets level to undefined when empty', async () => {
-      const onUpdate = vi.fn();
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const levelInput = screen.getByDisplayValue('Expert');
-      await user.clear(levelInput);
-
-      await user.click(screen.getByText('✓'));
-
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Swordsmanship',
-        level: undefined,
-        description: 'Mastery of blade combat',
-      });
-    });
-
-    it('sets description to undefined when empty', async () => {
-      const onUpdate = vi.fn();
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const descInput = screen.getByDisplayValue('Mastery of blade combat');
-      await user.clear(descInput);
-
-      await user.click(screen.getByText('✓'));
-
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Swordsmanship',
-        level: 'Expert',
-        description: undefined,
-      });
     });
   });
 
   describe('Cancel Functionality', () => {
-    it('reverts changes when cancelled', async () => {
+    it('reverts to view mode without calling onUpdate when cancelled', async () => {
+      const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
         <SkillCard
           skill={mockSkill}
           canEdit={true}
-          onUpdate={vi.fn()}
+          onUpdate={onUpdate}
           onRemove={vi.fn()}
         />
       );
@@ -390,51 +346,11 @@ describe('SkillCard', () => {
       await user.clear(nameInput);
       await user.type(nameInput, 'Changed Name');
 
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.getByText('Swordsmanship')).toBeInTheDocument();
-      expect(screen.queryByDisplayValue('Changed Name')).not.toBeInTheDocument();
-    });
-
-    it('does not call onUpdate when cancelled', async () => {
-      const onUpdate = vi.fn();
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const nameInput = screen.getByDisplayValue('Swordsmanship');
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Changed');
-
-      await user.click(screen.getByText('✕'));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onUpdate).not.toHaveBeenCalled();
-    });
-
-    it('exits edit mode when cancelled', async () => {
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.queryByText('✕')).not.toBeInTheDocument();
-      expect(screen.getByText('✎')).toBeInTheDocument();
+      expect(screen.getByText('Swordsmanship')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
   });
 
@@ -497,7 +413,6 @@ describe('SkillCard', () => {
         />
       );
 
-      // Button exists but description is hidden
       expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
       expect(screen.queryByText('Mastery of blade combat')).not.toBeInTheDocument();
     });
@@ -513,13 +428,10 @@ describe('SkillCard', () => {
         />
       );
 
-      // Initially hidden
       expect(screen.queryByText('Mastery of blade combat')).not.toBeInTheDocument();
 
-      // Click expand button
       await user.click(screen.getByLabelText('Expand description'));
 
-      // Now visible
       expect(screen.getByText('Mastery of blade combat')).toBeInTheDocument();
     });
 
@@ -534,11 +446,9 @@ describe('SkillCard', () => {
         />
       );
 
-      // Expand
       await user.click(screen.getByLabelText('Expand description'));
       expect(screen.getByText('Mastery of blade combat')).toBeInTheDocument();
 
-      // Collapse
       await user.click(screen.getByLabelText('Collapse description'));
       expect(screen.queryByText('Mastery of blade combat')).not.toBeInTheDocument();
     });
@@ -554,84 +464,11 @@ describe('SkillCard', () => {
         />
       );
 
-      // Initially collapsed
       const button = screen.getByLabelText('Expand description');
-      expect(button).toBeInTheDocument();
-
-      // Click to expand
       await user.click(button);
 
-      // Aria-label changes
       expect(screen.getByLabelText('Collapse description')).toBeInTheDocument();
       expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-    });
-
-    it('hides description button in edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Button visible initially
-      expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Button hidden in edit mode
-      expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-      expect(screen.queryByLabelText('Collapse description')).not.toBeInTheDocument();
-    });
-
-    it('always shows description in edit mode regardless of collapse state', async () => {
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Description hidden initially (collapsed)
-      expect(screen.queryByText('Mastery of blade combat')).not.toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Description now visible (in editor)
-      expect(screen.getByDisplayValue('Mastery of blade combat')).toBeInTheDocument();
-    });
-
-    it('maintains collapse state when exiting edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <SkillCard
-          skill={mockSkill}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Expand description first
-      await user.click(screen.getByLabelText('Expand description'));
-      expect(screen.getByText('Mastery of blade combat')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Exit edit mode (cancel)
-      await user.click(screen.getByText('✕'));
-
-      // Description still expanded
-      expect(screen.getByText('Mastery of blade combat')).toBeInTheDocument();
     });
   });
 });

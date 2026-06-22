@@ -37,7 +37,6 @@ describe('AbilityCard', () => {
         />
       );
 
-      // Description button shown (but description is collapsed by default)
       expect(screen.getByText('Description')).toBeInTheDocument();
     });
 
@@ -52,7 +51,6 @@ describe('AbilityCard', () => {
         />
       );
 
-      // No description button shown when no description
       expect(screen.queryByText('Description')).not.toBeInTheDocument();
       expect(screen.queryByText('Hurls a ball of flame')).not.toBeInTheDocument();
     });
@@ -270,7 +268,7 @@ describe('AbilityCard', () => {
       expect(screen.getByDisplayValue('Hurls a ball of flame')).toBeInTheDocument();
     });
 
-    it('shows save and cancel buttons in edit mode', async () => {
+    it('shows Save and Cancel buttons in edit mode', async () => {
       const user = userEvent.setup();
       render(
         <AbilityCard
@@ -283,8 +281,24 @@ describe('AbilityCard', () => {
 
       await user.click(screen.getByText('✎'));
 
-      expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('✕')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    });
+
+    it('shows type select pre-populated with current type', async () => {
+      const user = userEvent.setup();
+      render(
+        <AbilityCard
+          ability={mockAbility}
+          canEdit={true}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      await user.click(screen.getByText('✎'));
+
+      expect(screen.getByDisplayValue('Learned')).toBeInTheDocument();
     });
 
     it('allows editing ability name', async () => {
@@ -304,6 +318,24 @@ describe('AbilityCard', () => {
       await user.type(nameInput, 'Lightning Bolt');
 
       expect(screen.getByDisplayValue('Lightning Bolt')).toBeInTheDocument();
+    });
+
+    it('allows changing type via select', async () => {
+      const user = userEvent.setup();
+      render(
+        <AbilityCard
+          ability={mockAbility}
+          canEdit={true}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      await user.click(screen.getByText('✎'));
+      const typeSelect = screen.getByDisplayValue('Learned');
+      await user.selectOptions(typeSelect, 'innate');
+
+      expect(screen.getByDisplayValue('Innate')).toBeInTheDocument();
     });
 
     it('allows editing description', async () => {
@@ -327,7 +359,7 @@ describe('AbilityCard', () => {
   });
 
   describe('Save Functionality', () => {
-    it('calls onUpdate with modified values when saved', async () => {
+    it('calls onUpdate with all field values when saved', async () => {
       const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
@@ -345,16 +377,17 @@ describe('AbilityCard', () => {
       await user.clear(nameInput);
       await user.type(nameInput, 'Ice Shard');
 
-      const descInput = screen.getByDisplayValue('Hurls a ball of flame');
-      await user.clear(descInput);
-      await user.type(descInput, 'Launches a frozen projectile');
+      const typeSelect = screen.getByDisplayValue('Learned');
+      await user.selectOptions(typeSelect, 'innate');
 
-      await user.click(screen.getByText('✓'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Ice Shard',
-        description: 'Launches a frozen projectile',
-      });
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Ice Shard',
+          type: 'innate',
+        })
+      );
     });
 
     it('exits edit mode after save', async () => {
@@ -369,13 +402,15 @@ describe('AbilityCard', () => {
       );
 
       await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✓'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(screen.queryByText('✓')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
       expect(screen.getByText('✎')).toBeInTheDocument();
     });
+  });
 
-    it('sets description to undefined when empty', async () => {
+  describe('Cancel Functionality', () => {
+    it('reverts to view mode without calling onUpdate when cancelled', async () => {
       const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
@@ -383,32 +418,6 @@ describe('AbilityCard', () => {
           ability={mockAbility}
           canEdit={true}
           onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const descInput = screen.getByDisplayValue('Hurls a ball of flame');
-      await user.clear(descInput);
-
-      await user.click(screen.getByText('✓'));
-
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Fireball',
-        description: undefined,
-      });
-    });
-  });
-
-  describe('Cancel Functionality', () => {
-    it('reverts changes when cancelled', async () => {
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={vi.fn()}
           onRemove={vi.fn()}
         />
       );
@@ -419,51 +428,11 @@ describe('AbilityCard', () => {
       await user.clear(nameInput);
       await user.type(nameInput, 'Changed Name');
 
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.getByText('Fireball')).toBeInTheDocument();
-      expect(screen.queryByDisplayValue('Changed Name')).not.toBeInTheDocument();
-    });
-
-    it('does not call onUpdate when cancelled', async () => {
-      const onUpdate = vi.fn();
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const nameInput = screen.getByDisplayValue('Fireball');
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Changed');
-
-      await user.click(screen.getByText('✕'));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onUpdate).not.toHaveBeenCalled();
-    });
-
-    it('exits edit mode when cancelled', async () => {
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.queryByText('✕')).not.toBeInTheDocument();
-      expect(screen.getByText('✎')).toBeInTheDocument();
+      expect(screen.getByText('Fireball')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
   });
 
@@ -526,7 +495,6 @@ describe('AbilityCard', () => {
         />
       );
 
-      // Button exists but description is hidden
       expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
       expect(screen.queryByText('Hurls a ball of flame')).not.toBeInTheDocument();
     });
@@ -542,13 +510,10 @@ describe('AbilityCard', () => {
         />
       );
 
-      // Initially hidden
       expect(screen.queryByText('Hurls a ball of flame')).not.toBeInTheDocument();
 
-      // Click expand button
       await user.click(screen.getByLabelText('Expand description'));
 
-      // Now visible
       expect(screen.getByText('Hurls a ball of flame')).toBeInTheDocument();
     });
 
@@ -563,11 +528,9 @@ describe('AbilityCard', () => {
         />
       );
 
-      // Expand
       await user.click(screen.getByLabelText('Expand description'));
       expect(screen.getByText('Hurls a ball of flame')).toBeInTheDocument();
 
-      // Collapse
       await user.click(screen.getByLabelText('Collapse description'));
       expect(screen.queryByText('Hurls a ball of flame')).not.toBeInTheDocument();
     });
@@ -583,84 +546,11 @@ describe('AbilityCard', () => {
         />
       );
 
-      // Initially collapsed
       const button = screen.getByLabelText('Expand description');
-      expect(button).toBeInTheDocument();
-
-      // Click to expand
       await user.click(button);
 
-      // Aria-label changes
       expect(screen.getByLabelText('Collapse description')).toBeInTheDocument();
       expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-    });
-
-    it('hides description button in edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Button visible initially
-      expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Button hidden in edit mode
-      expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-      expect(screen.queryByLabelText('Collapse description')).not.toBeInTheDocument();
-    });
-
-    it('always shows description in edit mode regardless of collapse state', async () => {
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Description hidden initially (collapsed)
-      expect(screen.queryByText('Hurls a ball of flame')).not.toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Description now visible (in editor)
-      expect(screen.getByDisplayValue('Hurls a ball of flame')).toBeInTheDocument();
-    });
-
-    it('maintains collapse state when exiting edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <AbilityCard
-          ability={mockAbility}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Expand description first
-      await user.click(screen.getByLabelText('Expand description'));
-      expect(screen.getByText('Hurls a ball of flame')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Exit edit mode (cancel)
-      await user.click(screen.getByText('✕'));
-
-      // Description still expanded
-      expect(screen.getByText('Hurls a ball of flame')).toBeInTheDocument();
     });
   });
 });

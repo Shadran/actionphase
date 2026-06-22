@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { CharacterAbility } from '../types/characters';
-import { Button, Input, Badge } from './ui';
+import { Button, Badge } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
-import { CommentEditor } from './CommentEditor';
+import { AbilityForm, type AbilityFormData } from './character-updates/AbilityForm';
 
 interface AbilityCardProps {
   ability: CharacterAbility;
@@ -13,21 +13,14 @@ interface AbilityCardProps {
 
 export const AbilityCard: React.FC<AbilityCardProps> = ({ ability, canEdit, onUpdate, onRemove }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(ability.name);
-  const [editDescription, setEditDescription] = useState(ability.description || '');
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = (data: AbilityFormData) => {
     onUpdate({
-      name: editName,
-      description: editDescription || undefined
+      name: data.name,
+      description: data.description,
+      type: data.type,
     });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditName(ability.name);
-    setEditDescription(ability.description || '');
     setIsEditing(false);
   };
 
@@ -44,21 +37,29 @@ export const AbilityCard: React.FC<AbilityCardProps> = ({ ability, canEdit, onUp
     }
   };
 
+  if (isEditing) {
+    return (
+      <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
+        <AbilityForm
+          initialValues={{
+            name: ability.name,
+            description: ability.description,
+            type: ability.type,
+          }}
+          onSubmit={handleSave}
+          onCancel={() => setIsEditing(false)}
+          submitLabel="Save"
+          variant="inline"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
-          {isEditing ? (
-            <Input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Ability name..."
-              className="text-base font-medium"
-            />
-          ) : (
-            <h4 className="text-base font-semibold text-content-primary mb-1">{ability.name}</h4>
-          )}
+          <h4 className="text-base font-semibold text-content-primary mb-1">{ability.name}</h4>
         </div>
 
         <div className="flex items-center space-x-2 ml-4">
@@ -68,52 +69,29 @@ export const AbilityCard: React.FC<AbilityCardProps> = ({ ability, canEdit, onUp
 
           {canEdit && ability.type !== 'gm_assigned' && (
             <div className="flex space-x-1">
-              {isEditing ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSave}
-                    className="p-1 text-semantic-success hover:text-semantic-success"
-                  >
-                    ✓
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCancel}
-                    className="p-1 text-content-secondary hover:text-content-primary"
-                  >
-                    ✕
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                    className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
-                  >
-                    ✎
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onRemove}
-                    aria-label="Remove ability"
-                    className="p-1 text-semantic-danger hover:text-semantic-danger"
-                  >
-                    🗑
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
+              >
+                ✎
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                aria-label="Remove ability"
+                className="p-1 text-semantic-danger hover:text-semantic-danger"
+              >
+                🗑
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      {ability.description && !isEditing && (
+      {ability.description && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1 px-2 py-1 mb-3 text-sm text-content-secondary hover:text-content-primary transition-colors rounded hover:bg-surface-secondary"
@@ -135,21 +113,9 @@ export const AbilityCard: React.FC<AbilityCardProps> = ({ ability, canEdit, onUp
         </button>
       )}
 
-      {(ability.description || isEditing) && (isExpanded || isEditing) && (
-        <div className="mb-3">
-          {isEditing ? (
-            <CommentEditor
-              value={editDescription}
-              onChange={setEditDescription}
-              placeholder="Describe this ability... (Markdown supported)"
-              rows={3}
-              showPreviewByDefault={false}
-            />
-          ) : (
-            <div className="text-sm">
-              <MarkdownPreview content={ability.description || ''} />
-            </div>
-          )}
+      {ability.description && isExpanded && (
+        <div className="mb-3 text-sm">
+          <MarkdownPreview content={ability.description} />
         </div>
       )}
 

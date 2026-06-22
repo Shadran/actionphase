@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { InventoryItem } from '../types/characters';
-import { Button, Input, Badge } from './ui';
+import { Button, Badge } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
-import { CommentEditor } from './CommentEditor';
+import { ItemForm, type ItemFormData } from './character-updates/ItemForm';
 
 interface ItemCardProps {
   item: InventoryItem;
@@ -13,24 +13,17 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, canEdit, onUpdate, onRemove }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(item.name);
-  const [editQuantity, setEditQuantity] = useState(item.quantity);
-  const [editDescription, setEditDescription] = useState(item.description || '');
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = (data: ItemFormData) => {
     onUpdate({
-      name: editName,
-      quantity: editQuantity,
-      description: editDescription || undefined
+      name: data.name,
+      description: data.description,
+      quantity: data.quantity,
+      category: data.category,
+      value: data.value,
+      weight: data.weight,
     });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditName(item.name);
-    setEditQuantity(item.quantity);
-    setEditDescription(item.description || '');
     setIsEditing(false);
   };
 
@@ -51,47 +44,44 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, canEdit, onUpdate, onR
     }
   };
 
+  if (isEditing) {
+    return (
+      <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
+        <ItemForm
+          initialValues={{
+            name: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            category: item.category,
+            value: item.value,
+            weight: item.weight,
+          }}
+          onSubmit={handleSave}
+          onCancel={() => setIsEditing(false)}
+          submitLabel="Save"
+          variant="inline"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
-          {isEditing ? (
-            <div className="space-y-2">
-              <Input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Item name..."
-                className="text-base font-medium"
-              />
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-content-secondary">Qty:</span>
-                <Input
-                  type="number"
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(parseInt(e.target.value) || 1)}
-                  className="w-20 text-sm"
-                  min="1"
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center space-x-2 flex-wrap gap-1">
-                <h4 className="text-base font-semibold text-content-primary">{item.name}</h4>
-                {item.quantity > 1 && (
-                  <Badge variant="neutral" size="sm">
-                    x{item.quantity}
-                  </Badge>
-                )}
-                {item.equipped && (
-                  <Badge variant="success" size="sm">
-                    Equipped
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
+          <div className="flex items-center space-x-2 flex-wrap gap-1">
+            <h4 className="text-base font-semibold text-content-primary">{item.name}</h4>
+            {item.quantity > 1 && (
+              <Badge variant="neutral" size="sm">
+                x{item.quantity}
+              </Badge>
+            )}
+            {item.equipped && (
+              <Badge variant="success" size="sm">
+                Equipped
+              </Badge>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center space-x-2 ml-4">
@@ -103,51 +93,28 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, canEdit, onUpdate, onR
 
           {canEdit && (
             <div className="flex space-x-1">
-              {isEditing ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSave}
-                    className="p-1 text-semantic-success hover:text-semantic-success"
-                  >
-                    ✓
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCancel}
-                    className="p-1 text-content-secondary hover:text-content-primary"
-                  >
-                    ✕
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                    className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
-                  >
-                    ✎
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onRemove}
-                    className="p-1 text-semantic-danger hover:text-semantic-danger"
-                  >
-                    🗑
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
+              >
+                ✎
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="p-1 text-semantic-danger hover:text-semantic-danger"
+              >
+                🗑
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      {item.description && !isEditing && (
+      {item.description && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1 px-2 py-1 mb-3 text-sm text-content-secondary hover:text-content-primary transition-colors rounded hover:bg-surface-secondary"
@@ -169,21 +136,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, canEdit, onUpdate, onR
         </button>
       )}
 
-      {(item.description || isEditing) && (isExpanded || isEditing) && (
-        <div className="mb-3">
-          {isEditing ? (
-            <CommentEditor
-              value={editDescription}
-              onChange={setEditDescription}
-              placeholder="Describe this item... (Markdown supported)"
-              rows={3}
-              showPreviewByDefault={false}
-            />
-          ) : (
-            <div className="text-sm">
-              <MarkdownPreview content={item.description || ''} />
-            </div>
-          )}
+      {item.description && isExpanded && (
+        <div className="mb-3 text-sm">
+          <MarkdownPreview content={item.description} />
         </div>
       )}
 

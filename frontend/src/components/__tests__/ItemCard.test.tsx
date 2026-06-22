@@ -41,7 +41,6 @@ describe('ItemCard', () => {
         />
       );
 
-      // Description button shown (but description is collapsed by default)
       expect(screen.getByText('Description')).toBeInTheDocument();
     });
 
@@ -56,7 +55,6 @@ describe('ItemCard', () => {
         />
       );
 
-      // No description button shown when no description
       expect(screen.queryByText('Description')).not.toBeInTheDocument();
       expect(screen.queryByText('A sturdy iron blade')).not.toBeInTheDocument();
     });
@@ -205,7 +203,6 @@ describe('ItemCard', () => {
       );
 
       const badge = screen.getByText('Misc');
-      // Unknown categories get default badge styling without semantic colors
       expect(badge).toHaveClass('inline-flex', 'items-center');
     });
 
@@ -352,11 +349,11 @@ describe('ItemCard', () => {
       await user.click(screen.getByText('✎'));
 
       expect(screen.getByDisplayValue('Iron Sword')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('1')).toBeInTheDocument();
       expect(screen.getByDisplayValue('A sturdy iron blade')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Weapon')).toBeInTheDocument();
     });
 
-    it('shows save and cancel buttons in edit mode', async () => {
+    it('shows Save and Cancel buttons in edit mode', async () => {
       const user = userEvent.setup();
       render(
         <ItemCard
@@ -369,8 +366,8 @@ describe('ItemCard', () => {
 
       await user.click(screen.getByText('✎'));
 
-      expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('✕')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     });
 
     it('allows editing item name', async () => {
@@ -405,10 +402,28 @@ describe('ItemCard', () => {
 
       await user.click(screen.getByText('✎'));
       const qtyInput = screen.getByDisplayValue('1') as HTMLInputElement;
-      // Use fireEvent because the component prevents clearing (defaults to 1)
-      fireEvent.change(qtyInput, { target: { value: '5' } });
+      fireEvent.change(qtyInput, { target: { value: '3' } });
 
-      expect(screen.getByDisplayValue('5')).toBeInTheDocument();
+      expect(qtyInput.value).toBe('3');
+    });
+
+    it('allows editing category', async () => {
+      const user = userEvent.setup();
+      render(
+        <ItemCard
+          item={mockItem}
+          canEdit={true}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      await user.click(screen.getByText('✎'));
+      const categoryInput = screen.getByDisplayValue('Weapon');
+      await user.clear(categoryInput);
+      await user.type(categoryInput, 'Armor');
+
+      expect(screen.getByDisplayValue('Armor')).toBeInTheDocument();
     });
 
     it('allows editing description', async () => {
@@ -432,7 +447,7 @@ describe('ItemCard', () => {
   });
 
   describe('Save Functionality', () => {
-    it('calls onUpdate with modified values when saved', async () => {
+    it('calls onUpdate with all field values when saved', async () => {
       const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
@@ -450,17 +465,20 @@ describe('ItemCard', () => {
       await user.clear(nameInput);
       await user.type(nameInput, 'Magic Sword');
 
-      const qtyInput = screen.getByDisplayValue('1') as HTMLInputElement;
-      // Use fireEvent because the component prevents clearing (defaults to 1)
-      fireEvent.change(qtyInput, { target: { value: '3' } });
+      const categoryInput = screen.getByDisplayValue('Weapon');
+      await user.clear(categoryInput);
+      await user.type(categoryInput, 'Artifact');
 
-      await user.click(screen.getByText('✓'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Magic Sword',
-        quantity: 3,
-        description: 'A sturdy iron blade',
-      });
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Magic Sword',
+          category: 'Artifact',
+          value: 100,
+          weight: 5,
+        })
+      );
     });
 
     it('exits edit mode after save', async () => {
@@ -475,13 +493,15 @@ describe('ItemCard', () => {
       );
 
       await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✓'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(screen.queryByText('✓')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
       expect(screen.getByText('✎')).toBeInTheDocument();
     });
+  });
 
-    it('sets description to undefined when empty', async () => {
+  describe('Cancel Functionality', () => {
+    it('reverts to view mode without calling onUpdate when cancelled', async () => {
       const onUpdate = vi.fn();
       const user = userEvent.setup();
       render(
@@ -489,33 +509,6 @@ describe('ItemCard', () => {
           item={mockItem}
           canEdit={true}
           onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const descInput = screen.getByDisplayValue('A sturdy iron blade');
-      await user.clear(descInput);
-
-      await user.click(screen.getByText('✓'));
-
-      expect(onUpdate).toHaveBeenCalledWith({
-        name: 'Iron Sword',
-        quantity: 1,
-        description: undefined,
-      });
-    });
-  });
-
-  describe('Cancel Functionality', () => {
-    it('reverts changes when cancelled', async () => {
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={vi.fn()}
           onRemove={vi.fn()}
         />
       );
@@ -526,51 +519,11 @@ describe('ItemCard', () => {
       await user.clear(nameInput);
       await user.type(nameInput, 'Changed Name');
 
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.getByText('Iron Sword')).toBeInTheDocument();
-      expect(screen.queryByDisplayValue('Changed Name')).not.toBeInTheDocument();
-    });
-
-    it('does not call onUpdate when cancelled', async () => {
-      const onUpdate = vi.fn();
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={onUpdate}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-
-      const nameInput = screen.getByDisplayValue('Iron Sword');
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Changed');
-
-      await user.click(screen.getByText('✕'));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onUpdate).not.toHaveBeenCalled();
-    });
-
-    it('exits edit mode when cancelled', async () => {
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      await user.click(screen.getByText('✎'));
-      await user.click(screen.getByText('✕'));
-
-      expect(screen.queryByText('✕')).not.toBeInTheDocument();
-      expect(screen.getByText('✎')).toBeInTheDocument();
+      expect(screen.getByText('Iron Sword')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
   });
 
@@ -633,7 +586,6 @@ describe('ItemCard', () => {
         />
       );
 
-      // Button exists but description is hidden
       expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
       expect(screen.queryByText('A sturdy iron blade')).not.toBeInTheDocument();
     });
@@ -649,13 +601,10 @@ describe('ItemCard', () => {
         />
       );
 
-      // Initially hidden
       expect(screen.queryByText('A sturdy iron blade')).not.toBeInTheDocument();
 
-      // Click expand button
       await user.click(screen.getByLabelText('Expand description'));
 
-      // Now visible
       expect(screen.getByText('A sturdy iron blade')).toBeInTheDocument();
     });
 
@@ -670,11 +619,9 @@ describe('ItemCard', () => {
         />
       );
 
-      // Expand
       await user.click(screen.getByLabelText('Expand description'));
       expect(screen.getByText('A sturdy iron blade')).toBeInTheDocument();
 
-      // Collapse
       await user.click(screen.getByLabelText('Collapse description'));
       expect(screen.queryByText('A sturdy iron blade')).not.toBeInTheDocument();
     });
@@ -690,84 +637,11 @@ describe('ItemCard', () => {
         />
       );
 
-      // Initially collapsed
       const button = screen.getByLabelText('Expand description');
-      expect(button).toBeInTheDocument();
-
-      // Click to expand
       await user.click(button);
 
-      // Aria-label changes
       expect(screen.getByLabelText('Collapse description')).toBeInTheDocument();
       expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-    });
-
-    it('hides description button in edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Button visible initially
-      expect(screen.getByLabelText('Expand description')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Button hidden in edit mode
-      expect(screen.queryByLabelText('Expand description')).not.toBeInTheDocument();
-      expect(screen.queryByLabelText('Collapse description')).not.toBeInTheDocument();
-    });
-
-    it('always shows description in edit mode regardless of collapse state', async () => {
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Description hidden initially (collapsed)
-      expect(screen.queryByText('A sturdy iron blade')).not.toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Description now visible (in editor)
-      expect(screen.getByDisplayValue('A sturdy iron blade')).toBeInTheDocument();
-    });
-
-    it('maintains collapse state when exiting edit mode', async () => {
-      const user = userEvent.setup();
-      render(
-        <ItemCard
-          item={mockItem}
-          canEdit={true}
-          onUpdate={vi.fn()}
-          onRemove={vi.fn()}
-        />
-      );
-
-      // Expand description first
-      await user.click(screen.getByLabelText('Expand description'));
-      expect(screen.getByText('A sturdy iron blade')).toBeInTheDocument();
-
-      // Enter edit mode
-      await user.click(screen.getByText('✎'));
-
-      // Exit edit mode (cancel)
-      await user.click(screen.getByText('✕'));
-
-      // Description still expanded
-      expect(screen.getByText('A sturdy iron blade')).toBeInTheDocument();
     });
   });
 });

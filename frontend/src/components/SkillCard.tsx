@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { CharacterSkill } from '../types/characters';
-import { Button, Input, Badge } from './ui';
+import { Button, Badge } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
-import { CommentEditor } from './CommentEditor';
+import { SkillForm, type SkillFormData } from './character-updates/SkillForm';
 
 interface SkillCardProps {
   skill: CharacterSkill;
@@ -13,104 +13,70 @@ interface SkillCardProps {
 
 export const SkillCard: React.FC<SkillCardProps> = ({ skill, canEdit, onUpdate, onRemove }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(skill.name);
-  const [editLevel, setEditLevel] = useState(skill.level?.toString() || '');
-  const [editDescription, setEditDescription] = useState(skill.description || '');
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = (data: SkillFormData) => {
     onUpdate({
-      name: editName,
-      level: editLevel || undefined,
-      description: editDescription || undefined
+      name: data.name,
+      level: data.level?.toString() || undefined,
+      description: data.description,
+      category: data.category,
     });
     setIsEditing(false);
   };
 
-  const handleCancel = () => {
-    setEditName(skill.name);
-    setEditLevel(skill.level?.toString() || '');
-    setEditDescription(skill.description || '');
-    setIsEditing(false);
-  };
+  if (isEditing) {
+    return (
+      <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
+        <SkillForm
+          initialValues={{
+            name: skill.name,
+            level: skill.level,
+            description: skill.description,
+            category: skill.category,
+          }}
+          onSubmit={handleSave}
+          onCancel={() => setIsEditing(false)}
+          submitLabel="Save"
+          variant="inline"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="border border-theme-default rounded-lg p-5 surface-base hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
-          {isEditing ? (
-            <div className="space-y-2">
-              <Input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Skill name..."
-                className="text-base font-medium"
-              />
-              <Input
-                type="text"
-                value={editLevel}
-                onChange={(e) => setEditLevel(e.target.value)}
-                placeholder="Level (e.g., Expert, 5, Advanced)"
-                className="text-sm"
-              />
-            </div>
-          ) : (
-            <div>
-              <h4 className="text-base font-semibold text-content-primary mb-1">{skill.name}</h4>
-              {skill.level && (
-                <span className="text-sm text-interactive-primary font-medium">Level: {skill.level}</span>
-              )}
-            </div>
+          <h4 className="text-base font-semibold text-content-primary mb-1">{skill.name}</h4>
+          {skill.level && (
+            <span className="text-sm text-interactive-primary font-medium">Level: {skill.level}</span>
           )}
         </div>
 
         {canEdit && (
           <div className="flex space-x-1 ml-4">
-            {isEditing ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSave}
-                  className="p-1 text-semantic-success hover:text-semantic-success"
-                >
-                  ✓
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancel}
-                  className="p-1 text-content-secondary hover:text-content-primary"
-                >
-                  ✕
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                  className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
-                >
-                  ✎
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onRemove}
-                  className="p-1 text-semantic-danger hover:text-semantic-danger"
-                >
-                  🗑
-                </Button>
-              </>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              className="p-1 text-interactive-primary hover:text-interactive-primary-hover"
+            >
+              ✎
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              className="p-1 text-semantic-danger hover:text-semantic-danger"
+            >
+              🗑
+            </Button>
           </div>
         )}
       </div>
 
-      {skill.description && !isEditing && (
+      {skill.description && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1 px-2 py-1 mb-3 text-sm text-content-secondary hover:text-content-primary transition-colors rounded hover:bg-surface-secondary"
@@ -132,21 +98,9 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, canEdit, onUpdate, 
         </button>
       )}
 
-      {(skill.description || isEditing) && (isExpanded || isEditing) && (
-        <div className="mb-3">
-          {isEditing ? (
-            <CommentEditor
-              value={editDescription}
-              onChange={setEditDescription}
-              placeholder="Describe this skill... (Markdown supported)"
-              rows={3}
-              showPreviewByDefault={false}
-            />
-          ) : (
-            <div className="text-sm">
-              <MarkdownPreview content={skill.description || ''} />
-            </div>
-          )}
+      {skill.description && isExpanded && (
+        <div className="mb-3 text-sm">
+          <MarkdownPreview content={skill.description} />
         </div>
       )}
 
