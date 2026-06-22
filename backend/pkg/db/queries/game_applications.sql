@@ -56,6 +56,9 @@ RETURNING id, game_id, user_id, role, message, status, reviewed_by_user_id, revi
 -- name: DeleteGameApplication :exec
 DELETE FROM game_applications WHERE id = $1 AND user_id = $2;
 
+-- name: DeleteRejectedApplicationForUser :exec
+DELETE FROM game_applications WHERE game_id = $1 AND user_id = $2 AND status = 'rejected';
+
 -- name: CountPendingApplicationsForGame :one
 SELECT COUNT(*) FROM game_applications
 WHERE game_id = $1 AND status = 'pending';
@@ -97,9 +100,10 @@ SELECT EXISTS(
 -- name: CanUserApplyToGame :one
 SELECT CASE
     WHEN EXISTS(SELECT 1 FROM games g WHERE g.id = sqlc.arg('game_id') AND g.gm_user_id = sqlc.arg('user_id')) THEN 'is_game_master'
-    WHEN EXISTS(SELECT 1 FROM game_participants gp WHERE gp.game_id = sqlc.arg('game_id') AND gp.user_id = sqlc.arg('user_id')) THEN 'already_participant'
+    WHEN EXISTS(SELECT 1 FROM game_participants gp WHERE gp.game_id = sqlc.arg('game_id') AND gp.user_id = sqlc.arg('user_id') AND gp.status = 'active') THEN 'already_participant'
     WHEN EXISTS(SELECT 1 FROM game_applications ga WHERE ga.game_id = sqlc.arg('game_id') AND ga.user_id = sqlc.arg('user_id') AND ga.status = 'pending') THEN 'application_pending'
-    WHEN EXISTS(SELECT 1 FROM game_applications ga2 WHERE ga2.game_id = sqlc.arg('game_id') AND ga2.user_id = sqlc.arg('user_id') AND ga2.status = 'rejected') THEN 'application_rejected'
+    WHEN EXISTS(SELECT 1 FROM game_applications ga2 WHERE ga2.game_id = sqlc.arg('game_id') AND ga2.user_id = sqlc.arg('user_id') AND ga2.status = 'rejected')
+         AND NOT EXISTS(SELECT 1 FROM game_participants gp2 WHERE gp2.game_id = sqlc.arg('game_id') AND gp2.user_id = sqlc.arg('user_id')) THEN 'application_rejected'
     WHEN EXISTS(SELECT 1 FROM games g2 WHERE g2.id = sqlc.arg('game_id') AND g2.state != 'recruitment') THEN 'not_recruiting'
     ELSE 'can_apply'
 END AS status;

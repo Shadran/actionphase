@@ -54,9 +54,10 @@ func (q *Queries) BulkRejectApplications(ctx context.Context, arg BulkRejectAppl
 const canUserApplyToGame = `-- name: CanUserApplyToGame :one
 SELECT CASE
     WHEN EXISTS(SELECT 1 FROM games g WHERE g.id = $1 AND g.gm_user_id = $2) THEN 'is_game_master'
-    WHEN EXISTS(SELECT 1 FROM game_participants gp WHERE gp.game_id = $1 AND gp.user_id = $2) THEN 'already_participant'
+    WHEN EXISTS(SELECT 1 FROM game_participants gp WHERE gp.game_id = $1 AND gp.user_id = $2 AND gp.status = 'active') THEN 'already_participant'
     WHEN EXISTS(SELECT 1 FROM game_applications ga WHERE ga.game_id = $1 AND ga.user_id = $2 AND ga.status = 'pending') THEN 'application_pending'
-    WHEN EXISTS(SELECT 1 FROM game_applications ga2 WHERE ga2.game_id = $1 AND ga2.user_id = $2 AND ga2.status = 'rejected') THEN 'application_rejected'
+    WHEN EXISTS(SELECT 1 FROM game_applications ga2 WHERE ga2.game_id = $1 AND ga2.user_id = $2 AND ga2.status = 'rejected')
+         AND NOT EXISTS(SELECT 1 FROM game_participants gp2 WHERE gp2.game_id = $1 AND gp2.user_id = $2) THEN 'application_rejected'
     WHEN EXISTS(SELECT 1 FROM games g2 WHERE g2.id = $1 AND g2.state != 'recruitment') THEN 'not_recruiting'
     ELSE 'can_apply'
 END AS status
@@ -148,6 +149,20 @@ type DeleteGameApplicationParams struct {
 
 func (q *Queries) DeleteGameApplication(ctx context.Context, arg DeleteGameApplicationParams) error {
 	_, err := q.db.Exec(ctx, deleteGameApplication, arg.ID, arg.UserID)
+	return err
+}
+
+const deleteRejectedApplicationForUser = `-- name: DeleteRejectedApplicationForUser :exec
+DELETE FROM game_applications WHERE game_id = $1 AND user_id = $2 AND status = 'rejected'
+`
+
+type DeleteRejectedApplicationForUserParams struct {
+	GameID int32 `json:"game_id"`
+	UserID int32 `json:"user_id"`
+}
+
+func (q *Queries) DeleteRejectedApplicationForUser(ctx context.Context, arg DeleteRejectedApplicationForUserParams) error {
+	_, err := q.db.Exec(ctx, deleteRejectedApplicationForUser, arg.GameID, arg.UserID)
 	return err
 }
 

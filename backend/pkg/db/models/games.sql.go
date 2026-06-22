@@ -14,6 +14,14 @@ import (
 const addGameParticipant = `-- name: AddGameParticipant :one
 INSERT INTO game_participants (game_id, user_id, role)
 VALUES ($1, $2, $3)
+ON CONFLICT (game_id, user_id) DO UPDATE
+SET role = EXCLUDED.role,
+    status = 'active',
+    removed_at = NULL,
+    removed_by_user_id = NULL,
+    is_former_player = game_participants.is_former_player,
+    joined_at = NOW()
+WHERE game_participants.status != 'active'
 RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 

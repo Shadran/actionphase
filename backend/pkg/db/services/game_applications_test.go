@@ -831,3 +831,121 @@ func TestGameApplicationService_GetPublicGameApplicants(t *testing.T) {
 	assert.Contains(t, usernames, player1.Username)
 	assert.Contains(t, usernames, player2.Username)
 }
+
+func TestGameApplicationService_RemovedParticipantCanApplyAsAudience(t *testing.T) {
+	// Regression test: a user with a removed participant record was permanently blocked
+	// from applying as audience because CanUserApplyToGame had no status='active' filter.
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+
+	service := &GameApplicationService{DB: testDB.Pool}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	user := testDB.CreateTestUser(t, "user", "user@example.com")
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err := gameService.UpdateGameState(context.Background(), game.ID, core.GameStateRecruitment)
+	require.NoError(t, err)
+	_, err = gameService.UpdateGameState(context.Background(), game.ID, core.GameStateCharacterCreation)
+	require.NoError(t, err)
+
+	// Simulate the prod scenario: user has a removed audience participant record
+	testDB.AddTestGameParticipant(t, game.ID, int32(user.ID), core.RoleAudience)
+	_, err = testDB.Pool.Exec(context.Background(),
+		`UPDATE game_participants SET status = 'removed', removed_at = NOW() WHERE game_id = $1 AND user_id = $2`,
+		game.ID, user.ID,
+	)
+	require.NoError(t, err)
+
+	t.Run("removed participant can apply as audience", func(t *testing.T) {
+		req := core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(user.ID),
+			Role:   core.RoleAudience,
+		}
+
+		application, err := service.CreateGameApplication(context.Background(), req)
+
+		require.NoError(t, err)
+		assert.Equal(t, core.RoleAudience, application.Role)
+	})
+
+	t.Run("active participant still cannot apply", func(t *testing.T) {
+		activeUser := testDB.CreateTestUser(t, "active_user", "active@example.com")
+		testDB.AddTestGameParticipant(t, game.ID, int32(activeUser.ID), core.RoleAudience)
+
+		req := core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(activeUser.ID),
+			Role:   core.RoleAudience,
+		}
+
+		_, err := service.CreateGameApplication(context.Background(), req)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already a participant")
+	})
+
+	t.Run("removed participant with stale rejected application can still apply", func(t *testing.T) {
+		// Scenario: user was rejected during recruitment, GM later added them directly,
+		// they were subsequently removed. The stale rejected application record should not
+		// block them — the rejection was superseded when the GM added them as a participant.
+		rejectedUser := testDB.CreateTestUser(t, "rejected_user", "rejected@example.com")
+
+		// Simulate a stale rejected application
+		_, err := testDB.Pool.Exec(context.Background(),
+			`INSERT INTO game_applications (game_id, user_id, role, status) VALUES ($1, $2, 'player', 'rejected')`,
+			game.ID, rejectedUser.ID,
+		)
+		require.NoError(t, err)
+
+		// GM added them directly (superseding the rejection), then they were removed
+		testDB.AddTestGameParticipant(t, game.ID, int32(rejectedUser.ID), core.RolePlayer)
+		_, err = testDB.Pool.Exec(context.Background(),
+			`UPDATE game_participants SET status = 'removed', removed_at = NOW() WHERE game_id = $1 AND user_id = $2`,
+			game.ID, rejectedUser.ID,
+		)
+		require.NoError(t, err)
+
+		req := core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(rejectedUser.ID),
+			Role:   core.RoleAudience,
+		}
+
+		application, err := service.CreateGameApplication(context.Background(), req)
+
+		require.NoError(t, err)
+		assert.Equal(t, core.RoleAudience, application.Role)
+	})
+}
+
+func TestAddGameParticipant_ReactivatesRemovedRecord(t *testing.T) {
+	// Regression test: AddGameParticipant used a plain INSERT which would fail with a
+	// unique constraint violation when a removed participant record already existed.
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	user := testDB.CreateTestUser(t, "user", "user@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	// Create and then remove a participant
+	testDB.AddTestGameParticipant(t, game.ID, int32(user.ID), core.RoleAudience)
+	_, err := testDB.Pool.Exec(context.Background(),
+		`UPDATE game_participants SET status = 'removed', removed_at = NOW(), is_former_player = TRUE WHERE game_id = $1 AND user_id = $2`,
+		game.ID, user.ID,
+	)
+	require.NoError(t, err)
+
+	// Re-adding the same user should reactivate the record, not fail with a constraint error
+	gameService := &GameService{DB: testDB.Pool, Logger: core.NewTestApp(testDB.Pool).ObsLogger}
+	participant, err := gameService.AddGameParticipant(context.Background(), game.ID, int32(user.ID), core.RoleAudience)
+
+	require.NoError(t, err)
+	assert.Equal(t, "active", participant.Status.String)
+	assert.True(t, participant.IsFormerPlayer, "is_former_player should be preserved on re-join")
+	assert.False(t, participant.RemovedAt.Valid, "removed_at should be cleared")
+}

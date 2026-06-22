@@ -55,6 +55,17 @@ func (gas *GameApplicationService) CreateGameApplication(ctx context.Context, re
 		}
 	}
 
+	// Delete any stale rejected application — this happens when a user was rejected,
+	// later added directly as a participant (superseding the rejection), and has since
+	// been removed. The unique constraint on (game_id, user_id) would otherwise block
+	// the new application INSERT.
+	if err := queries.DeleteRejectedApplicationForUser(ctx, models.DeleteRejectedApplicationForUserParams{
+		GameID: req.GameID,
+		UserID: req.UserID,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to clear stale rejected application: %w", err)
+	}
+
 	// Create the application
 	var messageText pgtype.Text
 	if req.Message != "" {
