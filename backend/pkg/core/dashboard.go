@@ -11,10 +11,10 @@ type DashboardData struct {
 	GMGames             []*DashboardGameCard `json:"gm_games"`
 	AudienceGames       []*DashboardGameCard `json:"audience_games"`
 	MixedRoleGames      []*DashboardGameCard `json:"mixed_role_games"`
-	RecentMessages        []*DashboardMessage `json:"recent_messages"`
-	UpcomingDeadlines     []*DashboardDeadline `json:"upcoming_deadlines"`
-	UnreadNotifications   int                  `json:"unread_notifications"`
-	NotificationsByType   map[string]int       `json:"notifications_by_type"`
+	RecentMessages      []*DashboardMessage  `json:"recent_messages"`
+	UpcomingDeadlines   []*DashboardDeadline `json:"upcoming_deadlines"`
+	UnreadNotifications int                  `json:"unread_notifications"`
+	NotificationsByType map[string]int       `json:"notifications_by_type"`
 }
 
 // DashboardGameCard represents a game card on the dashboard.
@@ -70,7 +70,7 @@ type DashboardDeadline struct {
 	PhaseID              int32     `json:"phase_id"`
 	GameID               int32     `json:"game_id"`
 	GameTitle            string    `json:"game_title"`
-	Title                string    `json:"title"`       // display title for all deadline types
+	Title                string    `json:"title"` // display title for all deadline types
 	PhaseType            string    `json:"phase_type"`
 	PhaseTitle           string    `json:"phase_title"`
 	PhaseNumber          int32     `json:"phase_number"`

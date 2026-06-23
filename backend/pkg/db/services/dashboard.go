@@ -66,7 +66,7 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 		notifByType    []db.GetUserUnreadNotificationsByTypeRow
 		unreadComments []unreadCommentCount
 
-		mu      sync.Mutex
+		mu       sync.Mutex
 		firstErr error
 	)
 
