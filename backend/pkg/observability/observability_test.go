@@ -375,6 +375,51 @@ func TestIsScannerProbe(t *testing.T) {
 		"/something/random.php",
 		"/wp-admin",
 		"/wordpress",
+		// credential endpoint probes
+		"/api/secrets",
+		"/api/keys",
+		"/api/credentials",
+		"/api/tokens",
+		"/api/credentials.json_development",
+		// api-keys file variants
+		"/api-keys.json",
+		"/api_keys.txt.inactive",
+		"/api_keys.txt_old",
+		"/api_keys.txt-backup",
+		"/api_keys.txt2",
+		// dotenv variants under /api/
+		"/api/.env.prod",
+		"/api/.env.dev",
+		"/api/.env.local_staging",
+		"/api/.environment",
+		"/api/shared/config.env",
+		// backup/temp suffixes
+		"/api/wp-config.old.bak",
+		"/api/database.yml.dev",
+		"/api/next.config.js._",
+		"/api/config.xml_development",
+		// source file probes
+		"/api/config.js",
+		"/api/node/constants.js",
+		"/api/settings.py",
+		"/api/env.js",
+		// API discovery probes
+		"/api/graphql",
+		"/api/version",
+		"/api/env",
+		"/api/environment",
+		"/api/swagger.json",
+		"/api/swagger.yaml",
+		"/api/openapi.json",
+		"/api/v2/swagger.json",
+		"/api-docs",
+		"/api-docs/swagger.json",
+		// well-known config files
+		"/api/config/tsconfig.json",
+		"/api/gcp_credentials.json.prod",
+		// wildcard enumeration
+		"/api/v1/*",
+		"/api/serverless/something",
 	}
 	for _, p := range probes {
 		assert.True(t, isScannerProbe(p), "expected probe: %s", p)

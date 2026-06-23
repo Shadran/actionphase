@@ -273,5 +273,82 @@ func isScannerProbe(reqPath string) bool {
 		return true
 	}
 
+	// Credential/secret endpoint probes (/api/secrets, /api/keys, /api/tokens, etc.)
+	credentialEndpoints := []string{
+		"/api/secrets", "/api/keys", "/api/credentials", "/api/tokens",
+	}
+	for _, ep := range credentialEndpoints {
+		if cleaned == ep || strings.HasPrefix(cleaned, ep+".") || strings.HasPrefix(cleaned, ep+"_") || strings.HasPrefix(cleaned, ep+"-") {
+			return true
+		}
+	}
+
+	// Top-level api-keys / api_keys file variants (/api-keys.json, /api_keys.txt_old, etc.)
+	if strings.HasPrefix(cleaned, "/api-keys.") || strings.HasPrefix(cleaned, "/api_keys.") {
+		return true
+	}
+
+	// Dotenv variants under /api/ (/api/.env.prod, /api/.environment, /api/shared/config.env)
+	if strings.HasPrefix(cleaned, "/api/.env") ||
+		cleaned == "/api/.environment" ||
+		cleaned == "/api/shared/config.env" {
+		return true
+	}
+
+	// Backup/temp suffixed files (.bak, .old, .swp, etc.)
+	backupExts := []string{".bak", ".old", ".swp", ".orig", ".backup", ".tmp", ".save"}
+	for _, ext := range backupExts {
+		if strings.Contains(base, ext) {
+			return true
+		}
+	}
+
+	// Source file probes: JS/Python config files that don't belong on this server
+	// e.g. /api/config.js, /api/node/constants.js, /api/settings.py
+	sourceProbeFiles := []string{
+		"env.js", "config.js", "constants.js", "constant.js", "common.js",
+		"server.js", "index.js", "settings.py",
+	}
+	for _, f := range sourceProbeFiles {
+		if base == f {
+			return true
+		}
+	}
+
+	// API discovery / documentation probes
+	apiDiscoveryPaths := []string{
+		"/api/graphql", "/api/version", "/api/env", "/api/environment",
+		"/api/swagger.json", "/api/swagger.yaml", "/api/openapi.json",
+		"/api/v2/swagger.json", "/api-docs",
+	}
+	for _, p := range apiDiscoveryPaths {
+		if cleaned == p || strings.HasPrefix(cleaned, "/api-docs/") {
+			return true
+		}
+	}
+
+	// Well-known config filenames under /api/ (with optional trailing env/backup suffixes)
+	wellKnownConfigs := []string{
+		"tsconfig.json", "wp-config", "next.config.js",
+		"database.yml", "database.yaml", "gcp_credentials.json", "config.xml",
+	}
+	for _, f := range wellKnownConfigs {
+		idx := strings.Index(cleaned, "/"+f)
+		if idx >= 0 {
+			rest := cleaned[idx+1+len(f):]
+			if rest == "" || rest[0] == '.' || rest[0] == '_' || rest[0] == '-' {
+				return true
+			}
+		}
+	}
+
+	// Wildcard endpoint enumeration (/api/v1/*, /api/serverless/*, etc.)
+	if strings.HasSuffix(cleaned, "/*") {
+		return true
+	}
+	if strings.HasPrefix(cleaned, "/api/serverless/") {
+		return true
+	}
+
 	return false
 }
