@@ -221,12 +221,13 @@ func TestDraftPostAPI_UpdateAndDelete(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 
-		// Verify it's gone
+		// Verify it's gone — 200 with null body (no draft)
 		getReq := httptest.NewRequest(http.MethodGet, phaseURL+"/", nil)
 		getReq.Header.Set("Authorization", "Bearer "+gmToken)
 		getRec := httptest.NewRecorder()
 		router.ServeHTTP(getRec, getReq)
-		assert.Equal(t, http.StatusNotFound, getRec.Code)
+		assert.Equal(t, http.StatusOK, getRec.Code)
+		assert.Equal(t, "null\n", getRec.Body.String())
 	})
 }
 

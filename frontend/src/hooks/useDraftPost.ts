@@ -11,15 +11,8 @@ export function useDraftPost(phaseId: number | undefined) {
   return useQuery({
     queryKey: draftPostKey(phaseId!),
     queryFn: async () => {
-      try {
-        const response = await apiClient.messages.getDraftPost(phaseId!);
-        return response.data;
-      } catch (err: unknown) {
-        // 404 means no draft exists — treat as null
-        const status = (err as { response?: { status?: number } })?.response?.status;
-        if (status === 404) return null;
-        throw err;
-      }
+      const response = await apiClient.messages.getDraftPost(phaseId!);
+      return response.data;
     },
     enabled: !!phaseId,
   });

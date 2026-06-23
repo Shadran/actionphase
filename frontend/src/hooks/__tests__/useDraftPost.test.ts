@@ -61,10 +61,8 @@ describe('useDraftPost', () => {
     expect(result.current.data?.is_draft).toBe(true);
   });
 
-  it('returns null when API returns 404', async () => {
-    vi.mocked(apiClient.messages.getDraftPost).mockRejectedValue({
-      response: { status: 404 },
-    });
+  it('returns null when no draft exists (200 null)', async () => {
+    vi.mocked(apiClient.messages.getDraftPost).mockResolvedValue({ data: null } as never);
 
     const { result } = renderHook(() => useDraftPost(10), {
       wrapper: makeWrapper(),

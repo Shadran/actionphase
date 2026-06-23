@@ -49,7 +49,7 @@ func (h *Handler) GetDraftPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if draft == nil {
-		h.renderError(ctx, w, r, core.ErrNotFound("no draft post for this phase"), "Get draft post not found")
+		render.JSON(w, r, nil)
 		return
 	}
 
