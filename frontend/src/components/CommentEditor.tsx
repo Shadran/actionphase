@@ -535,7 +535,7 @@ export const CommentEditor = memo(function CommentEditor({
         {showPreview && (
           <div
             className="overflow-auto"
-            style={editorHeight !== null ? { height: editorHeight } : { minHeight: `${rows * 1.5}rem` }}
+            style={editorHeight !== null ? { height: editorHeight } : { minHeight: `${rows * 1.5}rem`, maxHeight: `${rows * 1.5}rem` }}
           >
             {value.trim() ? (
               <MarkdownPreview content={value} sheetItemRefs={sheetItems} />

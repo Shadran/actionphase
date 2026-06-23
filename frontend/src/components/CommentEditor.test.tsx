@@ -277,6 +277,19 @@ describe('CommentEditor', () => {
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
       expect(screen.getByText('Test')).toBeInTheDocument();
     });
+
+    it('preview div has a constrained maxHeight without manual resize so it does not expand freely', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<CommentEditor {...defaultProps} value="Some content" rows={4} />);
+
+      await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+      // The preview wrapper should have maxHeight set (to match the textarea height)
+      // so long content scrolls rather than expanding the container unboundedly.
+      const previewWrapper = container.querySelector('.overflow-auto');
+      expect(previewWrapper).toBeInTheDocument();
+      expect(previewWrapper).toHaveStyle({ maxHeight: '6rem' }); // rows(4) * 1.5rem
+    });
   });
 
   describe('Integration with MarkdownPreview', () => {
