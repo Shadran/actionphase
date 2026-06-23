@@ -1426,7 +1426,7 @@ func TestCharacterService_ListInactiveCharacters(t *testing.T) {
 func TestCharacterService_GetCharacterActivityStats(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
-	defer testDB.CleanupTables(t, "characters", "games", "users")
+	defer testDB.CleanupTables(t, "private_messages", "conversations", "messages", "characters", "games", "users")
 
 	ctx := context.Background()
 	app := core.NewTestApp(testDB.Pool)
@@ -1448,6 +1448,61 @@ func TestCharacterService_GetCharacterActivityStats(t *testing.T) {
 		assert.Equal(t, int64(0), stats.PublicMessages)
 		require.NotNil(t, stats.PrivateMessages)
 		assert.Equal(t, int64(0), *stats.PrivateMessages)
+	})
+
+	t.Run("counts public messages authored by the character", func(t *testing.T) {
+		_, err := testDB.Pool.Exec(ctx, `
+			INSERT INTO messages (game_id, author_id, character_id, content, message_type, visibility)
+			VALUES ($1, $2, $3, 'public post one', 'post', 'game')
+		`, game.ID, gm.ID, char.ID)
+		require.NoError(t, err)
+
+		_, err = testDB.Pool.Exec(ctx, `
+			INSERT INTO messages (game_id, author_id, character_id, content, message_type, visibility)
+			VALUES ($1, $2, $3, 'public post two', 'post', 'game')
+		`, game.ID, gm.ID, char.ID)
+		require.NoError(t, err)
+
+		stats, err := svc.GetCharacterActivityStats(ctx, char.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), stats.PublicMessages, "must count all non-deleted public messages for the character")
+	})
+
+	t.Run("counts private messages sent as the character", func(t *testing.T) {
+		// A private message requires a conversation parent row.
+		var convID int32
+		err := testDB.Pool.QueryRow(ctx, `
+			INSERT INTO conversations (game_id, created_by_user_id, conversation_type)
+			VALUES ($1, $2, 'direct') RETURNING id
+		`, game.ID, gm.ID).Scan(&convID)
+		require.NoError(t, err)
+
+		_, err = testDB.Pool.Exec(ctx, `
+			INSERT INTO private_messages (conversation_id, sender_user_id, sender_character_id, content)
+			VALUES ($1, $2, $3, 'private message one')
+		`, convID, gm.ID, char.ID)
+		require.NoError(t, err)
+
+		stats, err := svc.GetCharacterActivityStats(ctx, char.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stats.PrivateMessages)
+		assert.Equal(t, int64(1), *stats.PrivateMessages, "must count non-deleted private messages sent as the character")
+	})
+
+	t.Run("does not count soft-deleted messages", func(t *testing.T) {
+		// Mark all existing messages as deleted for this character.
+		_, err := testDB.Pool.Exec(ctx,
+			"UPDATE messages SET is_deleted = TRUE WHERE character_id = $1", char.ID)
+		require.NoError(t, err)
+		_, err = testDB.Pool.Exec(ctx,
+			"UPDATE private_messages SET is_deleted = TRUE WHERE sender_character_id = $1", char.ID)
+		require.NoError(t, err)
+
+		stats, err := svc.GetCharacterActivityStats(ctx, char.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), stats.PublicMessages, "deleted public messages must not be counted")
+		require.NotNil(t, stats.PrivateMessages)
+		assert.Equal(t, int64(0), *stats.PrivateMessages, "deleted private messages must not be counted")
 	})
 }
 
