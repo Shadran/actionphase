@@ -18,20 +18,22 @@ describe('HistoryView', () => {
       phase_type: 'common_room',
       title: 'Opening Ceremony',
       description: 'Welcome to the game!',
-      status: 'completed',
+      is_active: false,
+      is_published: false,
+      end_time: '2025-01-02T00:00:00Z', // completed — was activated
+      start_time: '2025-01-01T00:00:00Z',
       created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-02T00:00:00Z',
     },
     {
       id: 2,
       game_id: mockGameId,
       phase_number: 2,
       phase_type: 'action',
-      title: null,
-      description: 'Submit your actions',
-      status: 'completed',
+      is_active: false,
+      is_published: false,
+      end_time: '2025-01-04T00:00:00Z', // completed — was activated
+      start_time: '2025-01-03T00:00:00Z',
       created_at: '2025-01-03T00:00:00Z',
-      updated_at: '2025-01-04T00:00:00Z',
     },
     {
       id: 3,
@@ -40,9 +42,10 @@ describe('HistoryView', () => {
       phase_type: 'common_room',
       title: 'Midgame Discussion',
       description: 'React to the results',
-      status: 'active',
+      is_active: true, // currently active
+      is_published: false,
+      start_time: '2025-01-05T00:00:00Z',
       created_at: '2025-01-05T00:00:00Z',
-      updated_at: '2025-01-05T00:00:00Z',
     },
   ];
 
@@ -119,6 +122,35 @@ describe('HistoryView', () => {
       const actionButton = actionPhaseTitle[0].closest('button');
       expect(actionButton).toBeInTheDocument();
       expect(actionButton).not.toBeDisabled();
+    });
+  });
+
+  describe('future phase visibility', () => {
+    it('does not show unactivated phases in the history list', async () => {
+      const futurePhase: GamePhase = {
+        id: 99,
+        game_id: mockGameId,
+        phase_number: 4,
+        phase_type: 'action',
+        title: 'Secret Future Phase',
+        is_active: false,
+        is_published: false,
+        created_at: '2025-02-01T00:00:00Z',
+        // no end_time — never activated
+      };
+
+      setupHandlers([...mockPhases, futurePhase]);
+
+      renderWithProviders(
+        <HistoryView gameId={mockGameId} currentPhaseId={mockCurrentPhaseId} isGM={false} />
+      );
+
+      // Wait for the phase list to render, then assert the future phase is absent
+      const matches = await screen.findAllByText('Opening Ceremony');
+      expect(matches.length).toBeGreaterThan(0);
+
+      // The unactivated future phase must not appear
+      expect(screen.queryByText('Secret Future Phase')).not.toBeInTheDocument();
     });
   });
 

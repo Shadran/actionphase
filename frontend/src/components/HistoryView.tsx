@@ -49,7 +49,12 @@ export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience =
     enabled: !!gameId,
   });
 
-  const phases = useMemo(() => phasesData || [], [phasesData]);
+  // Only show phases that have been activated — is_active (currently running) or
+  // end_time set (completed). Future phases have neither and must stay hidden.
+  const phases = useMemo(
+    () => (phasesData || []).filter(p => p.is_active || !!p.end_time),
+    [phasesData]
+  );
 
   // Fetch action results (use appropriate endpoint based on isGM)
   // Only fetch results/submissions once a phase is selected — avoids loading all data on tab open
