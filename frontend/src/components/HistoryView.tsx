@@ -49,10 +49,11 @@ export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience =
     enabled: !!gameId,
   });
 
-  // Only show phases that have been activated — is_active (currently running) or
-  // end_time set (completed). Future phases have neither and must stay hidden.
+  // Only show phases that have been activated. activated_at is set the moment a
+  // phase is activated and never cleared, making it the reliable signal for history.
+  // is_active is a fallback for phases activated before the activated_at column was added.
   const phases = useMemo(
-    () => (phasesData || []).filter(p => p.is_active || !!p.end_time),
+    () => (phasesData || []).filter(p => !!p.activated_at || p.is_active),
     [phasesData]
   );
 

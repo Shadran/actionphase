@@ -27,18 +27,3 @@ type CreatePhaseRequest struct {
 	EndTime   *time.Time
 	Deadline  *time.Time
 }
-
-type PhaseResponse struct {
-	ID          int32      `json:"id"`
-	GameID      int32      `json:"game_id"`
-	PhaseType   string     `json:"phase_type"`
-	PhaseNumber int32      `json:"phase_number"`
-	Title       *string    `json:"title,omitempty"`
-	Description *string    `json:"description,omitempty"`
-	StartTime   *time.Time `json:"start_time,omitempty"`
-	EndTime     *time.Time `json:"end_time,omitempty"`
-	Deadline    *time.Time `json:"deadline,omitempty"`
-	IsActive    bool       `json:"is_active"`
-	IsPublished bool       `json:"is_published"`
-	CreatedAt   time.Time  `json:"created_at"`
-}

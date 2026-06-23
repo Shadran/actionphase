@@ -71,22 +71,7 @@ func (h *Handler) ActivatePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
-	response := phaseService.ConvertPhaseToResponse(activePhase)
-
-	render.Render(w, r, &PhaseResponse{
-		ID:          response.ID,
-		GameID:      response.GameID,
-		PhaseType:   response.PhaseType,
-		PhaseNumber: response.PhaseNumber,
-		Title:       response.Title,
-		Description: response.Description,
-		StartTime:   response.StartTime,
-		EndTime:     response.EndTime,
-		Deadline:    response.Deadline,
-		IsActive:    response.IsActive,
-		CreatedAt:   response.CreatedAt,
-	})
+	render.Render(w, r, convertPhaseToResponse(activePhase))
 }
 
 // PublishAllPhaseResults publishes all unpublished results for a phase (GM only)

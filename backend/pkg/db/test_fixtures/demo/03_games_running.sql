@@ -57,7 +57,7 @@ BEGIN
     (game1_id, audience_id, 'audience', 'active', NOW() - INTERVAL '5 days');
 
   -- Phase 1: Active Common Room with custom title
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, description, start_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, description, start_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES (
     game1_id,
     'common_room',
@@ -68,6 +68,7 @@ BEGIN
     NOW() + INTERVAL '22 hours',
     true,
     true,  -- Published so demo content is visible
+    NOW() - INTERVAL '2 hours',
     NOW() - INTERVAL '2 hours'
   );
 
@@ -98,7 +99,7 @@ BEGIN
     (game2_id, audience_id, 'audience', 'active', NOW() - INTERVAL '8 days');
 
   -- Previous Phase 1: Common Room
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES (
     game2_id,
     'common_room',
@@ -109,11 +110,12 @@ BEGIN
     NOW() - INTERVAL '2 days',
     false,
     false,
+    NOW() - INTERVAL '3 days',
     NOW() - INTERVAL '3 days'
   );
 
   -- Active Phase 2: Action Phase (accepting submissions)
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, description, start_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, description, start_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES (
     game2_id,
     'action',
@@ -124,6 +126,7 @@ BEGIN
     NOW() + INTERVAL '20 hours',
     true,
     false,
+    NOW() - INTERVAL '4 hours',
     NOW() - INTERVAL '4 hours'
   );
 
@@ -152,13 +155,13 @@ BEGIN
     (game3_id, audience_id, 'audience', 'active', NOW() - INTERVAL '12 days');
 
   -- Previous phases
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES
-    (game3_id, 'common_room', 1, 'Initial Planning', NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days', false, false, NOW() - INTERVAL '5 days'),
-    (game3_id, 'action', 2, 'First Investigation', NOW() - INTERVAL '4 days', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days', false, false, NOW() - INTERVAL '4 days');
+    (game3_id, 'common_room', 1, 'Initial Planning', NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days', false, false, NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days'),
+    (game3_id, 'action', 2, 'First Investigation', NOW() - INTERVAL '4 days', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days', false, false, NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days');
 
   -- Active Phase 3: Published Action Phase (results are published)
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, activated_at, created_at)
   VALUES (
     game3_id,
     'action',
@@ -167,6 +170,7 @@ BEGIN
     NOW() - INTERVAL '6 hours',
     true,
     true,
+    NOW() - INTERVAL '6 hours',
     NOW() - INTERVAL '6 hours'
   );
 
@@ -196,17 +200,17 @@ BEGIN
     (game5_id, audience_id, 'audience', 'active', NOW() - INTERVAL '40 days');
 
   -- Phase History (with published action phases replacing old results phases)
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES
-    (game5_id, 'common_room', 1, 'The Tavern Meeting', NOW() - INTERVAL '30 days', NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days', false, false, NOW() - INTERVAL '30 days'),
-    (game5_id, 'action', 2, 'Journey to Krag', NOW() - INTERVAL '28 days', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', false, false, NOW() - INTERVAL '28 days'),
-    (game5_id, 'action', 3, 'Ambush on the Road', NOW() - INTERVAL '25 days', NOW() - INTERVAL '23 days', NOW() - INTERVAL '23 days', false, true, NOW() - INTERVAL '25 days'),
-    (game5_id, 'common_room', 4, 'Healing and Planning', NOW() - INTERVAL '23 days', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days', false, false, NOW() - INTERVAL '23 days'),
-    (game5_id, 'action', 5, 'Infiltrate the Caves', NOW() - INTERVAL '20 days', NOW() - INTERVAL '18 days', NOW() - INTERVAL '18 days', false, false, NOW() - INTERVAL '20 days'),
-    (game5_id, 'action', 6, 'Discovery of the Lair', NOW() - INTERVAL '18 days', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days', false, true, NOW() - INTERVAL '18 days');
+    (game5_id, 'common_room', 1, 'The Tavern Meeting', NOW() - INTERVAL '30 days', NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days', false, false, NOW() - INTERVAL '30 days', NOW() - INTERVAL '30 days'),
+    (game5_id, 'action', 2, 'Journey to Krag', NOW() - INTERVAL '28 days', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', false, false, NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days'),
+    (game5_id, 'action', 3, 'Ambush on the Road', NOW() - INTERVAL '25 days', NOW() - INTERVAL '23 days', NOW() - INTERVAL '23 days', false, true, NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days'),
+    (game5_id, 'common_room', 4, 'Healing and Planning', NOW() - INTERVAL '23 days', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days', false, false, NOW() - INTERVAL '23 days', NOW() - INTERVAL '23 days'),
+    (game5_id, 'action', 5, 'Infiltrate the Caves', NOW() - INTERVAL '20 days', NOW() - INTERVAL '18 days', NOW() - INTERVAL '18 days', false, false, NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days'),
+    (game5_id, 'action', 6, 'Discovery of the Lair', NOW() - INTERVAL '18 days', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days', false, true, NOW() - INTERVAL '18 days', NOW() - INTERVAL '18 days');
 
   -- Active Phase 7: Common Room
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, activated_at, created_at)
   VALUES (
     game5_id,
     'common_room',
@@ -215,6 +219,7 @@ BEGIN
     NOW() - INTERVAL '3 hours',
     true,
     true,  -- Published so demo content is visible
+    NOW() - INTERVAL '3 hours',
     NOW() - INTERVAL '3 hours'
   );
 
@@ -244,22 +249,22 @@ BEGIN
     (game6_id, audience_id, 'audience', 'active', NOW() - INTERVAL '50 days');
 
   -- Many phases (12 total) - alternating common room, unpublished action, and published action
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES
-    (game6_id, 'common_room', 1, 'Phase 1', NOW() - INTERVAL '55 days', NOW() - INTERVAL '53 days', NOW() - INTERVAL '53 days', false, false, NOW() - INTERVAL '55 days'),
-    (game6_id, 'action', 2, 'Phase 2', NOW() - INTERVAL '53 days', NOW() - INTERVAL '50 days', NOW() - INTERVAL '50 days', false, false, NOW() - INTERVAL '53 days'),
-    (game6_id, 'action', 3, 'Phase 3 Results', NOW() - INTERVAL '50 days', NOW() - INTERVAL '48 days', NOW() - INTERVAL '48 days', false, true, NOW() - INTERVAL '50 days'),
-    (game6_id, 'common_room', 4, 'Phase 4', NOW() - INTERVAL '48 days', NOW() - INTERVAL '45 days', NOW() - INTERVAL '45 days', false, false, NOW() - INTERVAL '48 days'),
-    (game6_id, 'action', 5, 'Phase 5', NOW() - INTERVAL '45 days', NOW() - INTERVAL '42 days', NOW() - INTERVAL '42 days', false, false, NOW() - INTERVAL '45 days'),
-    (game6_id, 'action', 6, 'Phase 6 Results', NOW() - INTERVAL '42 days', NOW() - INTERVAL '40 days', NOW() - INTERVAL '40 days', false, true, NOW() - INTERVAL '42 days'),
-    (game6_id, 'common_room', 7, 'Phase 7', NOW() - INTERVAL '40 days', NOW() - INTERVAL '37 days', NOW() - INTERVAL '37 days', false, false, NOW() - INTERVAL '40 days'),
-    (game6_id, 'action', 8, 'Phase 8', NOW() - INTERVAL '37 days', NOW() - INTERVAL '34 days', NOW() - INTERVAL '34 days', false, false, NOW() - INTERVAL '37 days'),
-    (game6_id, 'action', 9, 'Phase 9 Results', NOW() - INTERVAL '34 days', NOW() - INTERVAL '31 days', NOW() - INTERVAL '31 days', false, true, NOW() - INTERVAL '34 days'),
-    (game6_id, 'common_room', 10, 'Phase 10', NOW() - INTERVAL '31 days', NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days', false, false, NOW() - INTERVAL '31 days'),
-    (game6_id, 'action', 11, 'Phase 11', NOW() - INTERVAL '28 days', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', false, false, NOW() - INTERVAL '28 days');
+    (game6_id, 'common_room', 1, 'Phase 1', NOW() - INTERVAL '55 days', NOW() - INTERVAL '53 days', NOW() - INTERVAL '53 days', false, false, NOW() - INTERVAL '55 days', NOW() - INTERVAL '55 days'),
+    (game6_id, 'action', 2, 'Phase 2', NOW() - INTERVAL '53 days', NOW() - INTERVAL '50 days', NOW() - INTERVAL '50 days', false, false, NOW() - INTERVAL '53 days', NOW() - INTERVAL '53 days'),
+    (game6_id, 'action', 3, 'Phase 3 Results', NOW() - INTERVAL '50 days', NOW() - INTERVAL '48 days', NOW() - INTERVAL '48 days', false, true, NOW() - INTERVAL '50 days', NOW() - INTERVAL '50 days'),
+    (game6_id, 'common_room', 4, 'Phase 4', NOW() - INTERVAL '48 days', NOW() - INTERVAL '45 days', NOW() - INTERVAL '45 days', false, false, NOW() - INTERVAL '48 days', NOW() - INTERVAL '48 days'),
+    (game6_id, 'action', 5, 'Phase 5', NOW() - INTERVAL '45 days', NOW() - INTERVAL '42 days', NOW() - INTERVAL '42 days', false, false, NOW() - INTERVAL '45 days', NOW() - INTERVAL '45 days'),
+    (game6_id, 'action', 6, 'Phase 6 Results', NOW() - INTERVAL '42 days', NOW() - INTERVAL '40 days', NOW() - INTERVAL '40 days', false, true, NOW() - INTERVAL '42 days', NOW() - INTERVAL '42 days'),
+    (game6_id, 'common_room', 7, 'Phase 7', NOW() - INTERVAL '40 days', NOW() - INTERVAL '37 days', NOW() - INTERVAL '37 days', false, false, NOW() - INTERVAL '40 days', NOW() - INTERVAL '40 days'),
+    (game6_id, 'action', 8, 'Phase 8', NOW() - INTERVAL '37 days', NOW() - INTERVAL '34 days', NOW() - INTERVAL '34 days', false, false, NOW() - INTERVAL '37 days', NOW() - INTERVAL '37 days'),
+    (game6_id, 'action', 9, 'Phase 9 Results', NOW() - INTERVAL '34 days', NOW() - INTERVAL '31 days', NOW() - INTERVAL '31 days', false, true, NOW() - INTERVAL '34 days', NOW() - INTERVAL '34 days'),
+    (game6_id, 'common_room', 10, 'Phase 10', NOW() - INTERVAL '31 days', NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days', false, false, NOW() - INTERVAL '31 days', NOW() - INTERVAL '31 days'),
+    (game6_id, 'action', 11, 'Phase 11', NOW() - INTERVAL '28 days', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', false, false, NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days');
 
   -- Active Phase 12: Published Action (showing results)
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, is_active, is_published, activated_at, created_at)
   VALUES (
     game6_id,
     'action',
@@ -268,6 +273,7 @@ BEGIN
     NOW() - INTERVAL '12 hours',
     true,
     true,
+    NOW() - INTERVAL '12 hours',
     NOW() - INTERVAL '12 hours'
   );
 
@@ -297,17 +303,17 @@ BEGIN
     (game9_id, audience_id, 'audience', 'active', NOW() - INTERVAL '85 days');
 
   -- Full phase history - action phases contain both submissions and results
-  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, created_at)
+  INSERT INTO game_phases (game_id, phase_type, phase_number, title, start_time, end_time, deadline, is_active, is_published, activated_at, created_at)
   VALUES
-    (game9_id, 'common_room', 1, 'The Beginning', NOW() - INTERVAL '85 days', NOW() - INTERVAL '82 days', NOW() - INTERVAL '82 days', false, false, NOW() - INTERVAL '85 days'),
-    (game9_id, 'action', 2, 'First Challenge', NOW() - INTERVAL '82 days', NOW() - INTERVAL '79 days', NOW() - INTERVAL '79 days', false, false, NOW() - INTERVAL '82 days'),
-    (game9_id, 'common_room', 3, 'Reflection After First Challenge', NOW() - INTERVAL '79 days', NOW() - INTERVAL '76 days', NOW() - INTERVAL '76 days', false, false, NOW() - INTERVAL '79 days'),
-    (game9_id, 'common_room', 4, 'Planning Second Trial', NOW() - INTERVAL '76 days', NOW() - INTERVAL '73 days', NOW() - INTERVAL '73 days', false, false, NOW() - INTERVAL '76 days'),
-    (game9_id, 'action', 5, 'Second Trial', NOW() - INTERVAL '73 days', NOW() - INTERVAL '70 days', NOW() - INTERVAL '70 days', false, false, NOW() - INTERVAL '73 days'),
-    (game9_id, 'common_room', 6, 'Reflection After Second Trial', NOW() - INTERVAL '70 days', NOW() - INTERVAL '67 days', NOW() - INTERVAL '67 days', false, false, NOW() - INTERVAL '70 days'),
-    (game9_id, 'common_room', 7, 'Final Planning', NOW() - INTERVAL '67 days', NOW() - INTERVAL '64 days', NOW() - INTERVAL '64 days', false, false, NOW() - INTERVAL '67 days'),
-    (game9_id, 'action', 8, 'Final Challenge', NOW() - INTERVAL '64 days', NOW() - INTERVAL '61 days', NOW() - INTERVAL '61 days', false, false, NOW() - INTERVAL '64 days'),
-    (game9_id, 'common_room', 9, 'Epilogue', NOW() - INTERVAL '61 days', NOW() - INTERVAL '58 days', NOW() - INTERVAL '58 days', false, false, NOW() - INTERVAL '61 days');
+    (game9_id, 'common_room', 1, 'The Beginning', NOW() - INTERVAL '85 days', NOW() - INTERVAL '82 days', NOW() - INTERVAL '82 days', false, false, NOW() - INTERVAL '85 days', NOW() - INTERVAL '85 days'),
+    (game9_id, 'action', 2, 'First Challenge', NOW() - INTERVAL '82 days', NOW() - INTERVAL '79 days', NOW() - INTERVAL '79 days', false, false, NOW() - INTERVAL '82 days', NOW() - INTERVAL '82 days'),
+    (game9_id, 'common_room', 3, 'Reflection After First Challenge', NOW() - INTERVAL '79 days', NOW() - INTERVAL '76 days', NOW() - INTERVAL '76 days', false, false, NOW() - INTERVAL '79 days', NOW() - INTERVAL '79 days'),
+    (game9_id, 'common_room', 4, 'Planning Second Trial', NOW() - INTERVAL '76 days', NOW() - INTERVAL '73 days', NOW() - INTERVAL '73 days', false, false, NOW() - INTERVAL '76 days', NOW() - INTERVAL '76 days'),
+    (game9_id, 'action', 5, 'Second Trial', NOW() - INTERVAL '73 days', NOW() - INTERVAL '70 days', NOW() - INTERVAL '70 days', false, false, NOW() - INTERVAL '73 days', NOW() - INTERVAL '73 days'),
+    (game9_id, 'common_room', 6, 'Reflection After Second Trial', NOW() - INTERVAL '70 days', NOW() - INTERVAL '67 days', NOW() - INTERVAL '67 days', false, false, NOW() - INTERVAL '70 days', NOW() - INTERVAL '70 days'),
+    (game9_id, 'common_room', 7, 'Final Planning', NOW() - INTERVAL '67 days', NOW() - INTERVAL '64 days', NOW() - INTERVAL '64 days', false, false, NOW() - INTERVAL '67 days', NOW() - INTERVAL '67 days'),
+    (game9_id, 'action', 8, 'Final Challenge', NOW() - INTERVAL '64 days', NOW() - INTERVAL '61 days', NOW() - INTERVAL '61 days', false, false, NOW() - INTERVAL '64 days', NOW() - INTERVAL '64 days'),
+    (game9_id, 'common_room', 9, 'Epilogue', NOW() - INTERVAL '61 days', NOW() - INTERVAL '58 days', NOW() - INTERVAL '58 days', false, false, NOW() - INTERVAL '61 days', NOW() - INTERVAL '61 days');
 
 END $$;
 

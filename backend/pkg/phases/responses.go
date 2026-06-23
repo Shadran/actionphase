@@ -17,6 +17,8 @@ type PhaseResponse struct {
 	EndTime     *time.Time `json:"end_time,omitempty"`
 	Deadline    *time.Time `json:"deadline,omitempty"`
 	IsActive    bool       `json:"is_active"`
+	IsPublished bool       `json:"is_published"`
+	ActivatedAt *time.Time `json:"activated_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 
 	// Calculated fields for UI

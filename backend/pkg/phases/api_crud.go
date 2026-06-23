@@ -89,23 +89,8 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
-	response := phaseService.ConvertPhaseToResponse(phase)
-
 	render.Status(r, http.StatusCreated)
-	render.Render(w, r, &PhaseResponse{
-		ID:          response.ID,
-		GameID:      response.GameID,
-		PhaseType:   response.PhaseType,
-		PhaseNumber: response.PhaseNumber,
-		Title:       response.Title,
-		Description: response.Description,
-		StartTime:   response.StartTime,
-		EndTime:     response.EndTime,
-		Deadline:    response.Deadline,
-		IsActive:    response.IsActive,
-		CreatedAt:   response.CreatedAt,
-	})
+	render.Render(w, r, convertPhaseToResponse(phase))
 }
 
 // GetCurrentPhase retrieves the currently active phase for a game
@@ -127,25 +112,13 @@ func (h *Handler) GetCurrentPhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
 	var phaseResponse *PhaseResponse
 	if phase != nil {
-		response := phaseService.ConvertPhaseToResponse(phase)
-		phaseResponse = &PhaseResponse{
-			ID:          response.ID,
-			GameID:      response.GameID,
-			PhaseType:   response.PhaseType,
-			PhaseNumber: response.PhaseNumber,
-			Title:       response.Title,
-			Description: response.Description,
-			StartTime:   response.StartTime,
-			EndTime:     response.EndTime,
-			Deadline:    response.Deadline,
-			IsActive:    response.IsActive,
-			CreatedAt:   response.CreatedAt,
+		phaseResponse = convertPhaseToResponse(phase)
+		if err := phaseResponse.Render(w, r); err != nil {
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to render phase response", "error", err)
+			return
 		}
-		// Calculate time remaining and expiry
-		phaseResponse.Render(w, r)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -171,23 +144,14 @@ func (h *Handler) GetGamePhases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
-	var response []PhaseResponse
-	for _, phase := range phases {
-		phaseResp := phaseService.ConvertPhaseToResponse(&phase)
-		response = append(response, PhaseResponse{
-			ID:          phaseResp.ID,
-			GameID:      phaseResp.GameID,
-			PhaseType:   phaseResp.PhaseType,
-			PhaseNumber: phaseResp.PhaseNumber,
-			Title:       phaseResp.Title,
-			Description: phaseResp.Description,
-			StartTime:   phaseResp.StartTime,
-			EndTime:     phaseResp.EndTime,
-			Deadline:    phaseResp.Deadline,
-			IsActive:    phaseResp.IsActive,
-			CreatedAt:   phaseResp.CreatedAt,
-		})
+	response := make([]*PhaseResponse, 0, len(phases))
+	for i := range phases {
+		pr := convertPhaseToResponse(&phases[i])
+		if err := pr.Render(w, r); err != nil {
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to render phase response", "error", err)
+			return
+		}
+		response = append(response, pr)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -248,22 +212,7 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
-	response := phaseService.ConvertPhaseToResponse(updatedPhase)
-
-	render.Render(w, r, &PhaseResponse{
-		ID:          response.ID,
-		GameID:      response.GameID,
-		PhaseType:   response.PhaseType,
-		PhaseNumber: response.PhaseNumber,
-		Title:       response.Title,
-		Description: response.Description,
-		StartTime:   response.StartTime,
-		EndTime:     response.EndTime,
-		Deadline:    response.Deadline,
-		IsActive:    response.IsActive,
-		CreatedAt:   response.CreatedAt,
-	})
+	render.Render(w, r, convertPhaseToResponse(updatedPhase))
 }
 
 // UpdatePhase updates phase details (GM only)
@@ -334,22 +283,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format
-	response := phaseService.ConvertPhaseToResponse(updatedPhase)
-
-	render.Render(w, r, &PhaseResponse{
-		ID:          response.ID,
-		GameID:      response.GameID,
-		PhaseType:   response.PhaseType,
-		PhaseNumber: response.PhaseNumber,
-		Title:       response.Title,
-		Description: response.Description,
-		StartTime:   response.StartTime,
-		EndTime:     response.EndTime,
-		Deadline:    response.Deadline,
-		IsActive:    response.IsActive,
-		CreatedAt:   response.CreatedAt,
-	})
+	render.Render(w, r, convertPhaseToResponse(updatedPhase))
 }
 
 // DeletePhase deletes a phase if it has no associated content (GM only)

@@ -10,6 +10,7 @@ export interface GamePhase {
   deadline?: string;
   is_active: boolean;
   is_published: boolean; // For action phases: whether GM has published results
+  activated_at?: string; // Set when phase is first activated; null means never activated
   created_at: string;
 
   // Calculated fields from API

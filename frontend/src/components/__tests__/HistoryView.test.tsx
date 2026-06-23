@@ -20,7 +20,8 @@ describe('HistoryView', () => {
       description: 'Welcome to the game!',
       is_active: false,
       is_published: false,
-      end_time: '2025-01-02T00:00:00Z', // completed — was activated
+      activated_at: '2025-01-01T12:00:00Z',
+      end_time: '2025-01-02T00:00:00Z',
       start_time: '2025-01-01T00:00:00Z',
       created_at: '2025-01-01T00:00:00Z',
     },
@@ -31,7 +32,8 @@ describe('HistoryView', () => {
       phase_type: 'action',
       is_active: false,
       is_published: false,
-      end_time: '2025-01-04T00:00:00Z', // completed — was activated
+      activated_at: '2025-01-03T12:00:00Z',
+      end_time: '2025-01-04T00:00:00Z',
       start_time: '2025-01-03T00:00:00Z',
       created_at: '2025-01-03T00:00:00Z',
     },
@@ -42,8 +44,9 @@ describe('HistoryView', () => {
       phase_type: 'common_room',
       title: 'Midgame Discussion',
       description: 'React to the results',
-      is_active: true, // currently active
+      is_active: true,
       is_published: false,
+      activated_at: '2025-01-05T12:00:00Z',
       start_time: '2025-01-05T00:00:00Z',
       created_at: '2025-01-05T00:00:00Z',
     },
@@ -136,7 +139,7 @@ describe('HistoryView', () => {
         is_active: false,
         is_published: false,
         created_at: '2025-02-01T00:00:00Z',
-        // no end_time — never activated
+        // no activated_at — never activated
       };
 
       setupHandlers([...mockPhases, futurePhase]);
