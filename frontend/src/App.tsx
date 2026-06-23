@@ -27,6 +27,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage').then(m => ({ default: m.UserProfilePage })));
 const CharacterPage = lazy(() => import('./pages/CharacterPage').then(m => ({ default: m.CharacterPage })));
 const ThemeTestPage = lazy(() => import('./pages/ThemeTestPage'));
+const CommunityGuidelinesPage = lazy(() => import('./pages/CommunityGuidelinesPage').then(m => ({ default: m.CommunityGuidelinesPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -142,6 +143,7 @@ const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
+      { path: '/community-guidelines', element: <CommunityGuidelinesPage /> },
       { path: '/login', element: <AuthGatedLogin /> },
       { path: '/forgot-password', element: <AuthGatedForgotPassword /> },
       { path: '/reset-password', element: <AuthGatedResetPassword /> },

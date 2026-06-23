@@ -94,6 +94,11 @@ export const HomePage = () => {
                 >
                   Sign Up or Login
                 </Link>
+                <p className="text-sm text-content-secondary mt-4">
+                  <Link to="/community-guidelines" className="hover:underline">
+                    Read our Community Guidelines
+                  </Link>
+                </p>
               </div>
             </div>
           </div>

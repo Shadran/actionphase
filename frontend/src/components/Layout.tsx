@@ -299,6 +299,11 @@ export const Layout = ({ children }: LayoutProps) => {
           <p className="text-center text-sm text-content-secondary">
             &copy; 2025 ActionPhase. A collaborative role-playing platform.
           </p>
+          <p className="text-center text-sm text-content-secondary mt-2">
+            <Link to="/community-guidelines" className="hover:underline">
+              Community Guidelines
+            </Link>
+          </p>
           <p className="text-center text-xs text-content-secondary mt-1">
             <a
               href="https://www.flaticon.com/free-icons/roleplay"
