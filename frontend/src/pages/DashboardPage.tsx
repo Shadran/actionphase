@@ -94,7 +94,7 @@ export function DashboardPage() {
                 <DashboardGameCard game={activeGames[0]} isSingleGame />
               </div>
               {hasDeadlines && (
-                <UpcomingDeadlinesCard deadlines={dashboard.upcoming_deadlines} />
+                <UpcomingDeadlinesCard deadlines={dashboard.upcoming_deadlines} fillHeight />
               )}
             </div>
 

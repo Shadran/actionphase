@@ -5,18 +5,19 @@ import { Badge } from './ui';
 
 interface UpcomingDeadlinesCardProps {
   deadlines: DashboardDeadline[];
+  fillHeight?: boolean;
 }
 
 /**
  * UpcomingDeadlinesCard - Display upcoming phase deadlines
  */
-export function UpcomingDeadlinesCard({ deadlines }: UpcomingDeadlinesCardProps) {
+export function UpcomingDeadlinesCard({ deadlines, fillHeight = false }: UpcomingDeadlinesCardProps) {
   if (deadlines.length === 0) {
     return null;
   }
 
   return (
-    <div className="surface-base rounded-lg shadow-lg p-8 h-full">
+    <div className={`surface-base rounded-lg shadow-lg p-8 ${fillHeight ? 'h-full' : ''}`}>
       <div className="flex items-center mb-4">
         <Calendar className="w-5 h-5 text-content-tertiary mr-2" />
         <h2 className="text-lg font-bold text-content-primary">Upcoming Deadlines</h2>
