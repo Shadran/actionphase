@@ -135,6 +135,31 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conversationService := db.NewConversationService(h.App.Pool)
+
+	unreadOnly := r.URL.Query().Get("unread_only") == "true"
+
+	if unreadOnly {
+		limitStr := r.URL.Query().Get("limit")
+		limit := int32(10)
+		if n, err := strconv.ParseInt(limitStr, 10, 32); err == nil && n > 0 {
+			limit = int32(n)
+		}
+		unread, err := conversationService.GetUserUnreadConversations(ctx, int32(gameID), userID, limit)
+		if err != nil {
+			h.App.Logger.Error("Failed to get unread conversations", "error", err, "game_id", gameID, "user_id", userID)
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get unread conversations", "error", err)
+			return
+		}
+		if unread == nil {
+			unread = []models.GetUserUnreadConversationsRow{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"conversations": unread}); err != nil {
+			h.App.Logger.Error("Failed to encode unread conversations response", "error", err)
+		}
+		return
+	}
+
 	conversations, err := conversationService.GetUserConversations(ctx, int32(gameID), userID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get user conversations", "error", err, "game_id", gameID, "user_id", userID)
@@ -142,7 +167,6 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure we return an empty array instead of null
 	if conversations == nil {
 		conversations = []models.GetUserConversationsRow{}
 	}

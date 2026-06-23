@@ -19,8 +19,14 @@ export class ConversationsApi extends BaseApiClient {
     return this.client.post<Conversation>(`/api/v1/games/${gameId}/conversations`, data);
   }
 
-  async getUserConversations(gameId: number) {
-    return this.client.get<{ conversations: ConversationListItem[] }>(`/api/v1/games/${gameId}/conversations`);
+  async getUserConversations(gameId: number, options?: { unreadOnly?: boolean; limit?: number }) {
+    const params = new URLSearchParams();
+    if (options?.unreadOnly) params.set('unread_only', 'true');
+    if (options?.limit) params.set('limit', String(options.limit));
+    const qs = params.toString();
+    return this.client.get<{ conversations: ConversationListItem[] }>(
+      `/api/v1/games/${gameId}/conversations${qs ? `?${qs}` : ''}`
+    );
   }
 
   async getConversation(gameId: number, conversationId: number) {

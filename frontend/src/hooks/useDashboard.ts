@@ -14,10 +14,8 @@ export function useDashboard() {
       const response = await simpleApi.getDashboard();
       return response.data;
     },
-    // Refetch every 15 seconds to match notification polling and keep unread counts fresh
     refetchInterval: 15000,
-    // refetchOnWindowFocus: false is the global default - refetchInterval provides sufficient freshness
-    // Keep previous data while refetching for smoother UX
+    refetchOnMount: 'always',
     placeholderData: (previousData) => previousData,
   });
 }

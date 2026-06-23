@@ -2,6 +2,17 @@
  * Date utility functions for consistent date formatting across the application
  */
 
+/**
+ * Formats a timestamp as a human-readable relative time string (e.g. "3m ago", "2h ago").
+ */
+export function formatRelativeTime(timestamp: string): string {
+  const minutesAgo = Math.floor((Date.now() - new Date(timestamp).getTime()) / (1000 * 60));
+  if (minutesAgo < 1) return 'Just now';
+  if (minutesAgo < 60) return `${minutesAgo}m ago`;
+  if (minutesAgo < 1440) return `${Math.floor(minutesAgo / 60)}h ago`;
+  return `${Math.floor(minutesAgo / 1440)}d ago`;
+}
+
 import { localDateTimeToUTC, utcToLocalDateTime } from '../../utils/timezone';
 
 /**

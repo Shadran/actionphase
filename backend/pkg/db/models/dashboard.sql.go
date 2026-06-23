@@ -27,11 +27,15 @@ func (q *Queries) CountUserGames(ctx context.Context, userID int32) (int64, erro
 }
 
 const getDashboardUnreadCount = `-- name: GetDashboardUnreadCount :one
+
 SELECT COUNT(*) as count
 FROM notifications
 WHERE user_id = $1 AND is_read = false
 `
 
+// GetUnreadCommentCountsForDashboard is implemented as a raw query in dashboard.go
+// due to sqlc limitations with recursive CTEs (same pattern as GetPostCommentsWithThreads).
+// See getUnreadCommentCountsForDashboard() in backend/pkg/db/services/dashboard.go.
 // Get count of all unread notifications for user (dashboard-specific)
 func (q *Queries) GetDashboardUnreadCount(ctx context.Context, userID int32) (int64, error) {
 	row := q.db.QueryRow(ctx, getDashboardUnreadCount, userID)
@@ -62,9 +66,16 @@ SELECT
   (SELECT COUNT(*)
    FROM game_applications
    WHERE game_id = g.id AND status = 'pending') as pending_applications_count,
+  -- Active polls with no vote from this user
   (SELECT COUNT(*)
-   FROM notifications n
-   WHERE n.game_id = g.id AND n.user_id = $1 AND n.is_read = false) as unread_notifications_count,
+   FROM common_room_polls crp
+   WHERE crp.game_id = g.id
+     AND crp.deadline > NOW()
+     AND crp.is_deleted = false
+     AND NOT EXISTS (
+       SELECT 1 FROM poll_votes pv
+       WHERE pv.poll_id = crp.id AND pv.user_id = $1
+     )) as unvoted_polls_count,
   -- Action submission status for current phase
   CASE
     WHEN current_phase.id IS NOT NULL AND current_phase.phase_type = 'action' THEN
@@ -126,7 +137,7 @@ type GetUserDashboardGamesRow struct {
 	CurrentPhaseDeadline     pgtype.Timestamptz `json:"current_phase_deadline"`
 	GmUsername               pgtype.Text        `json:"gm_username"`
 	PendingApplicationsCount int64              `json:"pending_applications_count"`
-	UnreadNotificationsCount int64              `json:"unread_notifications_count"`
+	UnvotedPollsCount        int64              `json:"unvoted_polls_count"`
 	HasPendingAction         bool               `json:"has_pending_action"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
@@ -159,7 +170,7 @@ func (q *Queries) GetUserDashboardGames(ctx context.Context, userID int32) ([]Ge
 			&i.CurrentPhaseDeadline,
 			&i.GmUsername,
 			&i.PendingApplicationsCount,
-			&i.UnreadNotificationsCount,
+			&i.UnvotedPollsCount,
 			&i.HasPendingAction,
 			&i.UpdatedAt,
 			&i.CreatedAt,
@@ -252,16 +263,53 @@ func (q *Queries) GetUserRecentMessages(ctx context.Context, arg GetUserRecentMe
 	return items, nil
 }
 
+const getUserUnreadNotificationsByType = `-- name: GetUserUnreadNotificationsByType :many
+SELECT type, COUNT(*) as count
+FROM notifications
+WHERE user_id = $1 AND is_read = false
+GROUP BY type
+ORDER BY count DESC
+`
+
+type GetUserUnreadNotificationsByTypeRow struct {
+	Type  string `json:"type"`
+	Count int64  `json:"count"`
+}
+
+// Get unread notification counts grouped by type for the dashboard digest
+func (q *Queries) GetUserUnreadNotificationsByType(ctx context.Context, userID int32) ([]GetUserUnreadNotificationsByTypeRow, error) {
+	rows, err := q.db.Query(ctx, getUserUnreadNotificationsByType, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserUnreadNotificationsByTypeRow
+	for rows.Next() {
+		var i GetUserUnreadNotificationsByTypeRow
+		if err := rows.Scan(&i.Type, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserUpcomingDeadlines = `-- name: GetUserUpcomingDeadlines :many
+
 SELECT
+  'phase' as deadline_type,
+  gp.id as source_id,
   gp.id as phase_id,
-  gp.deadline as end_time,
+  g.id as game_id,
+  g.title as game_title,
+  gp.title as title,
   gp.phase_type,
   gp.title as phase_title,
   gp.phase_number,
-  g.id as game_id,
-  g.title as game_title,
-  -- Check if user has pending submission for this phase
+  gp.deadline as end_time,
   CASE
     WHEN gp.phase_type = 'action' THEN
       (SELECT CASE WHEN COUNT(*) = 0 THEN true
@@ -272,17 +320,59 @@ SELECT
          AND acts.user_id = $1
          AND acts.phase_id = gp.id)
     ELSE false
-  END as has_pending_submission,
-  -- Calculate hours remaining
-  CAST(EXTRACT(EPOCH FROM (gp.deadline - NOW())) / 3600 AS INTEGER) as hours_remaining
+  END as has_pending_submission
 FROM game_phases gp
 INNER JOIN games g ON gp.game_id = g.id
 LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
-WHERE ((part.user_id = $1 AND part.status = 'active') OR g.gm_user_id = $1)
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
   AND gp.is_active = true
   AND gp.deadline IS NOT NULL
   AND gp.deadline > NOW()
-ORDER BY gp.deadline ASC
+
+UNION ALL
+
+SELECT
+  'deadline' as deadline_type,
+  gd.id as source_id,
+  0 as phase_id,
+  g.id as game_id,
+  g.title as game_title,
+  gd.title as title,
+  '' as phase_type,
+  '' as phase_title,
+  0 as phase_number,
+  gd.deadline as end_time,
+  false as has_pending_submission
+FROM game_deadlines gd
+INNER JOIN games g ON gd.game_id = g.id
+LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
+  AND gd.deleted_at IS NULL
+  AND gd.deadline > NOW()
+
+UNION ALL
+
+SELECT
+  'poll' as deadline_type,
+  crp.id as source_id,
+  0 as phase_id,
+  g.id as game_id,
+  g.title as game_title,
+  crp.question as title,
+  '' as phase_type,
+  '' as phase_title,
+  0 as phase_number,
+  crp.deadline as end_time,
+  false as has_pending_submission
+FROM common_room_polls crp
+INNER JOIN games g ON crp.game_id = g.id
+LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
+  AND crp.is_deleted = false
+  AND crp.deadline IS NOT NULL
+  AND crp.deadline > NOW()
+
+ORDER BY end_time ASC
 LIMIT $2
 `
 
@@ -292,18 +382,24 @@ type GetUserUpcomingDeadlinesParams struct {
 }
 
 type GetUserUpcomingDeadlinesRow struct {
+	DeadlineType         string             `json:"deadline_type"`
+	SourceID             int32              `json:"source_id"`
 	PhaseID              int32              `json:"phase_id"`
-	EndTime              pgtype.Timestamptz `json:"end_time"`
+	GameID               int32              `json:"game_id"`
+	GameTitle            string             `json:"game_title"`
+	Title                string             `json:"title"`
 	PhaseType            string             `json:"phase_type"`
 	PhaseTitle           string             `json:"phase_title"`
 	PhaseNumber          int32              `json:"phase_number"`
-	GameID               int32              `json:"game_id"`
-	GameTitle            string             `json:"game_title"`
+	EndTime              pgtype.Timestamptz `json:"end_time"`
 	HasPendingSubmission bool               `json:"has_pending_submission"`
-	HoursRemaining       int32              `json:"hours_remaining"`
 }
 
-// Get upcoming phase deadlines across all user's games (participant or GM)
+// Get upcoming deadlines across all user's games: phase, arbitrary, and poll deadlines.
+// Excludes audience-only participants (they don't have actionable deadlines).
+// Phase deadlines
+// Arbitrary deadlines (GM-created)
+// Poll deadlines
 func (q *Queries) GetUserUpcomingDeadlines(ctx context.Context, arg GetUserUpcomingDeadlinesParams) ([]GetUserUpcomingDeadlinesRow, error) {
 	rows, err := q.db.Query(ctx, getUserUpcomingDeadlines, arg.UserID, arg.Limit)
 	if err != nil {
@@ -314,15 +410,17 @@ func (q *Queries) GetUserUpcomingDeadlines(ctx context.Context, arg GetUserUpcom
 	for rows.Next() {
 		var i GetUserUpcomingDeadlinesRow
 		if err := rows.Scan(
+			&i.DeadlineType,
+			&i.SourceID,
 			&i.PhaseID,
-			&i.EndTime,
+			&i.GameID,
+			&i.GameTitle,
+			&i.Title,
 			&i.PhaseType,
 			&i.PhaseTitle,
 			&i.PhaseNumber,
-			&i.GameID,
-			&i.GameTitle,
+			&i.EndTime,
 			&i.HasPendingSubmission,
-			&i.HoursRemaining,
 		); err != nil {
 			return nil, err
 		}

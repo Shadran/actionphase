@@ -9,10 +9,12 @@ type DashboardData struct {
 	HasGames            bool                 `json:"has_games"`
 	PlayerGames         []*DashboardGameCard `json:"player_games"`
 	GMGames             []*DashboardGameCard `json:"gm_games"`
+	AudienceGames       []*DashboardGameCard `json:"audience_games"`
 	MixedRoleGames      []*DashboardGameCard `json:"mixed_role_games"`
-	RecentMessages      []*DashboardMessage  `json:"recent_messages"`
-	UpcomingDeadlines   []*DashboardDeadline `json:"upcoming_deadlines"`
-	UnreadNotifications int                  `json:"unread_notifications"`
+	RecentMessages        []*DashboardMessage `json:"recent_messages"`
+	UpcomingDeadlines     []*DashboardDeadline `json:"upcoming_deadlines"`
+	UnreadNotifications   int                  `json:"unread_notifications"`
+	NotificationsByType   map[string]int       `json:"notifications_by_type"`
 }
 
 // DashboardGameCard represents a game card on the dashboard.
@@ -36,7 +38,8 @@ type DashboardGameCard struct {
 	// Context-specific fields
 	HasPendingAction    bool `json:"has_pending_action"`
 	PendingApplications int  `json:"pending_applications"`
-	UnreadMessages      int  `json:"unread_messages"`
+	UnreadComments      int  `json:"unread_comments"`
+	UnvotedPolls        int  `json:"unvoted_polls"`
 
 	// Urgency indicators (calculated by service layer)
 	IsUrgent       bool   `json:"is_urgent"`       // Deadline <24h or pending action
@@ -60,17 +63,20 @@ type DashboardMessage struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// DashboardDeadline represents an upcoming phase deadline.
+// DashboardDeadline represents an upcoming deadline (phase or arbitrary).
 type DashboardDeadline struct {
+	DeadlineType         string    `json:"deadline_type"` // "phase" or "deadline"
+	SourceID             int32     `json:"source_id"`     // phase_id or game_deadline id
 	PhaseID              int32     `json:"phase_id"`
 	GameID               int32     `json:"game_id"`
 	GameTitle            string    `json:"game_title"`
+	Title                string    `json:"title"`       // display title for all deadline types
 	PhaseType            string    `json:"phase_type"`
 	PhaseTitle           string    `json:"phase_title"`
 	PhaseNumber          int32     `json:"phase_number"`
 	EndTime              time.Time `json:"end_time"`
 	HasPendingSubmission bool      `json:"has_pending_submission"`
-	HoursRemaining       int       `json:"hours_remaining"` // Calculated by service
+	HoursRemaining       int       `json:"hours_remaining"`
 }
 
 // UnifiedDeadline aggregates all deadline types (arbitrary, phase, and poll) into a single view.

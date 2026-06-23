@@ -24,9 +24,12 @@ vi.mock('../../RecentActivityCard', () => ({
 describe('ActivityTabs', () => {
   const mockDeadlines: DashboardDeadline[] = [
     {
+      deadline_type: 'phase',
+      source_id: 1,
       phase_id: 1,
       game_id: 1,
       game_title: 'Test Game 1',
+      title: 'Phase 1',
       phase_type: 'action',
       phase_title: 'Phase 1',
       phase_number: 1,
@@ -35,9 +38,12 @@ describe('ActivityTabs', () => {
       hours_remaining: 12,
     },
     {
+      deadline_type: 'phase',
+      source_id: 2,
       phase_id: 2,
       game_id: 2,
       game_title: 'Test Game 2',
+      title: 'Phase 2',
       phase_type: 'discussion',
       phase_title: 'Phase 2',
       phase_number: 2,

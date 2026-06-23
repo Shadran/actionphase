@@ -15,7 +15,8 @@ export interface DashboardGameCard {
   user_role: string; // player, gm, co_gm, audience
   has_pending_action: boolean;
   pending_applications: number;
-  unread_messages: number;
+  unread_comments: number;
+  unvoted_polls: number;
   current_phase_id?: number | null;
   current_phase_type?: string | null;
   current_phase_title?: string | null;
@@ -39,9 +40,12 @@ export interface DashboardMessage {
 }
 
 export interface DashboardDeadline {
+  deadline_type: string; // "phase", "deadline", or "poll"
+  source_id: number;
   phase_id: number;
   game_id: number;
   game_title: string;
+  title: string;
   phase_type: string;
   phase_title: string;
   phase_number: number;
@@ -55,8 +59,10 @@ export interface DashboardData {
   has_games: boolean;
   player_games: DashboardGameCard[];
   gm_games: DashboardGameCard[];
+  audience_games: DashboardGameCard[];
   mixed_role_games: DashboardGameCard[];
   recent_messages: DashboardMessage[];
   upcoming_deadlines: DashboardDeadline[];
   unread_notifications: number;
+  notifications_by_type: Record<string, number>;
 }

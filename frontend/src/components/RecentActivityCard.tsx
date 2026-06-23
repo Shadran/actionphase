@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { DashboardMessage } from '../types/dashboard';
 import { MessageSquare, Clock } from 'lucide-react';
+import { formatRelativeTime } from '../lib/utils/dates';
 
 const stripMarkdown = (text: string) => text.replace(/(\*\*|__|[*_`#>])/g, '').trim();
 
@@ -44,60 +45,45 @@ export function RecentActivityCard({ messages }: RecentActivityCardProps) {
         <h2 className="text-lg font-bold text-content-primary">Recent Activity</h2>
       </div>
       <div className="space-y-4">
-        {messages.map((message) => (
-          <Link
-            key={message.message_id}
-            to={getMessageLink(message)}
-            className="block border-b border-theme-default pb-4 last:border-b-0 last:pb-0 hover:surface-raised -mx-2 px-2 py-2 rounded transition-colors"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-content-primary">
-                  {message.game_title}
-                </p>
-                <p className="text-xs text-content-tertiary">
-                  {message.character_name
-                    ? message.author_name
-                      ? `${message.author_name} as ${message.character_name}`
-                      : message.character_name
-                    : message.author_name || 'Unknown'}
-                </p>
+        {messages.map((message) => {
+          const isPrivate = message.message_type === 'private_message';
+          return (
+            <Link
+              key={message.message_id}
+              to={getMessageLink(message)}
+              className={`block border-b border-theme-default pb-4 last:border-b-0 last:pb-0 hover:surface-raised -mx-2 px-2 py-2 rounded transition-colors ${
+                isPrivate ? 'border-l-2 border-l-interactive-primary pl-3' : ''
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-content-primary">
+                    {message.game_title}
+                  </p>
+                  <p className="text-xs text-content-tertiary">
+                    {message.character_name
+                      ? message.author_name
+                        ? `${message.author_name} as ${message.character_name}`
+                        : message.character_name
+                      : message.author_name || 'Unknown'}
+                  </p>
+                </div>
+                <div className="ml-2 flex items-center text-xs text-content-tertiary">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {formatRelativeTime(message.created_at)}
+                </div>
               </div>
-              <div className="ml-2 flex items-center text-xs text-content-tertiary">
-                <Clock className="w-3 h-3 mr-1" />
-                {formatMessageTime(message.created_at)}
-              </div>
-            </div>
-            <p className="text-sm text-content-secondary line-clamp-2">{stripMarkdown(message.content)}</p>
-            <p className="text-xs text-content-tertiary mt-1">
-              {message.message_type === 'post' ? 'Post' :
-               message.message_type === 'comment' ? 'Comment' :
-               'Private message'}
-            </p>
-          </Link>
-        ))}
+              <p className="text-sm text-content-secondary line-clamp-2">{stripMarkdown(message.content)}</p>
+              <p className={`text-xs mt-1 ${isPrivate ? 'text-interactive-primary font-medium' : 'text-content-tertiary'}`}>
+                {message.message_type === 'post' ? 'Post' :
+                 message.message_type === 'comment' ? 'Comment' :
+                 'Private message'}
+              </p>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/**
- * Format message timestamp as relative time
- */
-function formatMessageTime(timestamp: string): string {
-  const now = new Date();
-  const messageDate = new Date(timestamp);
-  const minutesAgo = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
-
-  if (minutesAgo < 1) {
-    return 'Just now';
-  } else if (minutesAgo < 60) {
-    return `${minutesAgo}m ago`;
-  } else if (minutesAgo < 1440) { // 24 hours
-    const hoursAgo = Math.floor(minutesAgo / 60);
-    return `${hoursAgo}h ago`;
-  } else {
-    const daysAgo = Math.floor(minutesAgo / 1440);
-    return `${daysAgo}d ago`;
-  }
-}

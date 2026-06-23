@@ -23,9 +23,16 @@ SELECT
   (SELECT COUNT(*)
    FROM game_applications
    WHERE game_id = g.id AND status = 'pending') as pending_applications_count,
+  -- Active polls with no vote from this user
   (SELECT COUNT(*)
-   FROM notifications n
-   WHERE n.game_id = g.id AND n.user_id = $1 AND n.is_read = false) as unread_notifications_count,
+   FROM common_room_polls crp
+   WHERE crp.game_id = g.id
+     AND crp.deadline > NOW()
+     AND crp.is_deleted = false
+     AND NOT EXISTS (
+       SELECT 1 FROM poll_votes pv
+       WHERE pv.poll_id = crp.id AND pv.user_id = $1
+     )) as unvoted_polls_count,
   -- Action submission status for current phase
   CASE
     WHEN current_phase.id IS NOT NULL AND current_phase.phase_type = 'action' THEN
@@ -98,16 +105,21 @@ ORDER BY m.created_at DESC
 LIMIT $2;
 
 -- name: GetUserUpcomingDeadlines :many
--- Get upcoming phase deadlines across all user's games (participant or GM)
+-- Get upcoming deadlines across all user's games: phase, arbitrary, and poll deadlines.
+-- Excludes audience-only participants (they don't have actionable deadlines).
+
+-- Phase deadlines
 SELECT
+  'phase' as deadline_type,
+  gp.id as source_id,
   gp.id as phase_id,
-  gp.deadline as end_time,
+  g.id as game_id,
+  g.title as game_title,
+  gp.title as title,
   gp.phase_type,
   gp.title as phase_title,
   gp.phase_number,
-  g.id as game_id,
-  g.title as game_title,
-  -- Check if user has pending submission for this phase
+  gp.deadline as end_time,
   CASE
     WHEN gp.phase_type = 'action' THEN
       (SELECT CASE WHEN COUNT(*) = 0 THEN true
@@ -118,17 +130,61 @@ SELECT
          AND acts.user_id = $1
          AND acts.phase_id = gp.id)
     ELSE false
-  END as has_pending_submission,
-  -- Calculate hours remaining
-  CAST(EXTRACT(EPOCH FROM (gp.deadline - NOW())) / 3600 AS INTEGER) as hours_remaining
+  END as has_pending_submission
 FROM game_phases gp
 INNER JOIN games g ON gp.game_id = g.id
 LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
-WHERE ((part.user_id = $1 AND part.status = 'active') OR g.gm_user_id = $1)
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
   AND gp.is_active = true
   AND gp.deadline IS NOT NULL
   AND gp.deadline > NOW()
-ORDER BY gp.deadline ASC
+
+UNION ALL
+
+-- Arbitrary deadlines (GM-created)
+SELECT
+  'deadline' as deadline_type,
+  gd.id as source_id,
+  0 as phase_id,
+  g.id as game_id,
+  g.title as game_title,
+  gd.title as title,
+  '' as phase_type,
+  '' as phase_title,
+  0 as phase_number,
+  gd.deadline as end_time,
+  false as has_pending_submission
+FROM game_deadlines gd
+INNER JOIN games g ON gd.game_id = g.id
+LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
+  AND gd.deleted_at IS NULL
+  AND gd.deadline > NOW()
+
+UNION ALL
+
+-- Poll deadlines
+SELECT
+  'poll' as deadline_type,
+  crp.id as source_id,
+  0 as phase_id,
+  g.id as game_id,
+  g.title as game_title,
+  crp.question as title,
+  '' as phase_type,
+  '' as phase_title,
+  0 as phase_number,
+  crp.deadline as end_time,
+  false as has_pending_submission
+FROM common_room_polls crp
+INNER JOIN games g ON crp.game_id = g.id
+LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
+WHERE ((part.user_id = $1 AND part.status = 'active' AND part.role != 'audience') OR g.gm_user_id = $1)
+  AND crp.is_deleted = false
+  AND crp.deadline IS NOT NULL
+  AND crp.deadline > NOW()
+
+ORDER BY end_time ASC
 LIMIT $2;
 
 -- name: CountUserGames :one
@@ -138,8 +194,20 @@ FROM games g
 LEFT JOIN game_participants gp ON g.id = gp.game_id AND gp.user_id = $1 AND gp.status = 'active'
 WHERE (gp.user_id = $1 AND gp.status = 'active') OR g.gm_user_id = $1;
 
+-- GetUnreadCommentCountsForDashboard is implemented as a raw query in dashboard.go
+-- due to sqlc limitations with recursive CTEs (same pattern as GetPostCommentsWithThreads).
+-- See getUnreadCommentCountsForDashboard() in backend/pkg/db/services/dashboard.go.
+
 -- name: GetDashboardUnreadCount :one
 -- Get count of all unread notifications for user (dashboard-specific)
 SELECT COUNT(*) as count
 FROM notifications
 WHERE user_id = $1 AND is_read = false;
+
+-- name: GetUserUnreadNotificationsByType :many
+-- Get unread notification counts grouped by type for the dashboard digest
+SELECT type, COUNT(*) as count
+FROM notifications
+WHERE user_id = $1 AND is_read = false
+GROUP BY type
+ORDER BY count DESC;

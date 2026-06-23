@@ -24,9 +24,14 @@ export function UpcomingDeadlinesCard({ deadlines }: UpcomingDeadlinesCardProps)
       <div className="space-y-3">
         {deadlines.map((deadline) => {
           const urgencyColor = getUrgencyColor(deadline.hours_remaining);
+          const subtitle = deadline.deadline_type === 'phase'
+            ? `Phase ${deadline.phase_number}`
+            : deadline.deadline_type === 'poll'
+            ? 'Poll deadline'
+            : null;
           return (
             <Link
-              key={deadline.phase_id}
+              key={`${deadline.deadline_type}-${deadline.source_id}`}
               to={`/games/${deadline.game_id}`}
               className="block border border-theme-default rounded-md p-3 hover:border-theme-subtle hover:shadow transition-all"
             >
@@ -36,7 +41,7 @@ export function UpcomingDeadlinesCard({ deadlines }: UpcomingDeadlinesCardProps)
                     {deadline.game_title}
                   </p>
                   <p className="text-xs text-content-tertiary mt-0.5">
-                    {deadline.phase_title} (Phase {deadline.phase_number})
+                    {deadline.title}{subtitle ? ` — ${subtitle}` : ''}
                   </p>
                 </div>
               </div>

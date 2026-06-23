@@ -5,6 +5,8 @@ import (
 	db "actionphase/pkg/db/models"
 	"actionphase/pkg/observability"
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +26,14 @@ var _ core.DashboardServiceInterface = (*DashboardService)(nil)
 func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (*core.DashboardData, error) {
 	q := db.New(s.DB)
 
+	// Fetch user preferences to determine comment read mode
+	prefsSvc := NewUserPreferencesService(s.DB)
+	prefs, err := prefsSvc.GetUserPreferences(ctx, userID)
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to get user preferences", "user_id", userID)
+		return nil, err
+	}
+
 	// Check if user has any games
 	gameCount, err := q.CountUserGames(ctx, userID)
 	if err != nil {
@@ -32,13 +42,15 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 	}
 
 	dashboard := &core.DashboardData{
-		UserID:            userID,
-		HasGames:          gameCount > 0,
-		PlayerGames:       []*core.DashboardGameCard{},
-		GMGames:           []*core.DashboardGameCard{},
-		MixedRoleGames:    []*core.DashboardGameCard{},
-		RecentMessages:    []*core.DashboardMessage{},
-		UpcomingDeadlines: []*core.DashboardDeadline{},
+		UserID:              userID,
+		HasGames:            gameCount > 0,
+		PlayerGames:         []*core.DashboardGameCard{},
+		GMGames:             []*core.DashboardGameCard{},
+		AudienceGames:       []*core.DashboardGameCard{},
+		MixedRoleGames:      []*core.DashboardGameCard{},
+		RecentMessages:      []*core.DashboardMessage{},
+		UpcomingDeadlines:   []*core.DashboardDeadline{},
+		NotificationsByType: map[string]int{},
 	}
 
 	// If no games, return early
@@ -46,62 +58,138 @@ func (s *DashboardService) GetUserDashboard(ctx context.Context, userID int32) (
 		return dashboard, nil
 	}
 
-	// Get games with enriched metadata
-	dbGames, err := q.GetUserDashboardGames(ctx, userID)
-	if err != nil {
-		s.Logger.LogError(ctx, err, "Failed to get dashboard games", "user_id", userID)
-		return nil, err
+	// Fan out independent queries concurrently.
+	var (
+		dbGames        []db.GetUserDashboardGamesRow
+		dbMessages     []db.GetUserRecentMessagesRow
+		dbDeadlines    []db.GetUserUpcomingDeadlinesRow
+		notifByType    []db.GetUserUnreadNotificationsByTypeRow
+		unreadComments []unreadCommentCount
+
+		mu      sync.Mutex
+		firstErr error
+	)
+
+	setErr := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
 	}
 
-	// Transform and group games by role
-	dashboard.PlayerGames, dashboard.GMGames, dashboard.MixedRoleGames = groupGamesByRole(dbGames)
+	var wg sync.WaitGroup
+	wg.Add(5)
 
-	// Get recent messages (limit 5)
-	dbMessages, err := q.GetUserRecentMessages(ctx, db.GetUserRecentMessagesParams{
-		UserID: userID,
-		Limit:  5,
-	})
-	if err != nil {
-		s.Logger.LogError(ctx, err, "Failed to get recent messages", "user_id", userID)
-		return nil, err
+	go func() {
+		defer wg.Done()
+		res, err := q.GetUserDashboardGames(ctx, userID)
+		if err != nil {
+			s.Logger.LogError(ctx, err, "Failed to get dashboard games", "user_id", userID)
+			setErr(err)
+			return
+		}
+		dbGames = res
+	}()
+
+	go func() {
+		defer wg.Done()
+		res, err := q.GetUserRecentMessages(ctx, db.GetUserRecentMessagesParams{UserID: userID, Limit: 5})
+		if err != nil {
+			s.Logger.LogError(ctx, err, "Failed to get recent messages", "user_id", userID)
+			setErr(err)
+			return
+		}
+		dbMessages = res
+	}()
+
+	go func() {
+		defer wg.Done()
+		res, err := q.GetUserUpcomingDeadlines(ctx, db.GetUserUpcomingDeadlinesParams{UserID: userID, Limit: 10})
+		if err != nil {
+			s.Logger.LogError(ctx, err, "Failed to get upcoming deadlines", "user_id", userID)
+			setErr(err)
+			return
+		}
+		dbDeadlines = res
+	}()
+
+	go func() {
+		defer wg.Done()
+		res, err := q.GetUserUnreadNotificationsByType(ctx, userID)
+		if err != nil {
+			s.Logger.LogError(ctx, err, "Failed to get notification counts by type", "user_id", userID)
+			setErr(err)
+			return
+		}
+		notifByType = res
+	}()
+
+	go func() {
+		defer wg.Done()
+		res, err := getUnreadCommentCountsForDashboard(ctx, s.DB, userID, prefs.CommentReadMode)
+		if err != nil {
+			s.Logger.LogError(ctx, err, "Failed to get unread comment counts", "user_id", userID)
+			setErr(err)
+			return
+		}
+		unreadComments = res
+	}()
+
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
-	// Transform messages
+	dashboard.PlayerGames, dashboard.GMGames, dashboard.AudienceGames, dashboard.MixedRoleGames = groupGamesByRole(dbGames)
 	dashboard.RecentMessages = transformMessages(dbMessages)
-
-	// Get upcoming deadlines (limit 10)
-	dbDeadlines, err := q.GetUserUpcomingDeadlines(ctx, db.GetUserUpcomingDeadlinesParams{
-		UserID: userID,
-		Limit:  10,
-	})
-	if err != nil {
-		s.Logger.LogError(ctx, err, "Failed to get upcoming deadlines", "user_id", userID)
-		return nil, err
-	}
-
-	// Transform deadlines
 	dashboard.UpcomingDeadlines = transformDeadlines(dbDeadlines)
-
-	// Get unread notification count
-	unreadCount, err := q.GetDashboardUnreadCount(ctx, userID)
-	if err != nil {
-		s.Logger.LogError(ctx, err, "Failed to get unread notification count", "user_id", userID)
-		return nil, err
+	for _, row := range notifByType {
+		dashboard.NotificationsByType[row.Type] = int(row.Count)
+		dashboard.UnreadNotifications += int(row.Count)
 	}
-	dashboard.UnreadNotifications = int(unreadCount)
+	applyUnreadCommentCounts(dashboard, unreadComments)
 
 	return dashboard, nil
 }
 
-// groupGamesByRole groups games into player, GM, and mixed role categories
+type unreadCommentCount struct {
+	GameID      int32
+	UnreadCount int64
+}
+
+// applyUnreadCommentCounts sets UnreadComments on each game card from the query results.
+func applyUnreadCommentCounts(dashboard *core.DashboardData, rows []unreadCommentCount) {
+	counts := make(map[int32]int, len(rows))
+	for _, row := range rows {
+		counts[row.GameID] = int(row.UnreadCount)
+	}
+	for _, card := range dashboard.PlayerGames {
+		card.UnreadComments = counts[card.GameID]
+	}
+	for _, card := range dashboard.GMGames {
+		card.UnreadComments = counts[card.GameID]
+	}
+	for _, card := range dashboard.AudienceGames {
+		card.UnreadComments = counts[card.GameID]
+	}
+	for _, card := range dashboard.MixedRoleGames {
+		card.UnreadComments = counts[card.GameID]
+	}
+}
+
+// groupGamesByRole groups games into player, GM, audience, and mixed role categories
 func groupGamesByRole(dbGames []db.GetUserDashboardGamesRow) (
 	playerGames []*core.DashboardGameCard,
 	gmGames []*core.DashboardGameCard,
+	audienceGames []*core.DashboardGameCard,
 	mixedGames []*core.DashboardGameCard,
 ) {
 	// Initialize slices to ensure they serialize as [] not null
 	playerGames = make([]*core.DashboardGameCard, 0)
 	gmGames = make([]*core.DashboardGameCard, 0)
+	audienceGames = make([]*core.DashboardGameCard, 0)
 	mixedGames = make([]*core.DashboardGameCard, 0)
 
 	for _, game := range dbGames {
@@ -114,8 +202,9 @@ func groupGamesByRole(dbGames []db.GetUserDashboardGamesRow) (
 		case "gm", "co_gm":
 			card.UserRole = "gm" // Normalize co_gm to gm
 			gmGames = append(gmGames, card)
+		case "audience":
+			audienceGames = append(audienceGames, card)
 		default:
-			// If role is something else (future: both player and gm), put in mixed
 			mixedGames = append(mixedGames, card)
 		}
 	}
@@ -135,7 +224,7 @@ func transformGameCard(game db.GetUserDashboardGamesRow) *core.DashboardGameCard
 		UserRole:            game.UserRole,
 		HasPendingAction:    game.HasPendingAction,
 		PendingApplications: int(game.PendingApplicationsCount),
-		UnreadMessages:      int(game.UnreadNotificationsCount),
+		UnvotedPolls:        int(game.UnvotedPollsCount),
 		UpdatedAt:           game.UpdatedAt.Time,
 		CreatedAt:           game.CreatedAt.Time,
 	}
@@ -229,9 +318,12 @@ func transformDeadlines(dbDeadlines []db.GetUserUpcomingDeadlinesRow) []*core.Da
 		hoursRemaining := int(time.Until(endTime).Hours())
 
 		deadline := &core.DashboardDeadline{
+			DeadlineType:         dl.DeadlineType,
+			SourceID:             dl.SourceID,
 			PhaseID:              dl.PhaseID,
 			GameID:               dl.GameID,
 			GameTitle:            dl.GameTitle,
+			Title:                dl.Title,
 			PhaseType:            dl.PhaseType,
 			PhaseTitle:           dl.PhaseTitle,
 			PhaseNumber:          dl.PhaseNumber,
@@ -244,6 +336,81 @@ func transformDeadlines(dbDeadlines []db.GetUserUpcomingDeadlinesRow) []*core.Da
 	}
 
 	return deadlines
+}
+
+// getUnreadCommentCountsForDashboard counts unread comments at all nesting depths per game.
+// Uses a raw recursive CTE query — same pattern as GetPostCommentsWithThreads — because
+// sqlc cannot resolve aliases from recursive CTEs in aggregate FILTER clauses.
+func getUnreadCommentCountsForDashboard(ctx context.Context, pool *pgxpool.Pool, userID int32, commentReadMode string) ([]unreadCommentCount, error) {
+	query := `
+WITH RECURSIVE all_comments AS (
+  SELECT
+    c.id,
+    c.author_id,
+    c.created_at,
+    c.is_deleted,
+    posts.id AS root_post_id,
+    posts.game_id
+  FROM messages posts
+  INNER JOIN game_phases gp ON gp.id = posts.phase_id
+    AND gp.is_active = true
+    AND gp.phase_type = 'common_room'
+  INNER JOIN messages c ON c.parent_id = posts.id
+  WHERE posts.message_type = 'post'
+    AND posts.is_deleted = false
+    AND posts.is_draft = false
+
+  UNION ALL
+
+  SELECT
+    child.id,
+    child.author_id,
+    child.created_at,
+    child.is_deleted,
+    parent.root_post_id,
+    parent.game_id
+  FROM messages child
+  INNER JOIN all_comments parent ON child.parent_id = parent.id
+  WHERE child.message_type = 'comment'
+)
+SELECT
+  g.id AS game_id,
+  COALESCE(SUM(CASE
+    WHEN $2::text = 'auto'
+         AND ac.created_at > COALESCE(ucr.last_read_at, '1970-01-01'::timestamptz)
+         AND ac.author_id != $1
+         AND ac.is_deleted = false
+    THEN 1
+    WHEN $2::text != 'auto'
+         AND ucmr.comment_id IS NULL
+         AND ac.author_id != $1
+         AND ac.is_deleted = false
+    THEN 1
+    ELSE 0
+  END), 0)::bigint AS unread_count
+FROM games g
+LEFT JOIN game_participants part ON g.id = part.game_id AND part.user_id = $1 AND part.status = 'active'
+LEFT JOIN all_comments ac ON ac.game_id = g.id
+LEFT JOIN user_common_room_reads ucr ON ucr.post_id = ac.root_post_id AND ucr.user_id = $1
+LEFT JOIN user_comment_reads ucmr ON ucmr.comment_id = ac.id AND ucmr.user_id = $1
+WHERE ((part.user_id = $1 AND part.status = 'active') OR g.gm_user_id = $1)
+GROUP BY g.id`
+
+	rows, err := pool.Query(ctx, query, userID, commentReadMode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unread comment counts: %w", err)
+	}
+	defer rows.Close()
+
+	var results []unreadCommentCount
+	for rows.Next() {
+		var r unreadCommentCount
+		if err := rows.Scan(&r.GameID, &r.UnreadCount); err != nil {
+			return nil, fmt.Errorf("failed to scan unread comment count: %w", err)
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }
 
 // Helper functions for nullable fields

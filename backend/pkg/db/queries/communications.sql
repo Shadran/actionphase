@@ -82,6 +82,59 @@ RETURNING *;
 -- name: GetConversation :one
 SELECT * FROM conversations WHERE id = $1;
 
+-- name: GetUserUnreadConversations :many
+-- Get conversations with unread messages for a user in a game, capped at a limit.
+-- Used by the dashboard PM preview to avoid fetching the full conversation list.
+SELECT c.*,
+       (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as participant_count,
+       COALESCE(lm.last_message, '') as last_message,
+       lm.last_message_at,
+       COALESCE(
+           (SELECT STRING_AGG(name, ', ')
+            FROM (
+                SELECT DISTINCT chars.name
+                FROM conversation_participants cps
+                LEFT JOIN characters chars ON cps.character_id = chars.id
+                LEFT JOIN games g ON c.game_id = g.id
+                WHERE cps.conversation_id = c.id
+                  AND chars.id IS NOT NULL
+                  AND (
+                      g.gm_user_id = sqlc.arg(user_id)
+                      OR (chars.user_id IS NOT NULL AND chars.user_id != sqlc.arg(user_id))
+                      OR chars.user_id IS NULL
+                  )
+                ORDER BY chars.name
+            ) unique_participants),
+           ''
+       )::text as participant_names,
+       unread.unread_count::bigint,
+       cr.last_read_message_id,
+       cr.last_read_at
+FROM conversations c
+JOIN conversation_participants cp ON c.id = cp.conversation_id
+LEFT JOIN conversation_reads cr ON c.id = cr.conversation_id AND cr.user_id = sqlc.arg(user_id)
+LEFT JOIN LATERAL (
+    SELECT content as last_message, created_at as last_message_at
+    FROM private_messages
+    WHERE conversation_id = c.id
+      AND is_deleted = false
+      AND deleted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+) lm ON true
+LEFT JOIN LATERAL (
+    SELECT COUNT(*) as unread_count
+    FROM private_messages pm
+    WHERE pm.conversation_id = c.id
+      AND pm.created_at > COALESCE(cr.last_read_at, '1970-01-01'::timestamptz)
+      AND pm.sender_user_id != sqlc.arg(user_id)
+) unread ON true
+WHERE cp.user_id = sqlc.arg(user_id)
+  AND c.game_id = sqlc.arg(game_id)
+  AND unread.unread_count > 0
+ORDER BY unread.unread_count DESC, c.updated_at DESC
+LIMIT sqlc.arg(max_results);
+
 -- name: GetUserConversations :many
 SELECT c.*,
        (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as participant_count,

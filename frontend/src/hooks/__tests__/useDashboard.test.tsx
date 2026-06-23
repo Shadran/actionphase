@@ -46,7 +46,8 @@ describe('useDashboard', () => {
         user_role: 'player',
         has_pending_action: false,
         pending_applications: 0,
-        unread_messages: 0,
+        unread_comments: 0,
+        unvoted_polls: 0,
         deadline_status: 'normal',
         is_urgent: false,
         updated_at: new Date(),
@@ -54,10 +55,12 @@ describe('useDashboard', () => {
       },
     ],
     gm_games: [],
+    audience_games: [],
     mixed_role_games: [],
     recent_messages: [],
     upcoming_deadlines: [],
     unread_notifications: 0,
+    notifications_by_type: {},
   };
 
   it('fetches dashboard data successfully', async () => {
@@ -195,10 +198,12 @@ describe('useDashboard', () => {
     expect(data).toHaveProperty('has_games');
     expect(data).toHaveProperty('player_games');
     expect(data).toHaveProperty('gm_games');
+    expect(data).toHaveProperty('audience_games');
     expect(data).toHaveProperty('mixed_role_games');
     expect(data).toHaveProperty('recent_messages');
     expect(data).toHaveProperty('upcoming_deadlines');
     expect(data).toHaveProperty('unread_notifications');
+    expect(data).toHaveProperty('notifications_by_type');
   });
 
   it('handles empty dashboard data', async () => {
@@ -207,10 +212,12 @@ describe('useDashboard', () => {
       has_games: false,
       player_games: [],
       gm_games: [],
+      audience_games: [],
       mixed_role_games: [],
       recent_messages: [],
       upcoming_deadlines: [],
       unread_notifications: 0,
+      notifications_by_type: {},
     };
 
     vi.mocked(simpleApi.getDashboard).mockResolvedValue({

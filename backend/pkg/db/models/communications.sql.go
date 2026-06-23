@@ -745,6 +745,118 @@ func (q *Queries) GetUserConversations(ctx context.Context, arg GetUserConversat
 	return items, nil
 }
 
+const getUserUnreadConversations = `-- name: GetUserUnreadConversations :many
+SELECT c.id, c.game_id, c.conversation_type, c.title, c.created_by_user_id, c.created_at, c.updated_at,
+       (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as participant_count,
+       COALESCE(lm.last_message, '') as last_message,
+       lm.last_message_at,
+       COALESCE(
+           (SELECT STRING_AGG(name, ', ')
+            FROM (
+                SELECT DISTINCT chars.name
+                FROM conversation_participants cps
+                LEFT JOIN characters chars ON cps.character_id = chars.id
+                LEFT JOIN games g ON c.game_id = g.id
+                WHERE cps.conversation_id = c.id
+                  AND chars.id IS NOT NULL
+                  AND (
+                      g.gm_user_id = $1
+                      OR (chars.user_id IS NOT NULL AND chars.user_id != $1)
+                      OR chars.user_id IS NULL
+                  )
+                ORDER BY chars.name
+            ) unique_participants),
+           ''
+       )::text as participant_names,
+       unread.unread_count::bigint,
+       cr.last_read_message_id,
+       cr.last_read_at
+FROM conversations c
+JOIN conversation_participants cp ON c.id = cp.conversation_id
+LEFT JOIN conversation_reads cr ON c.id = cr.conversation_id AND cr.user_id = $1
+LEFT JOIN LATERAL (
+    SELECT content as last_message, created_at as last_message_at
+    FROM private_messages
+    WHERE conversation_id = c.id
+      AND is_deleted = false
+      AND deleted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+) lm ON true
+LEFT JOIN LATERAL (
+    SELECT COUNT(*) as unread_count
+    FROM private_messages pm
+    WHERE pm.conversation_id = c.id
+      AND pm.created_at > COALESCE(cr.last_read_at, '1970-01-01'::timestamptz)
+      AND pm.sender_user_id != $1
+) unread ON true
+WHERE cp.user_id = $1
+  AND c.game_id = $2
+  AND unread.unread_count > 0
+ORDER BY unread.unread_count DESC, c.updated_at DESC
+LIMIT $3
+`
+
+type GetUserUnreadConversationsParams struct {
+	UserID     int32 `json:"user_id"`
+	GameID     int32 `json:"game_id"`
+	MaxResults int32 `json:"max_results"`
+}
+
+type GetUserUnreadConversationsRow struct {
+	ID                int32              `json:"id"`
+	GameID            int32              `json:"game_id"`
+	ConversationType  string             `json:"conversation_type"`
+	Title             pgtype.Text        `json:"title"`
+	CreatedByUserID   int32              `json:"created_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ParticipantCount  int64              `json:"participant_count"`
+	LastMessage       string             `json:"last_message"`
+	LastMessageAt     pgtype.Timestamptz `json:"last_message_at"`
+	ParticipantNames  string             `json:"participant_names"`
+	UnreadUnreadCount int64              `json:"unread_unread_count"`
+	LastReadMessageID pgtype.Int4        `json:"last_read_message_id"`
+	LastReadAt        pgtype.Timestamptz `json:"last_read_at"`
+}
+
+// Get conversations with unread messages for a user in a game, capped at a limit.
+// Used by the dashboard PM preview to avoid fetching the full conversation list.
+func (q *Queries) GetUserUnreadConversations(ctx context.Context, arg GetUserUnreadConversationsParams) ([]GetUserUnreadConversationsRow, error) {
+	rows, err := q.db.Query(ctx, getUserUnreadConversations, arg.UserID, arg.GameID, arg.MaxResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserUnreadConversationsRow
+	for rows.Next() {
+		var i GetUserUnreadConversationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameID,
+			&i.ConversationType,
+			&i.Title,
+			&i.CreatedByUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParticipantCount,
+			&i.LastMessage,
+			&i.LastMessageAt,
+			&i.ParticipantNames,
+			&i.UnreadUnreadCount,
+			&i.LastReadMessageID,
+			&i.LastReadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const isUserInConversation = `-- name: IsUserInConversation :one
 SELECT EXISTS(
     SELECT 1 FROM conversation_participants

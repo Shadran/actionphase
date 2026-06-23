@@ -17,9 +17,12 @@ vi.mock('react-router-dom', async () => {
 
 describe('UpcomingDeadlinesCard', () => {
   const baseDeadline: DashboardDeadline = {
+    deadline_type: 'phase',
+    source_id: 1,
     phase_id: 1,
     game_id: 1,
     game_title: 'Test Game',
+    title: 'Test Phase',
     phase_type: 'action',
     phase_title: 'Test Phase',
     phase_number: 1,
@@ -54,13 +57,14 @@ describe('UpcomingDeadlinesCard', () => {
   it('displays phase title and phase number', () => {
     const deadline: DashboardDeadline = {
       ...baseDeadline,
+      title: 'Action Phase 5',
       phase_title: 'Action Phase 5',
       phase_number: 5,
     };
 
     renderWithProviders(<UpcomingDeadlinesCard deadlines={[deadline]} />);
 
-    expect(screen.getByText('Action Phase 5 (Phase 5)')).toBeInTheDocument();
+    expect(screen.getByText('Action Phase 5 — Phase 5')).toBeInTheDocument();
   });
 
   it('shows "Action pending" badge when has_pending_submission is true', () => {
@@ -295,9 +299,12 @@ describe('UpcomingDeadlinesCard', () => {
 
   it('displays all deadline details correctly', () => {
     const deadline: DashboardDeadline = {
+      deadline_type: 'phase',
+      source_id: 1,
       phase_id: 1,
       game_id: 5,
       game_title: 'Critical Mission',
+      title: 'Infiltration',
       phase_type: 'action',
       phase_title: 'Infiltration',
       phase_number: 3,
@@ -309,7 +316,7 @@ describe('UpcomingDeadlinesCard', () => {
     renderWithProviders(<UpcomingDeadlinesCard deadlines={[deadline]} />);
 
     expect(screen.getByText('Critical Mission')).toBeInTheDocument();
-    expect(screen.getByText('Infiltration (Phase 3)')).toBeInTheDocument();
+    expect(screen.getByText('Infiltration — Phase 3')).toBeInTheDocument();
     expect(screen.getByText('Action pending')).toBeInTheDocument();
     expect(screen.getByText('6 hours')).toBeInTheDocument();
   });

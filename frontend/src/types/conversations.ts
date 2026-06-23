@@ -48,7 +48,7 @@ export interface ConversationListItem {
   participant_count: number;
   participant_names?: string;
   last_message?: string;
-  last_message_at?: string;
+  last_message_at?: string | null;
   unread_count: number;
   last_read_message_id?: number;
   last_read_at?: string;

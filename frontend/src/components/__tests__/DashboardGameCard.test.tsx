@@ -26,7 +26,8 @@ describe('DashboardGameCard', () => {
     user_role: 'player',
     has_pending_action: false,
     pending_applications: 0,
-    unread_messages: 0,
+    unread_comments: 0,
+    unvoted_polls: 0,
     deadline_status: 'normal',
     is_urgent: false,
     updated_at: new Date(),
@@ -101,15 +102,15 @@ describe('DashboardGameCard', () => {
     expect(screen.getByText('5 applications')).toBeInTheDocument();
   });
 
-  it('shows unread messages count', () => {
-    const gameWithMessages: GameCardType = {
+  it('shows unread comments count', () => {
+    const gameWithComments: GameCardType = {
       ...baseGame,
-      unread_messages: 12,
+      unread_comments: 12,
     };
 
-    renderWithProviders(<DashboardGameCard game={gameWithMessages} />);
+    renderWithProviders(<DashboardGameCard game={gameWithComments} />);
 
-    expect(screen.getByText('12 unread')).toBeInTheDocument();
+    expect(screen.getByText('12 new comments')).toBeInTheDocument();
   });
 
   it('displays GM role correctly', () => {
@@ -234,10 +235,10 @@ describe('DashboardGameCard', () => {
     expect(screen.queryByText(/applications/i)).not.toBeInTheDocument();
   });
 
-  it('does not show unread messages when count is zero', () => {
-    renderWithProviders(<DashboardGameCard game={{ ...baseGame, unread_messages: 0 }} />);
+  it('does not show unread comments when count is zero', () => {
+    renderWithProviders(<DashboardGameCard game={{ ...baseGame, unread_comments: 0 }} />);
 
-    expect(screen.queryByText(/unread/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/new comment/i)).not.toBeInTheDocument();
   });
 
   it('does not show action needed when has_pending_action is false', () => {

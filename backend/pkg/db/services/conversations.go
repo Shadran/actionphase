@@ -199,6 +199,19 @@ func (s *ConversationService) GetUserConversations(ctx context.Context, gameID i
 	return conversations, nil
 }
 
+// GetUserUnreadConversations gets conversations with unread messages for a user, capped at limit.
+func (s *ConversationService) GetUserUnreadConversations(ctx context.Context, gameID int32, userID int32, limit int32) ([]models.GetUserUnreadConversationsRow, error) {
+	conversations, err := s.Queries.GetUserUnreadConversations(ctx, models.GetUserUnreadConversationsParams{
+		UserID:     userID,
+		GameID:     gameID,
+		MaxResults: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unread conversations: %w", err)
+	}
+	return conversations, nil
+}
+
 // GetConversationParticipants gets all participants in a conversation
 func (s *ConversationService) GetConversationParticipants(ctx context.Context, conversationID int32) ([]models.GetConversationParticipantsRow, error) {
 	participants, err := s.Queries.GetConversationParticipants(ctx, conversationID)
