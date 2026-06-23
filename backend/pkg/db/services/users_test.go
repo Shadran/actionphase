@@ -230,10 +230,191 @@ func TestUserService_GetUserByID(t *testing.T) {
 	t.Run("returns error for non-existent user", func(t *testing.T) {
 		defer testDB.CleanupTables(t, "users")
 
-		// Try to get a non-existent user
 		user, err := service.GetUserByID(99999)
 		assert.Nil(t, user)
-		assert.Error(t, err) // Should return "no rows in result set" error
+		assert.Error(t, err)
+	})
+
+	// This test matters because GetUserByID maps many nullable columns (bio, avatarURL,
+	// bannedAt, bannedByUserID) — a missing conversion silently drops data for the entire app.
+	t.Run("returns correct fields for existing user", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		created, err := service.CreateUser(&core.User{
+			Username: "byiduser",
+			Password: "password123",
+			Email:    "byid@example.com",
+		})
+		require.NoError(t, err)
+
+		retrieved, err := service.GetUserByID(created.ID)
+		require.NoError(t, err)
+		require.NotNil(t, retrieved)
+
+		assert.Equal(t, created.ID, retrieved.ID)
+		assert.Equal(t, "byiduser", retrieved.Username)
+		assert.Equal(t, "byid@example.com", retrieved.Email)
+		assert.NotNil(t, retrieved.CreatedAt)
+		assert.False(t, retrieved.IsAdmin)
+		assert.False(t, retrieved.IsBanned)
+		assert.Nil(t, retrieved.Bio)
+		assert.Nil(t, retrieved.AvatarURL)
+		assert.Nil(t, retrieved.BannedAt)
+		assert.Nil(t, retrieved.BannedByUserID)
+	})
+
+	t.Run("maps nullable bio and avatarURL when set", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		created, err := service.CreateUser(&core.User{
+			Username: "withbio",
+			Password: "password123",
+			Email:    "withbio@example.com",
+		})
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		_, err = testDB.Pool.Exec(ctx,
+			"UPDATE users SET bio = $1 WHERE id = $2",
+			"My bio text", created.ID,
+		)
+		require.NoError(t, err)
+
+		retrieved, err := service.GetUserByID(created.ID)
+		require.NoError(t, err)
+		require.NotNil(t, retrieved.Bio)
+		assert.Equal(t, "My bio text", *retrieved.Bio)
+		assert.Nil(t, retrieved.AvatarURL)
+	})
+
+	t.Run("maps ban fields when user is banned", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		admin, err := service.CreateUser(&core.User{
+			Username: "adminbanner",
+			Password: "password123",
+			Email:    "adminbanner@example.com",
+		})
+		require.NoError(t, err)
+
+		target, err := service.CreateUser(&core.User{
+			Username: "targetbanned",
+			Password: "password123",
+			Email:    "targetbanned@example.com",
+		})
+		require.NoError(t, err)
+
+		err = service.BanUser(context.Background(), int32(target.ID), int32(admin.ID))
+		require.NoError(t, err)
+
+		retrieved, err := service.GetUserByID(target.ID)
+		require.NoError(t, err)
+		assert.True(t, retrieved.IsBanned)
+		assert.NotNil(t, retrieved.BannedAt)
+		require.NotNil(t, retrieved.BannedByUserID)
+		assert.Equal(t, int32(admin.ID), *retrieved.BannedByUserID)
+	})
+}
+
+// TestUserService_ApprovalWorkflow tests the full pending-approval lifecycle.
+// Silent failure here means pending users can never be approved or rejected through
+// admin actions, and SetPendingApproval (used during registration) has no test coverage.
+func TestUserService_ApprovalWorkflow(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	app := core.NewTestApp(testDB.Pool)
+	service := &UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	t.Run("SetPendingApproval places user in pending state", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		user, err := service.CreateUser(&core.User{
+			Username: "pendinguser",
+			Password: "password123",
+			Email:    "pending@example.com",
+		})
+		require.NoError(t, err)
+		assert.False(t, user.PendingApproval)
+
+		err = service.SetPendingApproval(context.Background(), int32(user.ID))
+		require.NoError(t, err)
+
+		retrieved, err := service.GetUserByID(user.ID)
+		require.NoError(t, err)
+		assert.True(t, retrieved.PendingApproval, "user should now be in pending approval state")
+	})
+
+	t.Run("ListPendingApprovalUsers returns only pending users", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		pending, err := service.CreateUser(&core.User{
+			Username: "pendingone",
+			Password: "password123",
+			Email:    "pendingone@example.com",
+		})
+		require.NoError(t, err)
+		err = service.SetPendingApproval(context.Background(), int32(pending.ID))
+		require.NoError(t, err)
+
+		_, err = service.CreateUser(&core.User{
+			Username: "approved",
+			Password: "password123",
+			Email:    "approved@example.com",
+		})
+		require.NoError(t, err)
+
+		list, err := service.ListPendingApprovalUsers(context.Background())
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+		assert.Equal(t, "pendingone", list[0].Username)
+		assert.True(t, list[0].PendingApproval)
+	})
+
+	t.Run("ApproveUser clears pending flag", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		user, err := service.CreateUser(&core.User{
+			Username: "toapprove",
+			Password: "password123",
+			Email:    "toapprove@example.com",
+		})
+		require.NoError(t, err)
+		require.NoError(t, service.SetPendingApproval(context.Background(), int32(user.ID)))
+
+		err = service.ApproveUser(context.Background(), int32(user.ID))
+		require.NoError(t, err)
+
+		retrieved, err := service.GetUserByID(user.ID)
+		require.NoError(t, err)
+		assert.False(t, retrieved.PendingApproval, "approval must clear the pending flag")
+
+		list, err := service.ListPendingApprovalUsers(context.Background())
+		require.NoError(t, err)
+		assert.Empty(t, list, "approved user must not appear in pending list")
+	})
+
+	t.Run("RejectUser deletes the account", func(t *testing.T) {
+		defer testDB.CleanupTables(t, "users")
+
+		user, err := service.CreateUser(&core.User{
+			Username: "toreject",
+			Password: "password123",
+			Email:    "toreject@example.com",
+		})
+		require.NoError(t, err)
+		require.NoError(t, service.SetPendingApproval(context.Background(), int32(user.ID)))
+
+		err = service.RejectUser(context.Background(), int32(user.ID))
+		require.NoError(t, err)
+
+		// Account must no longer exist
+		_, err = service.GetUserByID(user.ID)
+		assert.Error(t, err, "rejected user account must be deleted")
+
+		list, err := service.ListPendingApprovalUsers(context.Background())
+		require.NoError(t, err)
+		assert.Empty(t, list)
 	})
 }
 

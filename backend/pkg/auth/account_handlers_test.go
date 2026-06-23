@@ -656,3 +656,63 @@ func TestV1RevokeSession(t *testing.T) {
 		})
 	}
 }
+
+// TestV1RevokeSession_CrossUserAttack verifies that a user cannot revoke another
+// user's session. This is the critical ownership check: if the guard fails silently,
+// any authenticated user could log out any other user.
+func TestV1RevokeSession_CrossUserAttack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	pool := setupTestDB(t)
+	defer pool.Close()
+
+	app := core.NewTestApp(pool)
+	handler := Handler{App: app}
+	queries := db.New(pool)
+	ctx := context.Background()
+
+	// Create two separate users
+	victimUserID := createTestUser(t, pool, "victim@test.com", "victimuser", "TestPass123!")
+	attackerUserID := createTestUser(t, pool, "attacker@test.com", "attackeruser", "TestPass123!")
+	defer func() {
+		_ = queries.DeleteUser(ctx, victimUserID)
+		_ = queries.DeleteUser(ctx, attackerUserID)
+	}()
+
+	// Create a session belonging to the victim
+	victimSession, err := queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID:  victimUserID,
+		Data:    "victim-session-token",
+		Expires: pgtype.Timestamptz{Time: time.Now().Add(24 * time.Hour), Valid: true},
+	})
+	require.NoError(t, err)
+	defer func() { _ = queries.DeleteSession(ctx, victimSession.ID) }()
+
+	// Attacker attempts to delete the victim's session
+	req := httptest.NewRequest(http.MethodDelete, "/auth/sessions/"+strconv.Itoa(int(victimSession.ID)), nil)
+	req = addAuthContextToRequest(t, req, pool, attackerUserID)
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("sessionID", strconv.Itoa(int(victimSession.ID)))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	handler.V1RevokeSession(w, req)
+
+	// Must be 404 — victim's session is not in the attacker's session list
+	assert.Equal(t, http.StatusNotFound, w.Code, "should not allow revoking another user's session")
+
+	// Verify victim's session was NOT deleted
+	remainingSessions, err := queries.GetSessionsByUser(ctx, victimUserID)
+	require.NoError(t, err)
+	found := false
+	for _, s := range remainingSessions {
+		if s.ID == victimSession.ID {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "victim's session must still exist after the cross-user revoke attempt")
+}

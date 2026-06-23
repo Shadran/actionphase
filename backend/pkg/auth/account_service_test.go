@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAccountService_ChangeUsername(t *testing.T) {
@@ -608,5 +611,133 @@ func TestAccountService_RequestEmailChange(t *testing.T) {
 		pwdErr, ok := err.(*PasswordValidationError)
 		core.AssertTrue(t, ok, "Should be PasswordValidationError")
 		core.AssertTrue(t, strings.Contains(pwdErr.Reason, "already in use"), "Error should mention email in use")
+	})
+}
+
+// TestAccountService_ListUserSessions verifies that the service returns active sessions
+// for a given user. Silent failure here means the sessions list endpoint shows stale data.
+func TestAccountService_ListUserSessions(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "sessions", "users")
+
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	sessionService := &db.SessionService{DB: testDB.Pool, Logger: app.ObsLogger}
+	accountService := &AccountService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	user, err := userService.CreateUser(&core.User{
+		Username: "sessionlistuser",
+		Password: "password123",
+		Email:    "sessionlist@example.com",
+	})
+	require.NoError(t, err)
+
+	t.Run("returns empty list when user has no sessions", func(t *testing.T) {
+		sessions, err := accountService.ListUserSessions(context.Background(), user.ID)
+		require.NoError(t, err)
+		assert.Empty(t, sessions)
+	})
+
+	t.Run("returns all active sessions for user", func(t *testing.T) {
+		_, err := sessionService.CreateSession(&core.Session{User: user, Token: "tok-a"})
+		require.NoError(t, err)
+		_, err = sessionService.CreateSession(&core.Session{User: user, Token: "tok-b"})
+		require.NoError(t, err)
+
+		sessions, err := accountService.ListUserSessions(context.Background(), user.ID)
+		require.NoError(t, err)
+		assert.Len(t, sessions, 2)
+	})
+
+	t.Run("does not return sessions for a different user", func(t *testing.T) {
+		other, err := userService.CreateUser(&core.User{
+			Username: "otheruser",
+			Password: "password123",
+			Email:    "other@example.com",
+		})
+		require.NoError(t, err)
+		_, err = sessionService.CreateSession(&core.Session{User: other, Token: "tok-other"})
+		require.NoError(t, err)
+
+		sessions, err := accountService.ListUserSessions(context.Background(), user.ID)
+		require.NoError(t, err)
+		for _, s := range sessions {
+			assert.Equal(t, int32(user.ID), s.UserID, "returned session must belong to queried user")
+		}
+	})
+}
+
+// TestAccountService_RevokeSession verifies ownership enforcement in the service layer.
+// The critical case is that User A cannot revoke User B's session even if they know the ID.
+func TestAccountService_RevokeSession(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "sessions", "users")
+
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	sessionService := &db.SessionService{DB: testDB.Pool, Logger: app.ObsLogger}
+	accountService := &AccountService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	owner, err := userService.CreateUser(&core.User{
+		Username: "sessionowner",
+		Password: "password123",
+		Email:    "owner@example.com",
+	})
+	require.NoError(t, err)
+
+	attacker, err := userService.CreateUser(&core.User{
+		Username: "sessionattacker",
+		Password: "password123",
+		Email:    "attacker@example.com",
+	})
+	require.NoError(t, err)
+
+	ownerSession, err := sessionService.CreateSession(&core.Session{User: owner, Token: "owner-tok"})
+	require.NoError(t, err)
+
+	t.Run("owner can revoke their own session", func(t *testing.T) {
+		ownSession, err := sessionService.CreateSession(&core.Session{User: owner, Token: "own-tok"})
+		require.NoError(t, err)
+
+		err = accountService.RevokeSession(context.Background(), owner.ID, int32(ownSession.ID))
+		assert.NoError(t, err)
+
+		// Verify it's gone
+		remaining, err := sessionService.GetUserSessions(context.Background(), int32(owner.ID))
+		require.NoError(t, err)
+		for _, s := range remaining {
+			assert.NotEqual(t, int32(ownSession.ID), s.ID, "revoked session must not appear in session list")
+		}
+	})
+
+	t.Run("attacker cannot revoke another user's session", func(t *testing.T) {
+		err := accountService.RevokeSession(context.Background(), attacker.ID, int32(ownerSession.ID))
+		assert.Error(t, err, "must reject cross-user session revocation")
+
+		pwdErr, ok := err.(*PasswordValidationError)
+		require.True(t, ok, "error should be a PasswordValidationError")
+		assert.Contains(t, pwdErr.Reason, "does not belong to this user")
+
+		// Verify owner's session was NOT deleted
+		remaining, err := sessionService.GetUserSessions(context.Background(), int32(owner.ID))
+		require.NoError(t, err)
+		found := false
+		for _, s := range remaining {
+			if s.ID == int32(ownerSession.ID) {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "owner's session must still exist after cross-user revoke attempt")
+	})
+
+	t.Run("returns error for non-existent session", func(t *testing.T) {
+		err := accountService.RevokeSession(context.Background(), owner.ID, 999999)
+		assert.Error(t, err)
+		pwdErr, ok := err.(*PasswordValidationError)
+		require.True(t, ok)
+		assert.Equal(t, "session not found", pwdErr.Reason)
 	})
 }

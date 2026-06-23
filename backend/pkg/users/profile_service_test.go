@@ -389,6 +389,85 @@ func TestCountUserProfileGames_IncludesFormerPlayers(t *testing.T) {
 	core.AssertEqual(t, 1, resp.Metadata.TotalCount, "Total count should include former player game but not plain audience game")
 }
 
+// TestGetUserGames_CharacterGrouping verifies the aggregation logic that collapses
+// one-row-per-character DB results into a single game entry with a Characters slice.
+// If the interface{} type assertions silently fail, character data is silently dropped.
+func TestGetUserGames_CharacterGrouping(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &UserProfileService{DB: testDB.Pool}
+	ctx := context.Background()
+
+	gm := factory.NewUser().Create()
+	player := factory.NewUser().Create()
+
+	game := factory.NewGame().WithTitle("Grouping Game").WithGM(gm.ID).Create()
+	factory.NewGameParticipant().ForGame(game.ID).WithUser(player.ID).WithRole("player").Create()
+
+	char1 := factory.NewCharacter().ForGame(game.ID).WithUserID(player.ID).WithName("Aragorn").PlayerCharacter().Create()
+	char2 := factory.NewCharacter().ForGame(game.ID).WithUserID(player.ID).WithName("Boromir").PlayerCharacter().Create()
+
+	games, err := service.GetUserGames(ctx, player.ID, 10, 0)
+	core.AssertNoError(t, err, "GetUserGames should not error")
+
+	if len(games) != 1 {
+		t.Fatalf("expected 1 game entry (2 characters collapsed), got %d", len(games))
+	}
+
+	g := games[0]
+	core.AssertEqual(t, "Grouping Game", g.Title, "game title should be correct")
+
+	if len(g.Characters) != 2 {
+		t.Fatalf("expected 2 characters grouped under one game, got %d", len(g.Characters))
+	}
+
+	names := make(map[string]bool)
+	for _, c := range g.Characters {
+		names[c.Name] = true
+		core.AssertNotEqual(t, int32(0), c.ID, "character ID must be populated")
+	}
+	core.AssertEqual(t, true, names["Aragorn"], "Aragorn should appear in characters")
+	core.AssertEqual(t, true, names["Boromir"], "Boromir should appear in characters")
+
+	_ = char1
+	_ = char2
+}
+
+// TestGetUserGames_AnonymousGameHidesCharacters verifies that characters are omitted for
+// anonymous games. If the IsAnonymous guard fails silently, character names (and thus
+// player identities) leak to profile viewers.
+func TestGetUserGames_AnonymousGameHidesCharacters(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "game_participants", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &UserProfileService{DB: testDB.Pool}
+	ctx := context.Background()
+
+	gm := factory.NewUser().Create()
+	player := factory.NewUser().Create()
+
+	anonGame := factory.NewGame().WithTitle("Secret Game").WithGM(gm.ID).WithAnonymous().Create()
+	factory.NewGameParticipant().ForGame(anonGame.ID).WithUser(player.ID).WithRole("player").Create()
+	factory.NewCharacter().ForGame(anonGame.ID).WithUserID(player.ID).WithName("Secret Hero").PlayerCharacter().Create()
+
+	games, err := service.GetUserGames(ctx, player.ID, 10, 0)
+	core.AssertNoError(t, err, "GetUserGames should not error")
+
+	if len(games) != 1 {
+		t.Fatalf("expected 1 game entry, got %d", len(games))
+	}
+
+	g := games[0]
+	core.AssertEqual(t, true, g.IsAnonymous, "game should be marked anonymous")
+	core.AssertEqual(t, 0, len(g.Characters),
+		"characters must be hidden for anonymous games — identity protection")
+}
+
 // Helper function to create string pointer
 func stringPtr(s string) *string {
 	return &s

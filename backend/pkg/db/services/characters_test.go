@@ -6,6 +6,9 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCharacterService_CreateCharacter(t *testing.T) {
@@ -1360,4 +1363,139 @@ func TestCharacterService_DeactivatePlayerCharacters(t *testing.T) {
 	if !oc.IsActive {
 		t.Errorf("other player's character was incorrectly deactivated")
 	}
+}
+
+// TestCharacterService_ListInactiveCharacters verifies that inactive characters
+// are returned and active ones are excluded. Silent failure here means the GM
+// cannot see players who have left the game.
+func TestCharacterService_ListInactiveCharacters(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "games", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	svc := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "inactive_gm", "inactive_gm@example.com")
+	player := testDB.CreateTestUser(t, "inactive_player", "inactive_player@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Inactive Test Game")
+
+	active, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(player.ID)),
+		Name: "ActiveChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	inactive, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(player.ID)),
+		Name: "InactiveChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	// Deactivate the second character directly
+	_, err = testDB.Pool.Exec(ctx, "UPDATE characters SET is_active = false WHERE id = $1", inactive.ID)
+	require.NoError(t, err)
+
+	t.Run("returns only inactive characters", func(t *testing.T) {
+		result, err := svc.ListInactiveCharacters(ctx, game.ID)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, inactive.ID, result[0].ID)
+	})
+
+	t.Run("does not include active characters", func(t *testing.T) {
+		result, err := svc.ListInactiveCharacters(ctx, game.ID)
+		require.NoError(t, err)
+		for _, c := range result {
+			assert.NotEqual(t, active.ID, c.ID)
+		}
+	})
+
+	t.Run("returns empty list for game with no inactive characters", func(t *testing.T) {
+		otherGame := testDB.CreateTestGame(t, int32(gm.ID), "Other Game")
+		result, err := svc.ListInactiveCharacters(ctx, otherGame.ID)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+}
+
+// TestCharacterService_GetCharacterActivityStats verifies that public and private
+// message counts are returned accurately. Silent failure means the GM sees zero
+// activity for all characters in the audience view.
+func TestCharacterService_GetCharacterActivityStats(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "characters", "games", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	svc := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "stats_gm", "stats_gm@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Stats Test Game")
+
+	char, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(gm.ID)),
+		Name: "StatsChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	t.Run("returns zero counts for character with no messages", func(t *testing.T) {
+		stats, err := svc.GetCharacterActivityStats(ctx, char.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stats)
+		assert.Equal(t, int64(0), stats.PublicMessages)
+		require.NotNil(t, stats.PrivateMessages)
+		assert.Equal(t, int64(0), *stats.PrivateMessages)
+	})
+}
+
+// TestCharacterService_AssignNPCToAudience verifies that the type guard rejects
+// player characters and that a valid NPC assignment is persisted.
+func TestCharacterService_AssignNPCToAudience(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "npc_assignments", "characters", "games", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	svc := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "npcaud_gm", "npcaud_gm@example.com")
+	audience := testDB.CreateTestUser(t, "npcaud_audience", "npcaud_audience@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "NPC Audience Game")
+
+	npc, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: nil,
+		Name: "TestNPC", CharacterType: "npc",
+	})
+	require.NoError(t, err)
+
+	playerChar, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(gm.ID)),
+		Name: "PlayerChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	t.Run("rejects assignment of player character type", func(t *testing.T) {
+		_, err := svc.AssignNPCToAudience(ctx, playerChar.ID, int32(audience.ID), int32(gm.ID))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "character is not an NPC")
+	})
+
+	t.Run("assigns NPC to audience member successfully", func(t *testing.T) {
+		assignment, err := svc.AssignNPCToAudience(ctx, npc.ID, int32(audience.ID), int32(gm.ID))
+		require.NoError(t, err)
+		require.NotNil(t, assignment)
+		assert.Equal(t, npc.ID, assignment.CharacterID)
+		assert.Equal(t, int32(audience.ID), assignment.AssignedUserID)
+		assert.Equal(t, int32(gm.ID), assignment.AssignedByUserID)
+	})
+
+	t.Run("returns error for non-existent character", func(t *testing.T) {
+		_, err := svc.AssignNPCToAudience(ctx, 999999, int32(audience.ID), int32(gm.ID))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get character")
+	})
 }

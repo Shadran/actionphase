@@ -899,6 +899,81 @@ func TestAuthAPI_SearchUsers(t *testing.T) {
 	})
 }
 
+// TestAuthAPI_V1Me_RevokedSession verifies the session-validity gate in V1Me.
+// A valid JWT whose session_id points to a deleted session must return {"user": null}.
+// Without this check, banned/force-logged-out users stay "logged in" on the frontend.
+func TestAuthAPI_V1Me_RevokedSession(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupAuthAPITestRouter(app, testDB)
+
+	userSvc := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	user := &core.User{Username: "sessiontest", Password: "password123", Email: "sessiontest@example.com"}
+	createdUser, err := userSvc.CreateUser(user)
+	if err != nil {
+		t.Fatalf("failed to create test user: %v", err)
+	}
+
+	// Create a real session so we have a valid session ID.
+	sessionSvc := &db.SessionService{DB: testDB.Pool, Logger: app.ObsLogger}
+	session, err := sessionSvc.CreateSession(&core.Session{
+		User:  createdUser,
+		Token: "test-token",
+	})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Build a token that carries the session_id claim (matching production login flow).
+	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
+	_, tokenWithSession, err := tokenAuth.Encode(map[string]interface{}{
+		"sub":        fmt.Sprintf("%d", createdUser.ID),
+		"username":   createdUser.Username,
+		"session_id": float64(session.ID),
+		"exp":        time.Now().Add(time.Hour).Unix(),
+	})
+	if err != nil {
+		t.Fatalf("failed to encode token: %v", err)
+	}
+
+	t.Run("valid session returns user", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenWithSession)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, 200, w.Code, "active session should return 200 with user")
+		var resp map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("response not valid JSON: %v", err)
+		}
+		core.AssertEqual(t, "sessiontest", resp["username"], "should return user data")
+	})
+
+	// Delete the session to simulate ban / forced logout.
+	_, err = testDB.Pool.Exec(context.Background(), "DELETE FROM sessions WHERE id = $1", session.ID)
+	if err != nil {
+		t.Fatalf("failed to delete session: %v", err)
+	}
+
+	t.Run("revoked session returns null user", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenWithSession)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, 200, w.Code, "revoked session must still return 200 (probe endpoint never 401)")
+		var resp map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("response not valid JSON: %v", err)
+		}
+		core.AssertEqual(t, nil, resp["user"], "revoked session must yield null user, not the user object")
+	})
+}
+
 // createTestAuthToken creates a JWT token for testing purposes
 func createTestAuthToken(app *core.App, user *core.User) (string, error) {
 	return core.CreateTestJWTTokenForUser(app, user)

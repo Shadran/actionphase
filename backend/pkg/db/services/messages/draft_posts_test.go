@@ -175,6 +175,51 @@ func TestMessageService_DeleteDraftPostsForPhase(t *testing.T) {
 	})
 }
 
+// TestMessageService_UpdateDraftPost_ErrorPaths verifies the not-found guard.
+// If the check is silently skipped, updates to non-existent drafts return 200 with no data.
+func TestMessageService_UpdateDraftPost_ErrorPaths(t *testing.T) {
+	testDB, service, _, _, _, _ := setupDraftTestData(t)
+	defer testDB.Close()
+
+	t.Run("returns error for non-existent post ID", func(t *testing.T) {
+		_, err := service.UpdateDraftPost(context.Background(), 999999, "Updated content")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "draft post not found")
+	})
+}
+
+// TestMessageService_DeleteDraftPost_ErrorPaths verifies both the not-found guard
+// and the non-draft guard. If the non-draft guard fails, published posts can be deleted.
+func TestMessageService_DeleteDraftPost_ErrorPaths(t *testing.T) {
+	testDB, service, gameID, phaseID, gmID, charID := setupDraftTestData(t)
+	defer testDB.Close()
+
+	t.Run("returns error for non-existent post ID", func(t *testing.T) {
+		err := service.DeleteDraftPost(context.Background(), 999999)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "draft post not found")
+	})
+
+	t.Run("returns error when trying to delete a published post", func(t *testing.T) {
+		draft, err := service.CreateDraftPost(context.Background(), core.CreatePostRequest{
+			GameID:      gameID,
+			PhaseID:     int32Ptr(phaseID),
+			AuthorID:    gmID,
+			CharacterID: charID,
+			Content:     "Draft to publish then try to delete",
+			Visibility:  string(models.MessageVisibilityGame),
+		})
+		require.NoError(t, err)
+
+		err = service.PublishDraftPostsForPhase(context.Background(), phaseID)
+		require.NoError(t, err)
+
+		err = service.DeleteDraftPost(context.Background(), draft.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "post is not a draft", "must reject deletion of published posts")
+	})
+}
+
 func TestMessageService_GetGamePosts_ExcludesDrafts(t *testing.T) {
 	testDB, service, gameID, phaseID, gmID, charID := setupDraftTestData(t)
 	defer testDB.Close()
