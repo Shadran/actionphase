@@ -414,14 +414,6 @@ func (cs *CharacterService) CanUserEditCharacter(ctx context.Context, characterI
 		// So we don't return the error here, just continue to return false
 	}
 
-	cs.Logger.Warn(ctx, "Authorization denied: cannot edit character",
-		"character_id", characterID,
-		"user_id", userID,
-		"character_owner_id", character.UserID.Int32,
-		"game_id", character.GameID,
-		"gm_user_id", game.GmUserID,
-	)
-
 	return false, nil
 }
 
