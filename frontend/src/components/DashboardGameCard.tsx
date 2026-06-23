@@ -86,9 +86,9 @@ export function DashboardGameCard({ game, isAudience = false, isSingleGame = fal
                 </p>
               </div>
               {game.current_phase_deadline && (
-                <div className={`ml-4 px-2 py-1 rounded text-xs font-medium ${deadlineColor}`}>
+                <div className={`ml-4 flex-shrink-0 px-2 py-1 rounded text-xs font-medium ${deadlineColor}`}>
                   <Clock className="w-3 h-3 inline mr-1" />
-                  Deadline: {new Date(game.current_phase_deadline).toLocaleDateString()}
+                  {new Date(game.current_phase_deadline).toLocaleDateString()}
                 </div>
               )}
             </div>

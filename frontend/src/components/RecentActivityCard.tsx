@@ -39,7 +39,7 @@ export function RecentActivityCard({ messages }: RecentActivityCardProps) {
   }
 
   return (
-    <div className="surface-base rounded-lg shadow-lg p-8">
+    <div className="surface-base rounded-lg shadow-lg p-4 sm:p-8">
       <div className="flex items-center mb-4">
         <MessageSquare className="w-5 h-5 text-content-tertiary mr-2" />
         <h2 className="text-lg font-bold text-content-primary">Recent Activity</h2>
@@ -51,7 +51,7 @@ export function RecentActivityCard({ messages }: RecentActivityCardProps) {
             <Link
               key={message.message_id}
               to={getMessageLink(message)}
-              className={`block border-b border-theme-default pb-4 last:border-b-0 last:pb-0 hover:surface-raised -mx-2 px-2 py-2 rounded transition-colors ${
+              className={`block border-b border-theme-default pb-4 last:border-b-0 last:pb-0 hover:surface-raised sm:-mx-2 sm:px-2 py-2 rounded transition-colors ${
                 isPrivate ? 'border-l-2 border-l-interactive-primary pl-3' : ''
               }`}
             >
