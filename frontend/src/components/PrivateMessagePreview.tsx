@@ -38,7 +38,7 @@ export function PrivateMessagePreview({ conversations, gameId }: PrivateMessageP
           <Link
             key={conv.id}
             to={`/games/${gameId}?tab=messages&conversation=${conv.id}`}
-            className="flex items-start gap-3 p-3 rounded-md hover:surface-raised transition-colors border-l-2 border-l-interactive-primary"
+            className="flex items-start gap-3 p-3 hover:surface-raised transition-colors border-l-2 border-l-interactive-primary"
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">

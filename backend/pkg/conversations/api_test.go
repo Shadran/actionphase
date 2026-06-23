@@ -1410,3 +1410,109 @@ func TestConversationAPI_InterludePhaseMessaging(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "interlude")
 	})
 }
+
+func TestConversationAPI_GetUserConversations_UnreadOnly(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "conversation_read_receipts", "conversation_messages", "conversation_participants", "conversations", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupConversationAPITestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player1 := testDB.CreateTestUser(t, "player1", "player1@example.com")
+	player2 := testDB.CreateTestUser(t, "player2", "player2@example.com")
+
+	player1Token, err := core.CreateTestJWTTokenForUser(app, player1)
+	core.AssertNoError(t, err, "Should create player1 token")
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	conversationService := db.NewConversationService(testDB.Pool)
+
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player1.ID), "player")
+	core.AssertNoError(t, err, "Should add player1")
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player2.ID), "player")
+	core.AssertNoError(t, err, "Should add player2")
+
+	char1, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player1.ID)),
+		Name: "Char1", CharacterType: "player_character",
+	})
+	core.AssertNoError(t, err, "Should create char1")
+	char2, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID: game.ID, UserID: int32Ptr(int32(player2.ID)),
+		Name: "Char2", CharacterType: "player_character",
+	})
+	core.AssertNoError(t, err, "Should create char2")
+
+	// Create a conversation and send a message from player2 (so player1 has an unread)
+	conv, err := conversationService.CreateConversation(context.Background(), db.CreateConversationRequest{
+		GameID: game.ID, Title: "Unread Conv",
+		CreatedByUserID: int32(player2.ID),
+		ParticipantIDs:  []int32{char1.ID, char2.ID},
+	})
+	core.AssertNoError(t, err, "Should create conversation")
+	_, err = conversationService.SendMessage(context.Background(), db.SendMessageRequest{
+		ConversationID:    conv.ID,
+		SenderUserID:      int32(player2.ID),
+		SenderCharacterID: char2.ID,
+		Content:           "Hello there",
+	})
+	core.AssertNoError(t, err, "Should send message")
+
+	unreadURL := fmt.Sprintf("/api/v1/games/%d/conversations/?unread_only=true", game.ID)
+
+	t.Run("returns only conversations with unread messages", func(t *testing.T) {
+		req := httptest.NewRequest("GET", unreadURL, nil)
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		convs := response["conversations"].([]interface{})
+		assert.Len(t, convs, 1)
+		conv0 := convs[0].(map[string]interface{})
+		assert.Equal(t, float64(conv.ID), conv0["id"])
+	})
+
+	t.Run("respects limit param", func(t *testing.T) {
+		// Create a second conversation with an unread message
+		char3, _ := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID: game.ID, UserID: int32Ptr(int32(gm.ID)),
+			Name: "Char3", CharacterType: "npc",
+		})
+		conv2, err := conversationService.CreateConversation(context.Background(), db.CreateConversationRequest{
+			GameID: game.ID, Title: "Second Unread",
+			CreatedByUserID: int32(player2.ID),
+			ParticipantIDs:  []int32{char1.ID, char3.ID},
+		})
+		core.AssertNoError(t, err, "Should create second conversation")
+		_, err = conversationService.SendMessage(context.Background(), db.SendMessageRequest{
+			ConversationID: conv2.ID, SenderUserID: int32(gm.ID), SenderCharacterID: char3.ID, Content: "Another message",
+		})
+		core.AssertNoError(t, err, "Should send second message")
+
+		req := httptest.NewRequest("GET", unreadURL+"&limit=1", nil)
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		convs := response["conversations"].([]interface{})
+		assert.Len(t, convs, 1, "limit=1 should cap results")
+	})
+
+	t.Run("unauthenticated request returns 401", func(t *testing.T) {
+		req := httptest.NewRequest("GET", unreadURL, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}

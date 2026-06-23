@@ -16,7 +16,7 @@ export function UpcomingDeadlinesCard({ deadlines }: UpcomingDeadlinesCardProps)
   }
 
   return (
-    <div className="surface-base rounded-lg shadow-lg p-8">
+    <div className="surface-base rounded-lg shadow-lg p-8 h-full">
       <div className="flex items-center mb-4">
         <Calendar className="w-5 h-5 text-content-tertiary mr-2" />
         <h2 className="text-lg font-bold text-content-primary">Upcoming Deadlines</h2>

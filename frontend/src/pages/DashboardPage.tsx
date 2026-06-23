@@ -81,15 +81,22 @@ export function DashboardPage() {
             </div>
           </div>
         ) : isSingleGame ? (
-          /* Single-game layout: hero card + activity panels below */
+          /* Single-game layout: game card + deadlines side by side, then activity panels */
           <div className="space-y-8">
             {/* Urgent Actions */}
             {activeGames.some((game) => game.is_urgent) && (
               <UrgentActionsCard games={activeGames} />
             )}
 
-            {/* Hero Game Card */}
-            <DashboardGameCard game={activeGames[0]} isSingleGame />
+            {/* Top row: Game Card (2/3) + Deadlines (1/3) */}
+            <div className={`grid grid-cols-1 ${hasDeadlines ? 'lg:grid-cols-3' : ''} gap-6 items-stretch`}>
+              <div className={`${hasDeadlines ? 'lg:col-span-2' : ''} h-full`}>
+                <DashboardGameCard game={activeGames[0]} isSingleGame />
+              </div>
+              {hasDeadlines && (
+                <UpcomingDeadlinesCard deadlines={dashboard.upcoming_deadlines} />
+              )}
+            </div>
 
             {/* Notification digest + PM preview */}
             <div className={`grid grid-cols-1 ${hasUnreadConversations ? 'lg:grid-cols-2' : ''} gap-6`}>
@@ -105,18 +112,9 @@ export function DashboardPage() {
               )}
             </div>
 
-            {/* Activity + Deadline panels */}
-            {(hasMessages || hasDeadlines) && (
-              <div className={`grid grid-cols-1 ${hasMessages && hasDeadlines ? 'lg:grid-cols-3' : ''} gap-8`}>
-                {hasMessages && (
-                  <div className={hasDeadlines ? 'lg:col-span-2' : ''}>
-                    <RecentActivityCard messages={dashboard.recent_messages} />
-                  </div>
-                )}
-                {hasDeadlines && (
-                  <UpcomingDeadlinesCard deadlines={dashboard.upcoming_deadlines} />
-                )}
-              </div>
+            {/* Recent activity */}
+            {hasMessages && (
+              <RecentActivityCard messages={dashboard.recent_messages} />
             )}
 
             {/* Audience Games */}

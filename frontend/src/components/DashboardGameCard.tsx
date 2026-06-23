@@ -32,7 +32,7 @@ export function DashboardGameCard({ game, isAudience = false, isSingleGame = fal
     <Link
       to={`/games/${game.game_id}`}
       data-testid="game-card"
-      className={`block surface-base rounded-lg shadow-md border ${
+      className={`block surface-base rounded-lg shadow-md border h-full ${
         !isAudience && game.is_urgent ? 'border-semantic-danger ring-2 ring-semantic-danger/20' : 'border-theme-default'
       } hover:shadow-lg transition-shadow duration-200`}
     >

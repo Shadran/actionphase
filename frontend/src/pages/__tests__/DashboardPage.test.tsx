@@ -49,6 +49,18 @@ vi.mock('../../components/Dashboard/ActivityTabs', () => ({
   ),
 }));
 
+vi.mock('../../hooks/useDashboardConversations', () => ({
+  useDashboardConversations: vi.fn().mockReturnValue({ data: [] }),
+}));
+
+vi.mock('../../components/NotificationDigest', () => ({
+  NotificationDigest: () => <div data-testid="notification-digest" />,
+}));
+
+vi.mock('../../components/PrivateMessagePreview', () => ({
+  PrivateMessagePreview: () => <div data-testid="private-message-preview" />,
+}));
+
 import { useDashboard } from '../../hooks/useDashboard';
 
 describe('DashboardPage', () => {
@@ -161,6 +173,7 @@ describe('DashboardPage', () => {
           },
         ],
         unread_notifications: 5,
+        notifications_by_type: {},
       },
       isLoading: false,
       error: null,
