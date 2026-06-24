@@ -14,6 +14,7 @@ interface UseGameTabsOptions {
   hasCharacters?: boolean;
   unvotedPollsCount?: number;
   hasSubmittedAction?: boolean;
+  isRoleLoading?: boolean;
 }
 
 // Icon helper to avoid JSX in .ts file
@@ -55,6 +56,7 @@ export function useGameTabs({
   hasCharacters = false,
   unvotedPollsCount = 0,
   hasSubmittedAction = false,
+  isRoleLoading = false,
 }: UseGameTabsOptions) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -242,6 +244,12 @@ export function useGameTabs({
         }
         return;
       } else {
+        // URL tab not found in current tab list. If role/participant data is still
+        // loading, the tab list is incomplete — wait before declaring the tab invalid.
+        if (isRoleLoading) {
+          return;
+        }
+
         // Invalid URL param - determine redirect target.
         // If a comment deep-link is present, redirect to history (not the phase-aware
         // default) so the comment can be resolved in the archived phase, preserving
@@ -273,7 +281,7 @@ export function useGameTabs({
       newParams.set('tab', defaultTab);
       setSearchParams(newParams, { replace: true });
     }
-  }, [tabs, defaultTab, activeTab, searchParams, setSearchParams, gameState, currentPhaseType, isPhaseLoading]);
+  }, [tabs, defaultTab, activeTab, searchParams, setSearchParams, gameState, currentPhaseType, isPhaseLoading, isRoleLoading]);
 
   // Wrapper for setActiveTab that updates URL with new tab
   const handleSetActiveTab = (tabId: string) => {

@@ -144,6 +144,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
     hasCharacters: userCharacters.length > 0,
     unvotedPollsCount,
     hasSubmittedAction,
+    isRoleLoading: isLoadingParticipants,
   });
 
   const getTabHref = useCallback((tabId: string) => {

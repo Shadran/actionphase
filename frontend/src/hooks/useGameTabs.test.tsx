@@ -795,6 +795,54 @@ describe('useGameTabs', () => {
     });
   });
 
+  describe('Bug: notification link to messages tab lands on people tab during interlude phase', () => {
+    it('should wait for role data before redirecting an unrecognized URL tab', async () => {
+      // Simulate the race: phase resolves before participant data.
+      // Initial state: isRoleLoading=true, isParticipant=false → messages tab absent.
+      // Expected: effect does NOT redirect to people while role is still loading.
+      function RaceConditionSpy() {
+        const [isParticipant, setIsParticipant] = useState(false);
+        const [isRoleLoading, setIsRoleLoading] = useState(true);
+        const { activeTab } = useGameTabs({
+          gameState: 'in_progress',
+          isGM: false,
+          participantCount: 3,
+          currentPhaseType: 'interlude',
+          isPhaseLoading: false, // phase already resolved
+          isAudience: false,
+          isParticipant,
+          hasCharacters: false,
+          isRoleLoading,
+        });
+        return (
+          <div>
+            <span data-testid="active-tab">{activeTab}</span>
+            <button onClick={() => { setIsParticipant(true); setIsRoleLoading(false); }}>
+              resolve-role
+            </button>
+          </div>
+        );
+      }
+
+      render(
+        <MemoryRouter initialEntries={['/games/1?tab=messages&conversation=42']}>
+          <RaceConditionSpy />
+        </MemoryRouter>
+      );
+
+      // Role still loading — should not have redirected to people yet
+      expect(screen.getByTestId('active-tab').textContent).not.toBe('people');
+
+      // Participant data arrives
+      act(() => { screen.getByRole('button', { name: 'resolve-role' }).click(); });
+
+      // Now messages tab exists and should be active
+      await waitFor(() => {
+        expect(screen.getByTestId('active-tab').textContent).toBe('messages');
+      });
+    });
+  });
+
   describe('Bug: comment deep-link with invalid tab redirects to history preserving comment param', () => {
     it('should redirect to history tab (not default) when common-room is invalid and comment param is present', async () => {
       // Simulate arriving at ?tab=common-room&comment=42 during an action phase
