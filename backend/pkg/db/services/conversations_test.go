@@ -1534,6 +1534,83 @@ func TestConversationService_UpdatePrivateMessage(t *testing.T) {
 // TestConversationService_CanUserAccessConversation tests the access control logic for private conversations.
 // This is a security-critical function: a wrong result means a user reads private messages they shouldn't.
 // Tests cover all access paths: GM, co-GM, audience, character controller, and denied outsider.
+// TestConversationService_NotifyPrivateMessage_DeduplicatesByUser verifies that a user who controls
+// multiple characters in the same conversation receives only one notification per message,
+// not one per character they control.
+func TestConversationService_NotifyPrivateMessage_DeduplicatesByUser(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "conversation_reads", "private_messages", "conversation_participants", "conversations", "npc_assignments", "characters", "game_participants", "games", "sessions", "users")
+
+	ctx := context.Background()
+	convService := NewConversationService(testDB.Pool)
+	charService := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	notifService := NewNotificationService(testDB.Pool, app.ObsLogger)
+
+	gm := testDB.CreateTestUser(t, "gm_notif_dedup", "gm_notif_dedup@example.com")
+	player := testDB.CreateTestUser(t, "player_notif_dedup", "player_notif_dedup@example.com")
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Notification Dedup Test Game")
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	// GM controls two characters in this conversation: their GM character and an NPC
+	gmUserID := int32(gm.ID)
+	gmChar, err := charService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: &gmUserID, Name: "GM Character", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	npc, err := charService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: nil, Name: "NPC", CharacterType: "npc",
+	})
+	require.NoError(t, err)
+
+	// Assign NPC to GM so both participants share gm.ID as their user
+	err = charService.AssignNPCToUser(ctx, npc.ID, int32(gm.ID), int32(gm.ID))
+	require.NoError(t, err)
+
+	playerUserID := int32(player.ID)
+	playerChar, err := charService.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: &playerUserID, Name: "Player Character", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	conv, err := convService.CreateConversation(ctx, CreateConversationRequest{
+		GameID:          game.ID,
+		Title:           "GM NPC Conversation",
+		CreatedByUserID: int32(gm.ID),
+		ParticipantIDs:  []int32{gmChar.ID, npc.ID, playerChar.ID},
+	})
+	require.NoError(t, err)
+
+	// Player sends a message — should trigger exactly one notification to GM
+	_, err = convService.SendMessage(ctx, SendMessageRequest{
+		ConversationID:    conv.ID,
+		SenderUserID:      int32(player.ID),
+		SenderCharacterID: playerChar.ID,
+		Content:           "Hello!",
+	})
+	require.NoError(t, err)
+
+	// Wait for the background goroutine to complete
+	time.Sleep(200 * time.Millisecond)
+
+	// GM should have exactly 1 private_message notification, not 2
+	notifications, err := notifService.GetUserNotifications(ctx, int32(gm.ID), 10, 0)
+	require.NoError(t, err)
+
+	var pmNotifs []*core.Notification
+	for _, n := range notifications {
+		if n.Type == core.NotificationTypePrivateMessage {
+			pmNotifs = append(pmNotifs, n)
+		}
+	}
+	assert.Len(t, pmNotifs, 1, "GM should receive exactly 1 notification even when controlling multiple characters in the conversation")
+}
+
 func TestConversationService_CanUserAccessConversation(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	app := core.NewTestApp(testDB.Pool)

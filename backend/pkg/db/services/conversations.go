@@ -435,11 +435,17 @@ func (s *ConversationService) notifyPrivateMessage(ctx context.Context, conversa
 		return
 	}
 
-	// Notify each participant except the sender
+	// Notify each participant except the sender, deduplicating by user so that
+	// a user controlling multiple characters in the conversation gets at most one notification.
+	notifiedUsers := make(map[int32]bool)
 	for _, participant := range participants {
 		if participant.UserID == senderUserID {
 			continue // Don't notify the sender
 		}
+		if notifiedUsers[participant.UserID] {
+			continue // Already notified this user for another character they control
+		}
+		notifiedUsers[participant.UserID] = true
 
 		err = notificationService.NotifyPrivateMessage(
 			ctx,
