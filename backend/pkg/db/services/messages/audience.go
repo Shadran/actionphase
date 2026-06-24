@@ -34,6 +34,22 @@ func (ms *MessageService) ListAllPrivateConversations(ctx context.Context, param
 	return conversations, nil
 }
 
+// CountAllPrivateConversations returns the total number of private conversations in a game,
+// applying the same participant filter as ListAllPrivateConversations.
+func (ms *MessageService) CountAllPrivateConversations(ctx context.Context, gameID int32, participantNames []string) (int64, error) {
+	queries := models.New(ms.DB)
+
+	count, err := queries.CountAllPrivateConversations(ctx, models.CountAllPrivateConversationsParams{
+		GameID:           gameID,
+		ParticipantNames: participantNames,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count all private conversations: %w", err)
+	}
+
+	return count, nil
+}
+
 // GetConversationParticipantNames returns all participant names that appear in at least
 // one conversation in the game, optionally narrowed to those who share a conversation
 // with all of the given selected names.

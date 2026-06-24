@@ -83,8 +83,7 @@ export function useAllPrivateConversations(
         (sum, page) => sum + (page.conversations?.length || 0),
         0
       );
-      // If we got fewer results than the limit, we've reached the end
-      return lastPage.conversations?.length >= 20 ? loadedCount : undefined;
+      return loadedCount < lastPage.total ? loadedCount : undefined;
     },
     initialPageParam: 0,
     enabled: !!gameId,

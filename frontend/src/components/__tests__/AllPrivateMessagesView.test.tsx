@@ -136,6 +136,47 @@ describe('AllPrivateMessagesView - URL sync', () => {
   })
 })
 
+describe('AllPrivateMessagesView - conversation count display', () => {
+  it('shows total count from API, not the count of loaded conversations', async () => {
+    // Page returns 2 conversations but total is 50 (more pages exist)
+    server.use(
+      http.get('/api/v1/games/:gameId/private-messages/all', () => {
+        return HttpResponse.json({
+          conversations: [
+            { ...mockConversation, conversation_id: 1, subject: 'Conv 1' },
+            { ...mockConversation, conversation_id: 2, subject: 'Conv 2' },
+          ],
+          total: 50,
+        })
+      })
+    )
+
+    renderWithProviders(<AllPrivateMessagesView gameId={gameId} />, { gameId })
+
+    await waitFor(() => {
+      // Should show 50 (total), not 2 (loaded page size)
+      expect(screen.getAllByText('50 conversations')[0]).toBeInTheDocument()
+    })
+  })
+
+  it('shows the count with correct singular form when total is 1', async () => {
+    server.use(
+      http.get('/api/v1/games/:gameId/private-messages/all', () => {
+        return HttpResponse.json({
+          conversations: [mockConversation],
+          total: 1,
+        })
+      })
+    )
+
+    renderWithProviders(<AllPrivateMessagesView gameId={gameId} />, { gameId })
+
+    await waitFor(() => {
+      expect(screen.getAllByText('1 conversation')[0]).toBeInTheDocument()
+    })
+  })
+})
+
 describe('AllPrivateMessagesView - participant filter', () => {
   it('shows all conversation participants as filter options on initial load', async () => {
     renderWithProviders(<AllPrivateMessagesView gameId={gameId} />, { gameId })

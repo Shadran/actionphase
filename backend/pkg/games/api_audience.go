@@ -288,9 +288,13 @@ func (h *Handler) ListAllPrivateConversations(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Note: We're returning len(conversations) as total for now
-	// To get accurate total count, we'd need a separate COUNT query
-	// For pagination, the frontend can detect end when len(conversations) < limit
+	// Get total count for pagination display
+	total, err := messageService.CountAllPrivateConversations(ctx, int32(gameID), participantNames)
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to count private conversations", "error", err, "game_id", gameID)
+		return
+	}
+
 	// Map to response structs with clean Go types (not pgtype wrappers)
 	responses := make([]PrivateConversationResponse, len(conversations))
 	for i, c := range conversations {
@@ -333,7 +337,7 @@ func (h *Handler) ListAllPrivateConversations(w http.ResponseWriter, r *http.Req
 
 	render.JSON(w, r, map[string]interface{}{
 		"conversations": responses,
-		"total":         len(responses),
+		"total":         total,
 	})
 }
 

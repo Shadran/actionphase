@@ -678,6 +678,34 @@ ORDER BY cm.latest_message_at DESC NULLS LAST
 LIMIT sqlc.arg(result_limit)
 OFFSET sqlc.arg(result_offset);
 
+-- name: CountAllPrivateConversations :one
+-- Count total private conversations in a game, with optional participant filter
+-- Uses the same filter logic as ListAllPrivateConversations
+WITH participants_agg AS (
+  SELECT
+    cp.conversation_id,
+    array_agg(COALESCE(ch.name, u.username) ORDER BY cp.id) as participant_names
+  FROM (
+    SELECT DISTINCT ON (conversation_id, character_id)
+      id, conversation_id, user_id, character_id
+    FROM conversation_participants
+    ORDER BY conversation_id, character_id, id
+  ) cp
+  JOIN users u ON cp.user_id = u.id
+  LEFT JOIN characters ch ON cp.character_id = ch.id
+  GROUP BY cp.conversation_id
+)
+SELECT COUNT(*)
+FROM conversations c
+LEFT JOIN participants_agg pa ON c.id = pa.conversation_id
+WHERE c.game_id = sqlc.arg(game_id)
+  AND (
+    CASE
+      WHEN sqlc.arg(participant_names)::text[] IS NULL OR array_length(sqlc.arg(participant_names)::text[], 1) IS NULL THEN true
+      ELSE pa.participant_names::text[] @> sqlc.arg(participant_names)::text[]
+    END
+  );
+
 -- name: GetAudienceConversationMessages :many
 -- Get all messages in a specific conversation (for audience/GM)
 SELECT pm.*,

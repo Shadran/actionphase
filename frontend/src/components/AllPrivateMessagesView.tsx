@@ -81,6 +81,9 @@ export function AllPrivateMessagesView({ gameId }: AllPrivateMessagesViewProps) 
     [data?.pages]
   );
 
+  // Total comes from the first page's total field (same count for all pages of same query)
+  const totalConversations = data?.pages[0]?.total ?? allConversations.length;
+
   // Fetch valid filter options from the backend.
   // Returns all participants when nothing is selected; narrows to co-participants
   // of all selected names when a filter is active. Backed by a dedicated SQL query
@@ -152,7 +155,7 @@ export function AllPrivateMessagesView({ gameId }: AllPrivateMessagesViewProps) 
           </Badge>
         </div>
         <div className="text-sm text-content-secondary">
-          {allConversations.length} conversation{allConversations.length !== 1 ? 's' : ''}
+          {totalConversations} conversation{totalConversations !== 1 ? 's' : ''}
           {selectedParticipants.size > 0 && ' (filtered)'}
         </div>
       </div>
@@ -167,7 +170,7 @@ export function AllPrivateMessagesView({ gameId }: AllPrivateMessagesViewProps) 
           </Badge>
         </div>
         <div className="text-sm text-content-secondary">
-          {allConversations.length} conversation{allConversations.length !== 1 ? 's' : ''}
+          {totalConversations} conversation{totalConversations !== 1 ? 's' : ''}
           {selectedParticipants.size > 0 && ' (filtered)'}
         </div>
       </div>

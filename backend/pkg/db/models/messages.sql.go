@@ -77,6 +77,47 @@ func (q *Queries) CheckPostOwnership(ctx context.Context, id int32) (CheckPostOw
 	return i, err
 }
 
+const countAllPrivateConversations = `-- name: CountAllPrivateConversations :one
+WITH participants_agg AS (
+  SELECT
+    cp.conversation_id,
+    array_agg(COALESCE(ch.name, u.username) ORDER BY cp.id) as participant_names
+  FROM (
+    SELECT DISTINCT ON (conversation_id, character_id)
+      id, conversation_id, user_id, character_id
+    FROM conversation_participants
+    ORDER BY conversation_id, character_id, id
+  ) cp
+  JOIN users u ON cp.user_id = u.id
+  LEFT JOIN characters ch ON cp.character_id = ch.id
+  GROUP BY cp.conversation_id
+)
+SELECT COUNT(*)
+FROM conversations c
+LEFT JOIN participants_agg pa ON c.id = pa.conversation_id
+WHERE c.game_id = $1
+  AND (
+    CASE
+      WHEN $2::text[] IS NULL OR array_length($2::text[], 1) IS NULL THEN true
+      ELSE pa.participant_names::text[] @> $2::text[]
+    END
+  )
+`
+
+type CountAllPrivateConversationsParams struct {
+	GameID           int32    `json:"game_id"`
+	ParticipantNames []string `json:"participant_names"`
+}
+
+// Count total private conversations in a game, with optional participant filter
+// Uses the same filter logic as ListAllPrivateConversations
+func (q *Queries) CountAllPrivateConversations(ctx context.Context, arg CountAllPrivateConversationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllPrivateConversations, arg.GameID, arg.ParticipantNames)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countDraftPostsByPhase = `-- name: CountDraftPostsByPhase :one
 SELECT COUNT(*)
 FROM messages
