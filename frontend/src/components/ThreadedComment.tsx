@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { apiClient } from '../lib/api';
@@ -99,6 +99,20 @@ export const ThreadedComment = memo(function ThreadedComment({
   const isAuthor = currentUserId === comment.author_id;
   // Single source of truth: reply_count (initialized from preloaded children, updated on mutations)
   const hasReplies = (comment.reply_count || 0) > 0;
+
+  // Stable reference required so MarkdownPreview's React.memo boundary isn't busted on
+  // every ThreadedComment re-render (e.g. toggling replies, editing). Without this, the
+  // dangerouslySetInnerHTML div re-renders and Chrome re-fires mouseover, causing the
+  // mention tooltip to get stuck open.
+  const mentionedCharacters = useMemo(
+    () => comment.mentioned_character_ids?.flatMap(id => {
+      const char = characters.find(c => c.id === id);
+      if (!char) return [];
+      return [{ id: char.id, name: char.name, username: char.username,
+                character_type: char.character_type, avatar_url: char.avatar_url ?? undefined }];
+    }) ?? [],
+    [comment.mentioned_character_ids, characters]
+  );
   const isManuallyRead = commentReadMode === 'manual' && manualReadCommentIDs.includes(comment.id);
   const isUnread = commentReadMode !== 'manual' && unreadCommentIDs.includes(comment.id);
 
@@ -561,17 +575,7 @@ export const ThreadedComment = memo(function ThreadedComment({
           <div className="mb-2 pl-1 md:pl-0 text-sm md:text-base">
             <MarkdownPreview
               content={comment.content}
-              mentionedCharacters={comment.mentioned_character_ids?.flatMap(id => {
-                const char = characters.find(c => c.id === id);
-                if (!char) return [];
-                return [{
-                  id: char.id,
-                  name: char.name,
-                  username: char.username,
-                  character_type: char.character_type,
-                  avatar_url: char.avatar_url ?? undefined
-                }];
-              }) || []}
+              mentionedCharacters={mentionedCharacters}
             />
           </div>
         )}

@@ -210,6 +210,27 @@ describe('MarkdownPreview', () => {
       expect(codeElement.tagName).not.toBe('MARK');
     });
 
+    it('does not re-render the content div when tooltip becomes visible', () => {
+      // Regression: MarkdownContent must be React.memo'd so hover setState doesn't replace
+      // the dangerouslySetInnerHTML DOM — Chrome re-fires mouseover on replacement, causing
+      // an infinite loop that traps the tooltip open.
+      render(
+        <MarkdownPreview
+          content="@Alice mentioned"
+          mentionedCharacters={mentionedCharacters}
+        />
+      );
+      const mark = screen.getByText('@Alice');
+      expect(mark.tagName).toBe('MARK');
+
+      // Trigger hover to show tooltip (fires mouseover on the container)
+      fireEvent.mouseOver(mark);
+
+      // The mark must still be the same DOM node — not detached and replaced
+      expect(document.contains(mark)).toBe(true);
+      expect(mark.getAttribute('data-mention-id')).toBe('1');
+    });
+
     it('handles content without mentions', () => {
       render(
         <MarkdownPreview

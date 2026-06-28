@@ -271,16 +271,22 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
 
   // Event delegation for mention and sheet item tooltips
   const handleMouseOver = useCallback((e: MouseEvent) => {
+    const relatedTarget = e.relatedTarget as Node | null;
     const mentionMark = (e.target as Element).closest('mark[data-mention-id]');
     if (mentionMark) {
-      const id = Number(mentionMark.getAttribute('data-mention-id'));
-      const rect = mentionMark.getBoundingClientRect();
-      setHoveredMentionId(id);
-      setTooltipPosition({ top: rect.bottom + 4, left: rect.left });
+      // Only act on true entry. Defensive fallback against re-render loops: if
+      // MarkdownContent's React.memo is ever bypassed, Chrome re-fires mouseover
+      // on DOM replacement and this guard prevents the infinite setState cycle.
+      if (!mentionMark.contains(relatedTarget)) {
+        const id = Number(mentionMark.getAttribute('data-mention-id'));
+        const rect = mentionMark.getBoundingClientRect();
+        setHoveredMentionId(id);
+        setTooltipPosition({ top: rect.bottom + 4, left: rect.left });
+      }
       return;
     }
     const sheetMark = (e.target as Element).closest('mark[data-sheet-ref-id]');
-    if (sheetMark) {
+    if (sheetMark && !sheetMark.contains(relatedTarget)) {
       const id = sheetMark.getAttribute('data-sheet-ref-id') ?? null;
       const rect = sheetMark.getBoundingClientRect();
       setHoveredSheetRefId(id);
@@ -400,10 +406,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
 
   return (
     <div className={`markdown-preview prose ${fullWidth ? 'max-w-none' : 'max-w-prose'} text-content-primary dark:text-white ${className}`}>
-      <div
-        ref={containerRef}
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
+      <MarkdownContent containerRef={containerRef} htmlContent={htmlContent} />
       <SyntaxHighlighterPortals containerRef={containerRef} htmlContent={htmlContent} />
 
       {hoveredCharacter && tooltipPosition && (
@@ -514,6 +517,20 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     </div>
   );
 };
+
+interface MarkdownContentProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  htmlContent: string;
+}
+
+const MarkdownContent = React.memo(function MarkdownContent({ containerRef, htmlContent }: MarkdownContentProps) {
+  return (
+    <div
+      ref={containerRef}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+    />
+  );
+});
 
 interface SyntaxHighlighterPortalsProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
