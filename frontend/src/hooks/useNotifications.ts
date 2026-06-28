@@ -20,8 +20,6 @@ export function useNotifications(params?: GetNotificationsParams) {
     refetchInterval: isAuthenticated ? 30000 : false,
     // Always refetch when component mounts to ensure fresh data when dropdown opens
     refetchOnMount: 'always',
-    // Refetch when window regains focus
-    refetchOnWindowFocus: true,
   });
 }
 
@@ -40,8 +38,6 @@ export function useUnreadCount() {
     refetchInterval: isAuthenticated ? 15000 : false,
     // Always refetch when component mounts to ensure fresh badge count
     refetchOnMount: 'always',
-    // Refetch when window regains focus
-    refetchOnWindowFocus: true,
   });
 }
 
