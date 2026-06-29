@@ -630,16 +630,27 @@ func (s *NotificationService) NotifyPhaseCreated(ctx context.Context, gameID int
 	})
 }
 
+var gameStateDisplayNames = map[string]string{
+	core.GameStatePaused:    "paused",
+	core.GameStateInProgress: "resumed",
+	core.GameStateCompleted: "completed",
+	core.GameStateCancelled: "cancelled",
+}
+
 // NotifyGameStateChanged creates notifications for all participants when the game state changes.
 func (s *NotificationService) NotifyGameStateChanged(ctx context.Context, gameID int32, newState string, gameTitle string, excludeUserID int32) error {
 	userIDs, err := s.getActiveParticipantIDs(ctx, gameID, excludeUserID)
 	if err != nil {
 		return fmt.Errorf("failed to notify game participants: %w", err)
 	}
+	displayName, ok := gameStateDisplayNames[newState]
+	if !ok {
+		displayName = newState
+	}
 	return s.CreateBulkNotifications(ctx, userIDs, &core.CreateNotificationRequest{
 		GameID:      &gameID,
 		Type:        core.NotificationTypeGameStateChanged,
-		Title:       fmt.Sprintf("%s has moved to %s", gameTitle, newState),
+		Title:       fmt.Sprintf("%s has been %s", gameTitle, displayName),
 		RelatedType: stringPtr("game"),
 		RelatedID:   &gameID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d", gameID)),
