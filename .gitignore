@@ -169,8 +169,7 @@ backend/pkg/users/test_uploads/
 .claude/tsc-cache
 
 # Ignore working/completed plans, but keep templates and documentation
-.claude/planning/active/
-.claude/planning/completed/
+.claude/planning/
 
 # Prod Things
 .domain
