@@ -426,6 +426,7 @@ WITH character_messages AS (
       AND m.is_deleted = false
       AND m.deleted_at IS NULL
       AND NOT (c.character_type = 'npc' AND m.message_type = 'post')
+    ORDER BY m.created_at DESC
     LIMIT $2 OFFSET $3
 ),
 parent_messages AS (

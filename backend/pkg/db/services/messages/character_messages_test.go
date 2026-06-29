@@ -132,6 +132,50 @@ func TestMessageService_ListCharacterPostsAndComments(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, page2, 1)
 	})
+
+	t.Run("pages are contiguous in descending date order", func(t *testing.T) {
+		orderedChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        game.ID,
+			UserID:        int32Ptr(int32(player.ID)),
+			Name:          "Ordered Character",
+			CharacterType: "player_character",
+		})
+		require.NoError(t, err)
+
+		// Create 5 posts so we have at least 2 full pages of size 2
+		for i := 0; i < 5; i++ {
+			_, err := service.CreatePost(context.Background(), core.CreatePostRequest{
+				GameID:      game.ID,
+				AuthorID:    int32(player.ID),
+				CharacterID: orderedChar.ID,
+				Content:     "Post content",
+				Visibility:  string(models.MessageVisibilityGame),
+			})
+			require.NoError(t, err)
+		}
+
+		page1, err := service.ListCharacterPostsAndComments(context.Background(), orderedChar.ID, 2, 0)
+		require.NoError(t, err)
+		require.Len(t, page1, 2)
+
+		page2, err := service.ListCharacterPostsAndComments(context.Background(), orderedChar.ID, 2, 2)
+		require.NoError(t, err)
+		require.Len(t, page2, 2)
+
+		// The oldest item on page 1 must be newer than the newest item on page 2
+		// (descending order, no gaps or repeated rows across pages)
+		page1LastCreatedAt := page1[1].CreatedAt
+		page2FirstCreatedAt := page2[0].CreatedAt
+		assert.True(t, page1LastCreatedAt.After(page2FirstCreatedAt) || page1LastCreatedAt.Equal(page2FirstCreatedAt),
+			"last item on page 1 (%v) should be >= first item on page 2 (%v) in descending order",
+			page1LastCreatedAt, page2FirstCreatedAt)
+
+		// Also verify no overlap: page 1 IDs and page 2 IDs must be disjoint
+		page1IDs := map[int32]bool{page1[0].ID: true, page1[1].ID: true}
+		for _, msg := range page2 {
+			assert.False(t, page1IDs[msg.ID], "message ID %d appears in both page 1 and page 2", msg.ID)
+		}
+	})
 }
 
 func TestMessageService_ListCharacterPostsAndComments_NPCFilter(t *testing.T) {
