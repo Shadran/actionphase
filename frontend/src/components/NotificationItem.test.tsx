@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import NotificationItem from './NotificationItem';
@@ -29,9 +30,11 @@ describe('NotificationItem', () => {
 
   const renderWithProviders = (component: React.ReactElement) => {
     return render(
-      <QueryClientProvider client={queryClient}>
-        {component}
-      </QueryClientProvider>
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          {component}
+        </QueryClientProvider>
+      </MemoryRouter>
     );
   };
 
@@ -118,30 +121,7 @@ describe('NotificationItem', () => {
 
   it('marks notification as read when clicked', async () => {
     const notification = createMockNotification({ is_read: false });
-    const mockNavigate = vi.fn();
-
-    server.use(
-      http.put('/api/v1/notifications/:id/mark-read', () => {
-        return HttpResponse.json({ success: true });
-      })
-    );
-
-    const user = userEvent.setup();
-    renderWithProviders(
-      <NotificationItem notification={notification} onNavigate={mockNavigate} />
-    );
-
-    await user.click(screen.getByText('Test Notification'));
-
-    await waitFor(() => {
-      // Check that API was called
-      expect(mockNavigate).toHaveBeenCalledWith('/games/10');
-    });
-  });
-
-  it('does not mark already read notifications when clicked', async () => {
-    const notification = createMockNotification({ is_read: true });
-    const mockNavigate = vi.fn();
+    const mockOnNavigate = vi.fn();
 
     let markReadCalled = false;
     server.use(
@@ -153,56 +133,78 @@ describe('NotificationItem', () => {
 
     const user = userEvent.setup();
     renderWithProviders(
-      <NotificationItem notification={notification} onNavigate={mockNavigate} />
-    );
-
-    await user.click(screen.getByText('Test Notification'));
-
-    // Should still navigate
-    expect(mockNavigate).toHaveBeenCalledWith('/games/10');
-
-    // But should not call mark as read API
-    await new Promise(resolve => setTimeout(resolve, 100));
-    expect(markReadCalled).toBe(false);
-  });
-
-  it('navigates to link_url when clicked', async () => {
-    const notification = createMockNotification({
-      link_url: '/games/123#results',
-    });
-    const mockNavigate = vi.fn();
-
-    const user = userEvent.setup();
-    renderWithProviders(
-      <NotificationItem notification={notification} onNavigate={mockNavigate} />
+      <NotificationItem notification={notification} onNavigate={mockOnNavigate} />
     );
 
     await user.click(screen.getByText('Test Notification'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/games/123#results');
+      expect(markReadCalled).toBe(true);
     });
   });
 
-  it('does not navigate when link_url is not provided', async () => {
-    const notification = createMockNotification({
-      link_url: undefined,
-    });
-    const mockNavigate = vi.fn();
+  it('does not mark already read notifications when clicked', async () => {
+    const notification = createMockNotification({ is_read: true });
+
+    let markReadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        markReadCalled = true;
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.click(screen.getByText('Test Notification'));
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(markReadCalled).toBe(false);
+  });
+
+  it('calls onNavigate callback when clicked', async () => {
+    const notification = createMockNotification({ link_url: '/games/123#results' });
+    const mockOnNavigate = vi.fn();
 
     const user = userEvent.setup();
     renderWithProviders(
-      <NotificationItem notification={notification} onNavigate={mockNavigate} />
+      <NotificationItem notification={notification} onNavigate={mockOnNavigate} />
     );
 
     await user.click(screen.getByText('Test Notification'));
 
-    // Wait a bit to ensure no navigation
-    await new Promise(resolve => setTimeout(resolve, 100));
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockOnNavigate).toHaveBeenCalled();
   });
 
-  it('deletes notification when delete button is clicked', async () => {
+  it('does not call onNavigate when link_url is not provided', async () => {
+    const notification = createMockNotification({ link_url: undefined });
+    const mockOnNavigate = vi.fn();
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationItem notification={notification} onNavigate={mockOnNavigate} />
+    );
+
+    await user.click(screen.getByText('Test Notification'));
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(mockOnNavigate).not.toHaveBeenCalled();
+  });
+
+  it('shows confirm modal when delete button is clicked', async () => {
+    const notification = createMockNotification();
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.click(screen.getByTitle('Delete notification'));
+
+    expect(screen.getByText('Delete Notification')).toBeInTheDocument();
+    expect(screen.getByText('Are you sure you want to delete this notification?')).toBeInTheDocument();
+  });
+
+  it('deletes notification when confirm modal is confirmed', async () => {
     const notification = createMockNotification();
     let deleteApiCalled = false;
 
@@ -213,28 +215,21 @@ describe('NotificationItem', () => {
       })
     );
 
-    // Mock window.confirm
-    window.confirm = vi.fn(() => true);
-
     const user = userEvent.setup();
     renderWithProviders(<NotificationItem notification={notification} />);
 
-    const deleteButton = screen.getByTitle('Delete notification');
-    await user.click(deleteButton);
+    await user.click(screen.getByTitle('Delete notification'));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    // Should show confirmation
-    expect(window.confirm).toHaveBeenCalledWith('Delete this notification?');
-
-    // Should call API
     await waitFor(() => {
       expect(deleteApiCalled).toBe(true);
     });
   });
 
-  it('does not delete notification when confirmation is cancelled', async () => {
+  it('does not delete notification when confirm modal is cancelled', async () => {
     const notification = createMockNotification();
-
     let deleteCalled = false;
+
     server.use(
       http.delete('/api/v1/notifications/:id', () => {
         deleteCalled = true;
@@ -242,21 +237,35 @@ describe('NotificationItem', () => {
       })
     );
 
-    // Mock window.confirm to return false
-    window.confirm = vi.fn(() => false);
-
     const user = userEvent.setup();
     renderWithProviders(<NotificationItem notification={notification} />);
 
-    const deleteButton = screen.getByTitle('Delete notification');
-    await user.click(deleteButton);
+    await user.click(screen.getByTitle('Delete notification'));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    // Should show confirmation
-    expect(window.confirm).toHaveBeenCalled();
-
-    // Should NOT call API
     await new Promise(resolve => setTimeout(resolve, 100));
     expect(deleteCalled).toBe(false);
+  });
+
+  it('renders as an anchor element when link_url is provided', () => {
+    const notification = createMockNotification({ link_url: '/games/10' });
+
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    // The notification item must be an <a> tag so the browser handles middle-click,
+    // right-click → open in new tab, etc.
+    const link = document.querySelector('a.notification-item');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/games/10');
+  });
+
+  it('renders as a div when no link_url is provided', () => {
+    const notification = createMockNotification({ link_url: undefined });
+
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    expect(document.querySelector('a.notification-item')).not.toBeInTheDocument();
+    expect(document.querySelector('div.notification-item')).toBeInTheDocument();
   });
 
   it('displays relative timestamp', () => {
@@ -271,27 +280,19 @@ describe('NotificationItem', () => {
     expect(screen.getByText(/minutes ago/i)).toBeInTheDocument();
   });
 
-  it('stops propagation when delete button is clicked', async () => {
+  it('does not trigger navigation when delete button is clicked', async () => {
     const notification = createMockNotification();
-    const mockNavigate = vi.fn();
-
-    window.confirm = vi.fn(() => true);
-
-    server.use(
-      http.delete('/api/v1/notifications/:id', () => {
-        return HttpResponse.json({ success: true });
-      })
-    );
+    const mockOnNavigate = vi.fn();
 
     const user = userEvent.setup();
     renderWithProviders(
-      <NotificationItem notification={notification} onNavigate={mockNavigate} />
+      <NotificationItem notification={notification} onNavigate={mockOnNavigate} />
     );
 
-    const deleteButton = screen.getByTitle('Delete notification');
-    await user.click(deleteButton);
+    await user.click(screen.getByTitle('Delete notification'));
 
-    // Should not trigger navigation (event.stopPropagation should prevent it)
-    expect(mockNavigate).not.toHaveBeenCalled();
+    // Modal should open, but navigation should not fire
+    expect(screen.getByText('Delete Notification')).toBeInTheDocument();
+    expect(mockOnNavigate).not.toHaveBeenCalled();
   });
 });

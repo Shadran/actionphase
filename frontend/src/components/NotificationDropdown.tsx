@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useNotifications, useMarkAllAsRead } from '../hooks/useNotifications';
 import NotificationItem from './NotificationItem';
 import { Button } from './ui';
@@ -11,7 +11,6 @@ interface NotificationDropdownProps {
 }
 
 export default function NotificationDropdown({ isOpen, onClose, bellButtonRef }: NotificationDropdownProps) {
-  const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: notificationsData, isLoading, error } = useNotifications({ limit: 20 });
@@ -38,8 +37,7 @@ export default function NotificationDropdown({ isOpen, onClose, bellButtonRef }:
     };
   }, [isOpen, onClose, bellButtonRef]);
 
-  const handleNavigate = (url: string) => {
-    navigate(url);
+  const handleNavigate = () => {
     onClose();
   };
 
@@ -109,17 +107,13 @@ export default function NotificationDropdown({ isOpen, onClose, bellButtonRef }:
 
       {/* Footer - Always show "View all" link */}
       <div className="p-3 border-t border-theme-default text-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            navigate('/notifications');
-            onClose();
-          }}
-          className="text-interactive-primary hover:opacity-80"
+        <Link
+          to="/notifications"
+          onClick={onClose}
+          className="text-sm text-interactive-primary hover:opacity-80"
         >
           View all notifications
-        </Button>
+        </Link>
       </div>
     </div>
   );

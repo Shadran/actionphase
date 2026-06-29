@@ -1,35 +1,36 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge, Button } from './ui';
+import { ConfirmModal } from './ConfirmModal';
 import type { Notification } from '../types/notifications';
 import { useMarkNotificationAsRead, useDeleteNotification } from '../hooks/useNotifications';
 
 interface NotificationItemProps {
   notification: Notification;
-  onNavigate?: (url: string) => void;
+  onNavigate?: () => void;
 }
 
 export default function NotificationItem({ notification, onNavigate }: NotificationItemProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const markAsRead = useMarkNotificationAsRead();
   const deleteNotification = useDeleteNotification();
 
   const handleClick = () => {
-    // Mark as read
     if (!notification.is_read) {
       markAsRead.mutate(notification.id);
     }
-
-    // Navigate if link_url is provided
-    if (notification.link_url && onNavigate) {
-      onNavigate(notification.link_url);
-    }
+    onNavigate?.();
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    // eslint-disable-next-line no-alert
-    if (window.confirm('Delete this notification?')) {
-      deleteNotification.mutate(notification.id);
-    }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    deleteNotification.mutate(notification.id);
   };
 
   const getNotificationIcon = (type: string) => {
@@ -61,17 +62,16 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
     }
   };
 
-  return (
-    <div
-      onClick={handleClick}
-      className={`
-        notification-item
-        flex items-start gap-3 p-4 border-b border-theme-default
-        ${notification.is_read ? 'surface-base' : 'surface-raised'}
-        ${notification.link_url ? 'cursor-pointer hover:surface-sunken' : ''}
-        transition-colors
-      `}
-    >
+  const itemClassName = `
+    notification-item
+    flex items-start gap-3 p-4 border-b border-theme-default
+    ${notification.is_read ? 'surface-base' : 'surface-raised'}
+    ${notification.link_url ? 'cursor-pointer hover:surface-sunken' : ''}
+    transition-colors
+  `;
+
+  const itemContent = (
+    <>
       {/* Icon */}
       <div className="text-2xl flex-shrink-0">
         {getNotificationIcon(notification.type)}
@@ -107,7 +107,7 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
       <Button
         variant="ghost"
         size="sm"
-        onClick={handleDelete}
+        onClick={handleDeleteClick}
         className="text-content-secondary hover:text-semantic-danger flex-shrink-0 p-1 h-auto"
         title="Delete notification"
       >
@@ -115,6 +115,33 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </Button>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {notification.link_url ? (
+        <Link
+          to={notification.link_url}
+          onClick={handleClick}
+          className={itemClassName}
+        >
+          {itemContent}
+        </Link>
+      ) : (
+        <div className={itemClassName}>
+          {itemContent}
+        </div>
+      )}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Notification"
+        message="Are you sure you want to delete this notification?"
+        confirmText="Delete"
+        variant="danger"
+      />
+    </>
   );
 }

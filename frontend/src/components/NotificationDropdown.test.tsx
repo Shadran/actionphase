@@ -352,6 +352,27 @@ describe('NotificationDropdown', () => {
     });
   });
 
+  it('"View all notifications" renders as an anchor so middle-click works', async () => {
+    server.use(
+      http.get('/api/v1/notifications', () => {
+        return HttpResponse.json({
+          data: [],
+          pagination: { total: 0, limit: 20, offset: 0 },
+        });
+      })
+    );
+
+    renderWithProviders(<NotificationDropdown isOpen={true} onClose={vi.fn()} />, { queryClient });
+
+    await waitFor(() => {
+      expect(screen.getByText('View all notifications')).toBeInTheDocument();
+    });
+
+    const link = screen.getByText('View all notifications').closest('a');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/notifications');
+  });
+
   it('navigates to /notifications when "View all" is clicked', async () => {
     const notifications = createMockNotifications(5);
 
