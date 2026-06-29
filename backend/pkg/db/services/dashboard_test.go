@@ -568,3 +568,36 @@ func TestDashboardService_RecentMessages_NonAnonymousShowsUsername(t *testing.T)
 	core.AssertEqual(t, otherPlayer.Username, dashboard.RecentMessages[0].AuthorName,
 		"Author name must be visible in non-anonymous game")
 }
+
+// TestDashboardService_RecentMessages_ExcludesAudienceGames verifies that messages from
+// games where the user is only an audience member do not appear in the recent activity feed.
+func TestDashboardService_RecentMessages_ExcludesAudienceGames(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "messages", "characters", "game_phases", "game_participants", "games", "users", "characters")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &DashboardService{DB: testDB.Pool}
+
+	gm := factory.NewUser().Create()
+	player := factory.NewUser().Create()
+	poster := factory.NewUser().Create()
+
+	// Game where the user is an audience member
+	audienceGame := factory.NewGame().WithGM(gm.ID).WithState("in_progress").Create()
+	factory.NewGameParticipant().ForGame(audienceGame.ID).WithUser(player.ID).WithRole("audience").Create()
+	factory.NewGameParticipant().ForGame(audienceGame.ID).WithUser(poster.ID).WithRole("player").Create()
+
+	phase := factory.NewPhase().InGame(audienceGame).CommonRoom().Active().Create()
+	character := factory.NewCharacter().InGame(audienceGame).OwnedBy(poster).WithName("Poster Character").Create()
+	factory.NewPost().InGame(audienceGame).InPhase(phase).ByAuthor(poster).ByCharacter(character).
+		WithContent("Audience game message - should not appear in recent activity").Create()
+
+	dashboard, err := service.GetUserDashboard(context.Background(), player.ID)
+	core.AssertNoError(t, err, "Failed to get dashboard")
+
+	for _, msg := range dashboard.RecentMessages {
+		core.AssertNotEqual(t, audienceGame.ID, msg.GameID,
+			"Recent activity must not include messages from games where user is only an audience member")
+	}
+}

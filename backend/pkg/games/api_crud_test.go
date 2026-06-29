@@ -542,7 +542,7 @@ func TestUpdateGameState_SendsNotificationsToParticipants(t *testing.T) {
 		t.Fatalf("failed to create token: %v", err)
 	}
 
-	game := testDB.CreateTestGame(t, int32(gm.ID), "Notification Test Game")
+	game := testDB.CreateTestGameWithState(t, int32(gm.ID), "Notification Test Game", "in_progress")
 	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
 	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player1.ID), "player")
 	if err != nil {
@@ -553,7 +553,7 @@ func TestUpdateGameState_SendsNotificationsToParticipants(t *testing.T) {
 		t.Fatalf("failed to add player2: %v", err)
 	}
 
-	body := fmt.Sprintf(`{"state":"recruitment"}`)
+	body := fmt.Sprintf(`{"state":"paused"}`)
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/games/%d/state", game.ID), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+gmToken)

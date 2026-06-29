@@ -203,7 +203,7 @@ INNER JOIN games g ON m.game_id = g.id
 LEFT JOIN game_participants gp ON g.id = gp.game_id AND gp.user_id = $1 AND gp.status = 'active'
 INNER JOIN users author ON m.author_id = author.id
 LEFT JOIN characters character ON m.character_id = character.id
-WHERE ((gp.user_id = $1 AND gp.status = 'active') OR g.gm_user_id = $1)
+WHERE ((gp.user_id = $1 AND gp.status = 'active' AND gp.role != 'audience') OR g.gm_user_id = $1)
   AND m.created_at > NOW() - INTERVAL '7 days'
   AND m.author_id != $1
   AND m.is_deleted = false
