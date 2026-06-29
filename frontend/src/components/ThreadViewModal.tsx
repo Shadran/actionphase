@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ThreadedComment } from './ThreadedComment';
 import type { Message } from '../types/messages';
 import type { Character } from '../types/characters';
@@ -49,6 +50,29 @@ export function ThreadViewModal({
 }: ThreadViewModalProps) {
   // State for nested modal (modal-within-modal for deeply nested threads)
   const [nestedModalComment, setNestedModalComment] = useState<Message | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Single source of truth: Set of comment IDs with pending reply content.
+  // Using a ref+state pair avoids stale closures: the ref is mutated synchronously,
+  // then state is set to trigger a re-render.
+  const dirtyCommentIds = useRef<Set<number>>(new Set());
+  const [hasDirtyReply, setHasDirtyReply] = useState(false);
+
+  const handleDirtyStateChange = useCallback((commentId: number, isDirty: boolean) => {
+    if (isDirty) {
+      dirtyCommentIds.current.add(commentId);
+    } else {
+      dirtyCommentIds.current.delete(commentId);
+    }
+    setHasDirtyReply(dirtyCommentIds.current.size > 0);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (hasDirtyReply) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  }, [hasDirtyReply, onClose]);
 
   // Determine if we're showing parent chain context or single comment
   const showingContext = parentChain && parentChain.length > 1;
@@ -93,7 +117,7 @@ export function ThreadViewModal({
     <>
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <div
           className="surface-base rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
@@ -106,7 +130,7 @@ export function ThreadViewModal({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close thread view"
                 className="text-content-tertiary hover:text-content-secondary h-auto p-0"
               >
@@ -162,6 +186,7 @@ export function ThreadViewModal({
                     onToggleRead={onToggleRead}
                     onOpenThread={(nestedComment) => setNestedModalComment(nestedComment)}
                     readOnly={readOnly}
+                    onDirtyStateChange={handleDirtyStateChange}
                   />
                 );
               })()
@@ -184,6 +209,7 @@ export function ThreadViewModal({
                 commentReadMode={commentReadMode}
                 onToggleRead={onToggleRead}
                 onOpenThread={(nestedComment) => setNestedModalComment(nestedComment)}
+                onDirtyStateChange={handleDirtyStateChange}
               />
             )}
           </div>
@@ -207,6 +233,30 @@ export function ThreadViewModal({
           onToggleRead={onToggleRead}
           readOnly={readOnly}
         />
+      )}
+
+      {/* Discard confirmation — portaled to document.body so it escapes any parent stacking context */}
+      {showDiscardConfirm && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div
+            className="surface-raised rounded-lg shadow-xl border border-theme-default max-w-sm w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-content-primary mb-2">Discard unsaved reply?</h3>
+            <p className="text-content-secondary text-sm mb-6">
+              You have unsaved text in the reply editor. If you close this thread, your reply will be lost.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>
+                Keep editing
+              </Button>
+              <Button variant="danger" onClick={onClose}>
+                Discard
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );

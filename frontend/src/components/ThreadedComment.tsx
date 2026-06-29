@@ -37,6 +37,7 @@ interface ThreadedCommentProps {
   readOnly?: boolean; // Disable all interactive features (for history view)
   parentComment?: Message | CommentTreeNode | null; // Parent comment for smart character defaulting in nested replies
   variant?: 'desktop' | 'mobile'; // Used to create unique IDs for desktop vs mobile rendering
+  onDirtyStateChange?: (commentId: number, isDirty: boolean) => void; // Fired when pending reply content goes from empty↔non-empty
 }
 
 export const ThreadedComment = memo(function ThreadedComment({
@@ -58,6 +59,7 @@ export const ThreadedComment = memo(function ThreadedComment({
   readOnly = false,
   parentComment = null,
   variant,
+  onDirtyStateChange,
 }: ThreadedCommentProps) {
   const { showSuccess, showError } = useToast();
   // Use local state to track the current comment data (for immediate UI updates)
@@ -85,6 +87,14 @@ export const ThreadedComment = memo(function ThreadedComment({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isMountedRef = useRef(true);
   const hasLoadedRef = useRef(false);
+
+  // Notify parent (e.g. ThreadViewModal) when pending reply content transitions from empty↔non-empty.
+  // Cleanup on unmount always signals false so the parent Set doesn't retain a stale dirty entry.
+  const isReplyDirty = replyContent.trim().length > 0;
+  useEffect(() => {
+    if (isReplyDirty) onDirtyStateChange?.(comment.id, true);
+    return () => onDirtyStateChange?.(comment.id, false);
+  }, [isReplyDirty, onDirtyStateChange]);
 
   // Check if this comment has pre-loaded children (from tree structure)
   const hasPreloadedChildren = 'children' in comment && Array.isArray(comment.children) && comment.children.length > 0;
@@ -866,6 +876,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="desktop"
+                                onDirtyStateChange={onDirtyStateChange}
                             />
                         ))
                     )}
@@ -909,6 +920,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 readOnly={readOnly}
                                 parentComment={comment}
                                 variant="mobile"
+                                onDirtyStateChange={onDirtyStateChange}
                             />
                         ))
                     )}

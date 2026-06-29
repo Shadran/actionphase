@@ -184,6 +184,168 @@ describe('ThreadViewModal', () => {
     });
   });
 
+  describe('Unsaved reply protection', () => {
+    // A comment with a pre-loaded child — this is the scenario that was broken:
+    // the user types a reply on the NESTED comment, not the root. The dirty state
+    // must propagate up through onDirtyStateChange to ThreadViewModal.
+    const mockChildComment: Message = {
+      id: 2,
+      game_id: mockGameId,
+      author_id: 999, // different user — gives us a reply button
+      character_id: 2,
+      content: 'A nested child comment',
+      message_type: 'comment',
+      thread_depth: 1,
+      author_username: 'otheruser',
+      character_name: 'Sidekick',
+      reply_count: 0,
+      is_edited: false,
+      is_deleted: false,
+      created_at: '2025-01-15T11:00:00Z',
+      updated_at: '2025-01-15T11:00:00Z',
+    };
+
+    const mockCommentWithChild = {
+      ...mockComment,
+      reply_count: 1,
+      children: [mockChildComment],
+    };
+
+    it('should show confirmation when backdrop clicked with pending reply on a nested comment', async () => {
+      // This is the actual failure case: dirty state originates from a child
+      // ThreadedComment (id=2), not the root (id=1). Before the fix, the root's
+      // onDirtyStateChange was not propagated to children, so hasDirtyReply stayed false.
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockCommentWithChild}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      // Open the reply form on the nested child comment
+      const replyButtons = screen.getAllByRole('button', { name: /reply to this comment/i });
+      // Last reply button belongs to the deepest (child) comment
+      await user.click(replyButtons[replyButtons.length - 1]);
+
+      const textarea = screen.getByPlaceholderText('Write a reply...');
+      await user.type(textarea, 'Half-written reply text');
+
+      // Click the backdrop — should NOT close immediately
+      const backdrop = document.querySelector('.fixed.inset-0') as HTMLElement;
+      await user.click(backdrop);
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByText(/discard unsaved reply/i)).toBeInTheDocument();
+    });
+
+    it('should close without confirmation when no reply content is pending', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockComment}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      const backdrop = document.querySelector('.fixed.inset-0') as HTMLElement;
+      await user.click(backdrop);
+
+      expect(mockOnClose).toHaveBeenCalledOnce();
+    });
+
+    it('should close when user confirms discard', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockCommentWithChild}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      const replyButtons = screen.getAllByRole('button', { name: /reply to this comment/i });
+      await user.click(replyButtons[replyButtons.length - 1]);
+      await user.type(screen.getByPlaceholderText('Write a reply...'), 'Half-written reply text');
+
+      await user.click(document.querySelector('.fixed.inset-0') as HTMLElement);
+      await user.click(screen.getByRole('button', { name: /discard/i }));
+
+      expect(mockOnClose).toHaveBeenCalledOnce();
+    });
+
+    it('should keep modal open when user cancels the discard', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockCommentWithChild}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      const replyButtons = screen.getAllByRole('button', { name: /reply to this comment/i });
+      await user.click(replyButtons[replyButtons.length - 1]);
+      await user.type(screen.getByPlaceholderText('Write a reply...'), 'Half-written reply text');
+
+      await user.click(document.querySelector('.fixed.inset-0') as HTMLElement);
+      await user.click(screen.getByRole('button', { name: /keep editing/i }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: /thread view/i })).toBeInTheDocument();
+    });
+
+    it('should not block close after a reply is cancelled (unmount clears dirty state)', async () => {
+      // Regression for the stale-Set bug: if a ThreadedComment unmounts while its
+      // replyContent is non-empty, the cleanup effect must clear the dirty entry.
+      // If it doesn't, hasDirtyReply stays true and the modal can never be closed.
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockComment}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      // Open reply, type content, then cancel (clears content and hides form)
+      await user.click(screen.getByRole('button', { name: /reply to this comment/i }));
+      await user.type(screen.getByPlaceholderText('Write a reply...'), 'Some text');
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      // Now clicking backdrop should close immediately — no stale dirty entry
+      await user.click(document.querySelector('.fixed.inset-0') as HTMLElement);
+      expect(mockOnClose).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('Modal Behavior', () => {
     it('should display Thread View heading', () => {
       renderWithProviders(
