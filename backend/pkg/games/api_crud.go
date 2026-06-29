@@ -3,6 +3,7 @@ package games
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -326,6 +327,15 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// Notify participants about the state change
+	go func() {
+		notifCtx := context.Background()
+		notifSvc := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+		if err := notifSvc.NotifyGameStateChanged(notifCtx, int32(gameID), data.State, updatedGame.Title, user.ID); err != nil {
+			h.App.ObsLogger.Warn(notifCtx, "Failed to send game state changed notifications", "error", err, "game_id", gameID)
+		}
+	}()
 
 	// Convert to response format (same as GetGame)
 	response := &GameResponse{

@@ -86,6 +86,17 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 
 	h.App.ObsLogger.Info(ctx, "Handout created successfully", "handout_id", handout.ID, "game_id", gameID)
 
+	// If created directly in published state, notify players
+	if handout.Status == "published" {
+		go func() {
+			notifCtx := context.Background()
+			notifService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+			if err := notifService.NotifyHandoutPublished(notifCtx, handout.GameID, handout.ID, handout.Title, userID); err != nil {
+				h.App.ObsLogger.Warn(notifCtx, "Failed to send handout published notifications", "error", err, "handout_id", handout.ID)
+			}
+		}()
+	}
+
 	response := &HandoutResponse{
 		ID:        handout.ID,
 		GameID:    handout.GameID,
@@ -385,48 +396,13 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 
 	h.App.ObsLogger.Info(ctx, "Handout published successfully", "handout_id", handout.ID)
 
-	// Create notifications for all players in the game
+	// Notify players about the published handout
 	go func() {
-		// Use background context to avoid cancellation when request completes
 		notifCtx := context.Background()
-
-		// Get all participants
-		participants, err := gameService.GetGameParticipants(notifCtx, handout.GameID)
-		if err != nil {
-			h.App.ObsLogger.LogError(notifCtx, err, "Failed to get participants for notification")
-			return
-		}
-
-		// Filter to players only (exclude GM)
-		var playerIDs []int32
-		for _, p := range participants {
-			if p.Role == "player" || p.Role == "co_gm" {
-				playerIDs = append(playerIDs, p.UserID)
-			}
-		}
-
-		if len(playerIDs) == 0 {
-			return
-		}
-
-		// Create link URL for handouts tab
-		linkURL := fmt.Sprintf("/games/%d?tab=handouts", handout.GameID)
-
-		// Create notification request
 		notifService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
-		notifReq := &core.CreateNotificationRequest{
-			GameID:      &handout.GameID,
-			Type:        core.NotificationTypeHandoutPublished,
-			Title:       fmt.Sprintf("New Handout: %s", handout.Title),
-			Content:     nil, // Optional: could add handout preview
-			RelatedType: stringPtr("handout"),
-			RelatedID:   &handout.ID,
-			LinkURL:     &linkURL,
+		if err := notifService.NotifyHandoutPublished(notifCtx, handout.GameID, handout.ID, handout.Title, userID); err != nil {
+			h.App.ObsLogger.Warn(notifCtx, "Failed to send handout published notifications", "error", err, "handout_id", handout.ID)
 		}
-
-		// Send notifications (fire-and-forget)
-		_ = notifService.CreateBulkNotifications(notifCtx, playerIDs, notifReq)
-		h.App.ObsLogger.Info(notifCtx, "Sent handout notifications", "handout_id", handout.ID, "player_count", len(playerIDs))
 	}()
 
 	response := &HandoutResponse{

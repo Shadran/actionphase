@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 )
 
 // TestGetFilteredGames_PaginationDefaults tests that pagination defaults are applied correctly
@@ -518,5 +519,85 @@ func TestUpdateGameState_NonGMForbidden(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for non-GM state update, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+}
+
+// TestUpdateGameState_SendsNotificationsToParticipants verifies that changing game state
+// creates in-app notifications for all active participants except the GM who made the change.
+// This guards against the notification goroutine being accidentally removed from UpdateGameState.
+func TestUpdateGameState_SendsNotificationsToParticipants(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player1 := testDB.CreateTestUser(t, "player1", "player1@example.com")
+	player2 := testDB.CreateTestUser(t, "player2", "player2@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	if err != nil {
+		t.Fatalf("failed to create token: %v", err)
+	}
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Notification Test Game")
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player1.ID), "player")
+	if err != nil {
+		t.Fatalf("failed to add player1: %v", err)
+	}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player2.ID), "player")
+	if err != nil {
+		t.Fatalf("failed to add player2: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"state":"recruitment"}`)
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/games/%d/state", game.ID), bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for state update, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	// Allow the notification goroutine to complete
+	time.Sleep(200 * time.Millisecond)
+
+	notifSvc := &db.NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	// Both players should have a game_state_changed notification
+	for _, player := range []struct {
+		id   int
+		name string
+	}{{player1.ID, "player1"}, {player2.ID, "player2"}} {
+		notifs, err := notifSvc.GetUserNotifications(context.Background(), int32(player.id), 10, 0)
+		if err != nil {
+			t.Fatalf("failed to get notifications for %s: %v", player.name, err)
+		}
+		var found bool
+		for _, n := range notifs {
+			if n.Type == core.NotificationTypeGameStateChanged {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("%s should receive a game_state_changed notification", player.name)
+		}
+	}
+
+	// GM should NOT receive a notification (they triggered the change)
+	gmNotifs, err := notifSvc.GetUserNotifications(context.Background(), int32(gm.ID), 10, 0)
+	if err != nil {
+		t.Fatalf("failed to get GM notifications: %v", err)
+	}
+	for _, n := range gmNotifs {
+		if n.Type == core.NotificationTypeGameStateChanged {
+			t.Error("GM should not receive a game_state_changed notification for their own action")
+		}
 	}
 }

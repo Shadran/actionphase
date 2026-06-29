@@ -1004,8 +1004,8 @@ type NotificationServiceInterface interface {
 	// NotifyCharacterMention creates a notification when a character is mentioned
 	NotifyCharacterMention(ctx context.Context, characterOwnerID int32, commentID int32, gameID int32, mentioningCharacterName string, mentionedCharacterName string) error
 
-	// NotifyActionSubmitted creates a notification for GM when player submits action
-	NotifyActionSubmitted(ctx context.Context, gmUserID int32, actionID int32, gameID int32, characterName string) error
+	// NotifyActionSubmitted creates notifications for the GM and all co-GMs when a player submits an action
+	NotifyActionSubmitted(ctx context.Context, actionID int32, gameID int32, submitterUserID int32, characterName string) error
 
 	// NotifyActionResult creates a notification for player when GM publishes result
 	NotifyActionResult(ctx context.Context, playerUserID int32, resultID int32, gameID int32, actionTitle string) error
@@ -1021,6 +1021,12 @@ type NotificationServiceInterface interface {
 
 	// NotifyCharacterApproved creates a notification when a character is approved by the GM
 	NotifyCharacterApproved(ctx context.Context, playerUserID int32, gameID int32, characterID int32, characterName string) error
+
+	// NotifyGameStateChanged creates notifications for all participants when game state changes
+	NotifyGameStateChanged(ctx context.Context, gameID int32, newState string, gameTitle string, excludeUserID int32) error
+
+	// NotifyHandoutPublished creates notifications for all players when a handout is published
+	NotifyHandoutPublished(ctx context.Context, gameID int32, handoutID int32, handoutTitle string, excludeUserID int32) error
 }
 
 // StorageBackendInterface defines the contract for file storage operations.

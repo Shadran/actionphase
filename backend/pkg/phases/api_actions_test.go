@@ -73,7 +73,6 @@ func TestPhaseAPI_SubmitAction(t *testing.T) {
 		body := SubmitActionRequest{
 			CharacterID: int32Ptr(playerCharID),
 			Content:     "I carefully investigate the ancient ruins.",
-			IsDraft:     false,
 		}
 		bodyJSON, _ := json.Marshal(body)
 
@@ -91,28 +90,9 @@ func TestPhaseAPI_SubmitAction(t *testing.T) {
 		assert.Equal(t, float64(player.ID), response["user_id"])
 	})
 
-	t.Run("player submits a draft action", func(t *testing.T) {
-		body := SubmitActionRequest{
-			CharacterID: int32Ptr(playerCharID),
-			Content:     "Draft: thinking about sneaking past the guards.",
-			IsDraft:     true,
-		}
-		bodyJSON, _ := json.Marshal(body)
-
-		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+playerToken)
-
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
-
-		assert.Equal(t, http.StatusCreated, rec.Code)
-	})
-
 	t.Run("GM cannot submit player actions", func(t *testing.T) {
 		body := SubmitActionRequest{
 			Content: "GM submitting action.",
-			IsDraft: false,
 		}
 		bodyJSON, _ := json.Marshal(body)
 
@@ -151,7 +131,7 @@ func TestPhaseAPI_SubmitAction_NoActivePhase(t *testing.T) {
 
 	// No phase created — game has no active phase
 
-	body := SubmitActionRequest{Content: "my action", IsDraft: false}
+	body := SubmitActionRequest{Content: "I look around"}
 	bodyJSON, _ := json.Marshal(body)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
@@ -191,7 +171,6 @@ func TestPhaseAPI_GetUserActions(t *testing.T) {
 		body := SubmitActionRequest{
 			CharacterID: int32Ptr(playerCharID),
 			Content:     "My action for this phase.",
-			IsDraft:     false,
 		}
 		bodyJSON, _ := json.Marshal(body)
 		submitReq := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
@@ -241,7 +220,6 @@ func TestPhaseAPI_GetGameActions(t *testing.T) {
 	body := SubmitActionRequest{
 		CharacterID: int32Ptr(playerCharID),
 		Content:     "Player action for GM to see.",
-		IsDraft:     false,
 	}
 	bodyJSON, _ := json.Marshal(body)
 	submitReq := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/actions", game.ID), bytes.NewBuffer(bodyJSON))
@@ -375,7 +353,6 @@ func TestPhaseAPI_InterludeBlocksActionSubmission(t *testing.T) {
 		body := SubmitActionRequest{
 			CharacterID: int32Ptr(playerCharID),
 			Content:     "I attempt to investigate the ruins.",
-			IsDraft:     false,
 		}
 		bodyJSON, _ := json.Marshal(body)
 

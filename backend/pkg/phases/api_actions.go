@@ -1,6 +1,7 @@
 package phases
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -79,7 +80,6 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 		PhaseID:     activePhase.ID,
 		CharacterID: data.CharacterID,
 		Content:     data.Content,
-		IsDraft:     data.IsDraft,
 	}
 
 	action, err := actionService.SubmitAction(ctx, req)
@@ -94,44 +94,25 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Notify GM when a player submits an action (not a draft)
-	if !data.IsDraft {
-		gameService := &gamesvc.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-		game, gameErr := gameService.GetGame(ctx, int32(gameID))
-		if gameErr == nil {
-			// Get character name if available
-			characterName := "Unknown Character"
-			if action.CharacterID.Valid {
-				var charName string
-				charQuery := `SELECT name FROM characters WHERE id = $1`
-				if charErr := h.App.Pool.QueryRow(ctx, charQuery, action.CharacterID.Int32).Scan(&charName); charErr == nil {
-					characterName = charName
-				}
-			}
-
-			// Create notification content
-			content := fmt.Sprintf("%s has submitted an action for the current phase", characterName)
-			linkURL := fmt.Sprintf("/games/%d?tab=actions", gameID)
-			relatedType := "action_submission"
-			notificationService := gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)
-			_, notifErr := notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
-				UserID:      game.GmUserID,
-				GameID:      &action.GameID,
-				Type:        core.NotificationTypeActionSubmitted,
-				Title:       "New Action Submitted",
-				Content:     &content,
-				RelatedType: &relatedType,
-				RelatedID:   &action.ID,
-				LinkURL:     &linkURL,
-			})
-			if notifErr != nil {
-				// Log error but don't fail the submission
-				h.App.ObsLogger.LogError(ctx, notifErr, "Failed to create GM notification for action submission",
-					"action_id", action.ID,
-					"gm_user_id", game.GmUserID,
-				)
+	// Notify GM and co-GMs on first-time submission only.
+	// submitted_at == updated_at only on insert; edits leave submitted_at unchanged.
+	isFirstSubmission := action.SubmittedAt.Valid && action.UpdatedAt.Valid &&
+		action.SubmittedAt.Time.Equal(action.UpdatedAt.Time)
+	if isFirstSubmission {
+		characterName := "Unknown Character"
+		if action.CharacterID.Valid {
+			var charName string
+			if charErr := h.App.Pool.QueryRow(ctx, `SELECT name FROM characters WHERE id = $1`, action.CharacterID.Int32).Scan(&charName); charErr == nil {
+				characterName = charName
 			}
 		}
+		go func() {
+			notifCtx := context.Background()
+			notifSvc := gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+			if err := notifSvc.NotifyActionSubmitted(notifCtx, action.ID, action.GameID, int32(authUser.ID), characterName); err != nil {
+				h.App.ObsLogger.LogError(notifCtx, err, "Failed to notify GM of action submission", "action_id", action.ID)
+			}
+		}()
 	}
 
 	// Convert action model to response format

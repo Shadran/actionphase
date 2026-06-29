@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
@@ -696,4 +697,65 @@ func TestCharacterAPI_SetCharacterData(t *testing.T) {
 
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
+}
+
+// TestCharacterAPI_ApproveCharacter_SendsNotification verifies that approving a character
+// creates an in-app notification for the character owner. This guards against the
+// notification goroutine being accidentally removed from ApproveCharacter.
+func TestCharacterAPI_ApproveCharacter_SendsNotification(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "characters", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterManagementTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        int32Ptr(int32(player.ID)),
+		Name:          "Hero",
+		CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	body := ApproveCharacterRequest{Status: "approved"}
+	bodyJSON, _ := json.Marshal(body)
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/characters/%d/approve", char.ID), bytes.NewBuffer(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// Allow the notification goroutine to complete
+	time.Sleep(200 * time.Millisecond)
+
+	notifSvc := &db.NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+	notifs, err := notifSvc.GetUserNotifications(context.Background(), int32(player.ID), 10, 0)
+	require.NoError(t, err)
+
+	var found bool
+	for _, n := range notifs {
+		if n.Type == core.NotificationTypeCharacterApproved {
+			assert.Contains(t, n.Title, "Hero")
+			assert.Contains(t, n.Title, "published")
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "player should receive a character_approved notification after GM approves")
 }

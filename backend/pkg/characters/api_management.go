@@ -3,6 +3,7 @@ package characters
 import (
 	"actionphase/pkg/core"
 	services "actionphase/pkg/db/services"
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -69,6 +70,17 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update character status", "error", err)
 		return
+	}
+
+	// Notify the character owner (if there is one)
+	if updatedCharacter.UserID.Valid {
+		go func() {
+			notifCtx := context.Background()
+			notifSvc := services.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+			if err := notifSvc.NotifyCharacterApproved(notifCtx, updatedCharacter.UserID.Int32, updatedCharacter.GameID, updatedCharacter.ID, updatedCharacter.Name); err != nil {
+				h.App.ObsLogger.Warn(notifCtx, "Failed to send character approved notification", "error", err, "character_id", updatedCharacter.ID)
+			}
+		}()
 	}
 
 	// Convert to response format

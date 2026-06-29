@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"actionphase/pkg/core"
 	dbsvc "actionphase/pkg/db/services"
@@ -687,4 +688,117 @@ func TestHandoutAPI_UnpublishByPlayer(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
+}
+
+// TestHandoutAPI_PublishHandout_SendsNotifications verifies that publishing a draft handout
+// creates in-app notifications for players, but NOT for the GM who published it.
+// Also verifies that co-GMs are excluded (they have full draft visibility already).
+func TestHandoutAPI_PublishHandout_SendsNotifications(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "handout_comments", "handouts", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupHandoutTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	coGM := testDB.CreateTestUser(t, "cogm", "cogm@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(coGM.ID), "co_gm")
+	require.NoError(t, err)
+
+	handoutID := createTestHandout(t, router, game.ID, gmToken, "draft")
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts/%d/publish", game.ID, handoutID), nil)
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	time.Sleep(200 * time.Millisecond)
+
+	notifSvc := &dbsvc.NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	// Player should receive a handout_published notification
+	playerNotifs, err := notifSvc.GetUserNotifications(context.Background(), int32(player.ID), 10, 0)
+	require.NoError(t, err)
+	var playerFound bool
+	for _, n := range playerNotifs {
+		if n.Type == core.NotificationTypeHandoutPublished {
+			playerFound = true
+			break
+		}
+	}
+	assert.True(t, playerFound, "player should receive a handout_published notification")
+
+	// GM should NOT receive a notification (they published it)
+	gmNotifs, err := notifSvc.GetUserNotifications(context.Background(), int32(gm.ID), 10, 0)
+	require.NoError(t, err)
+	for _, n := range gmNotifs {
+		assert.NotEqual(t, core.NotificationTypeHandoutPublished, n.Type, "GM should not receive handout_published notification for their own action")
+	}
+
+	// co-GM should NOT receive a notification (they have full draft visibility)
+	coGMNotifs, err := notifSvc.GetUserNotifications(context.Background(), int32(coGM.ID), 10, 0)
+	require.NoError(t, err)
+	for _, n := range coGMNotifs {
+		assert.NotEqual(t, core.NotificationTypeHandoutPublished, n.Type, "co-GM should not receive handout_published notification")
+	}
+}
+
+// TestHandoutAPI_CreatePublishedHandout_SendsNotifications verifies that creating a handout
+// directly in published state also triggers player notifications, same as publishing a draft.
+func TestHandoutAPI_CreatePublishedHandout_SendsNotifications(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "handout_comments", "handouts", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupHandoutTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	gameService := &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+
+	body := CreateHandoutRequest{Title: "Immediate Lore Drop", Content: "The world begins.", Status: "published"}
+	bodyJSON, _ := json.Marshal(body)
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts", game.ID), bytes.NewBuffer(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+gmToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	time.Sleep(200 * time.Millisecond)
+
+	notifSvc := &dbsvc.NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	playerNotifs, err := notifSvc.GetUserNotifications(context.Background(), int32(player.ID), 10, 0)
+	require.NoError(t, err)
+	var found bool
+	for _, n := range playerNotifs {
+		if n.Type == core.NotificationTypeHandoutPublished {
+			assert.Contains(t, n.Title, "Immediate Lore Drop")
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "player should receive a handout_published notification when handout is created in published state")
 }

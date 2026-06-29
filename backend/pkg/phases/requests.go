@@ -45,7 +45,6 @@ func (r *UpdatePhaseRequest) Bind(req *http.Request) error {
 type SubmitActionRequest struct {
 	CharacterID *int32 `json:"character_id,omitempty"`
 	Content     string `json:"content" validate:"required"`
-	IsDraft     bool   `json:"is_draft,omitempty"`
 }
 
 func (r *SubmitActionRequest) Bind(req *http.Request) error {

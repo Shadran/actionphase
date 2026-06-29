@@ -526,10 +526,30 @@ func (s *NotificationService) NotifyCharacterMention(ctx context.Context, charac
 	return err
 }
 
-// NotifyActionSubmitted creates a notification for the GM when a player submits an action.
-func (s *NotificationService) NotifyActionSubmitted(ctx context.Context, gmUserID int32, actionID int32, gameID int32, characterName string) error {
-	_, err := s.CreateNotification(ctx, &core.CreateNotificationRequest{
-		UserID:      gmUserID,
+// NotifyActionSubmitted creates notifications for the GM and all co-GMs when a player submits an action.
+func (s *NotificationService) NotifyActionSubmitted(ctx context.Context, actionID int32, gameID int32, submitterUserID int32, characterName string) error {
+	queries := models.New(s.DB)
+
+	// Get the primary GM from the game record (GM is not in game_participants)
+	game, err := queries.GetGame(ctx, gameID)
+	if err != nil {
+		return fmt.Errorf("failed to get game for action notification: %w", err)
+	}
+
+	// Collect GM + co-GMs, excluding the submitter
+	recipientIDs := []int32{}
+	if game.GmUserID != submitterUserID {
+		recipientIDs = append(recipientIDs, game.GmUserID)
+	}
+
+	// co-GMs are in game_participants
+	coGMIDs, err := s.getActiveParticipantIDs(ctx, gameID, submitterUserID, "co_gm")
+	if err != nil {
+		return fmt.Errorf("failed to get co-GMs for action notification: %w", err)
+	}
+	recipientIDs = append(recipientIDs, coGMIDs...)
+
+	return s.CreateBulkNotifications(ctx, recipientIDs, &core.CreateNotificationRequest{
 		GameID:      &gameID,
 		Type:        core.NotificationTypeActionSubmitted,
 		Title:       fmt.Sprintf("%s submitted an action", characterName),
@@ -537,7 +557,6 @@ func (s *NotificationService) NotifyActionSubmitted(ctx context.Context, gmUserI
 		RelatedID:   &actionID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=actions", gameID)),
 	})
-	return err
 }
 
 // NotifyActionResult creates a notification for a player when the GM publishes an action result.
@@ -554,49 +573,93 @@ func (s *NotificationService) NotifyActionResult(ctx context.Context, playerUser
 	return err
 }
 
+// getActiveParticipantIDs returns user IDs of all active game participants excluding one user.
+// If roles is non-empty, only participants with one of those roles are included.
+func (s *NotificationService) getActiveParticipantIDs(ctx context.Context, gameID int32, excludeUserID int32, roles ...string) ([]int32, error) {
+	gameSvc := &GameService{DB: s.DB, Logger: s.Logger}
+	participants, err := gameSvc.GetGameParticipants(ctx, gameID)
+	if err != nil {
+		return nil, fmt.Errorf("get game participants: %w", err)
+	}
+	roleSet := make(map[string]bool, len(roles))
+	for _, r := range roles {
+		roleSet[r] = true
+	}
+	var ids []int32
+	for _, p := range participants {
+		if p.UserID == excludeUserID || p.Status.String != "active" {
+			continue
+		}
+		if len(roleSet) > 0 && !roleSet[p.Role] {
+			continue
+		}
+		ids = append(ids, p.UserID)
+	}
+	return ids, nil
+}
+
 // NotifyCommonRoomPost creates a notification for game participants about a new common room post.
 func (s *NotificationService) NotifyCommonRoomPost(ctx context.Context, gameID int32, postID int32, postTitle string, excludeUserID int32) error {
-	queries := models.New(s.DB)
-
-	// Use bulk query to notify all participants except the poster
-	err := queries.NotifyGameParticipants(ctx, models.NotifyGameParticipantsParams{
-		GameID:      toPgInt4(&gameID),
-		Type:        core.NotificationTypeCommonRoomPost,
-		Title:       fmt.Sprintf("New post: %s", postTitle),
-		Content:     pgtype.Text{Valid: false},
-		RelatedType: toPgText(stringPtr("post")),
-		RelatedID:   toPgInt4(&postID),
-		LinkUrl:     toPgText(stringPtr(fmt.Sprintf("/games/%d?tab=common-room", gameID))),
-		UserID:      excludeUserID,
-	})
-
+	userIDs, err := s.getActiveParticipantIDs(ctx, gameID, excludeUserID)
 	if err != nil {
 		return fmt.Errorf("failed to notify game participants: %w", err)
 	}
-
-	return nil
+	return s.CreateBulkNotifications(ctx, userIDs, &core.CreateNotificationRequest{
+		GameID:      &gameID,
+		Type:        core.NotificationTypeCommonRoomPost,
+		Title:       fmt.Sprintf("New post: %s", postTitle),
+		RelatedType: stringPtr("post"),
+		RelatedID:   &postID,
+		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=common-room", gameID)),
+	})
 }
 
 // NotifyPhaseCreated creates a notification for game participants about a new phase.
 func (s *NotificationService) NotifyPhaseCreated(ctx context.Context, gameID int32, phaseID int32, phaseTitle string, excludeUserID int32) error {
-	queries := models.New(s.DB)
-
-	err := queries.NotifyGameParticipants(ctx, models.NotifyGameParticipantsParams{
-		GameID:      toPgInt4(&gameID),
-		Type:        core.NotificationTypePhaseCreated,
-		Title:       fmt.Sprintf("New phase: %s", phaseTitle),
-		Content:     pgtype.Text{Valid: false},
-		RelatedType: toPgText(stringPtr("phase")),
-		RelatedID:   toPgInt4(&phaseID),
-		LinkUrl:     toPgText(stringPtr(fmt.Sprintf("/games/%d?tab=phases", gameID))),
-		UserID:      excludeUserID,
-	})
-
+	userIDs, err := s.getActiveParticipantIDs(ctx, gameID, excludeUserID, "player", "co_gm")
 	if err != nil {
 		return fmt.Errorf("failed to notify game participants: %w", err)
 	}
+	return s.CreateBulkNotifications(ctx, userIDs, &core.CreateNotificationRequest{
+		GameID:      &gameID,
+		Type:        core.NotificationTypePhaseCreated,
+		Title:       fmt.Sprintf("New phase: %s", phaseTitle),
+		RelatedType: stringPtr("phase"),
+		RelatedID:   &phaseID,
+		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=phases", gameID)),
+	})
+}
 
-	return nil
+// NotifyGameStateChanged creates notifications for all participants when the game state changes.
+func (s *NotificationService) NotifyGameStateChanged(ctx context.Context, gameID int32, newState string, gameTitle string, excludeUserID int32) error {
+	userIDs, err := s.getActiveParticipantIDs(ctx, gameID, excludeUserID)
+	if err != nil {
+		return fmt.Errorf("failed to notify game participants: %w", err)
+	}
+	return s.CreateBulkNotifications(ctx, userIDs, &core.CreateNotificationRequest{
+		GameID:      &gameID,
+		Type:        core.NotificationTypeGameStateChanged,
+		Title:       fmt.Sprintf("%s has moved to %s", gameTitle, newState),
+		RelatedType: stringPtr("game"),
+		RelatedID:   &gameID,
+		LinkURL:     stringPtr(fmt.Sprintf("/games/%d", gameID)),
+	})
+}
+
+// NotifyHandoutPublished creates notifications for players when a handout is published.
+func (s *NotificationService) NotifyHandoutPublished(ctx context.Context, gameID int32, handoutID int32, handoutTitle string, excludeUserID int32) error {
+	playerIDs, err := s.getActiveParticipantIDs(ctx, gameID, excludeUserID, "player")
+	if err != nil {
+		return fmt.Errorf("failed to notify players of handout: %w", err)
+	}
+	return s.CreateBulkNotifications(ctx, playerIDs, &core.CreateNotificationRequest{
+		GameID:      &gameID,
+		Type:        core.NotificationTypeHandoutPublished,
+		Title:       fmt.Sprintf("New Handout: %s", handoutTitle),
+		RelatedType: stringPtr("handout"),
+		RelatedID:   &handoutID,
+		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=handouts", gameID)),
+	})
 }
 
 // NotifyApplicationApproved creates a notification when a game application is approved.
@@ -619,7 +682,7 @@ func (s *NotificationService) NotifyCharacterApproved(ctx context.Context, playe
 		UserID:      playerUserID,
 		GameID:      &gameID,
 		Type:        core.NotificationTypeCharacterApproved,
-		Title:       fmt.Sprintf("Character approved: %s", characterName),
+		Title:       fmt.Sprintf("Character published: %s", characterName),
 		RelatedType: stringPtr("character"),
 		RelatedID:   &characterID,
 		LinkURL:     stringPtr(fmt.Sprintf("/games/%d?tab=characters", gameID)),

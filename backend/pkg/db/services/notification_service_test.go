@@ -428,7 +428,7 @@ func TestNotificationService_NotifyCharacterApproved(t *testing.T) {
 	for _, n := range notifs {
 		if n.Type == core.NotificationTypeCharacterApproved {
 			assert.Contains(t, n.Title, "HeroChar")
-			assert.Contains(t, n.Title, "approved")
+			assert.Contains(t, n.Title, "published")
 			found = true
 			break
 		}
@@ -486,6 +486,50 @@ func TestNotificationService_NotifyCommonRoomPost(t *testing.T) {
 		}
 		assert.True(t, found, "non-poster participants should receive the post notification")
 	})
+}
+
+// TestNotificationService_NotifyPhaseCreated_ExcludesAudience verifies that audience members
+// do not receive phase_created notifications — only players and co-GMs should.
+func TestNotificationService_NotifyPhaseCreated_ExcludesAudience(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	svc := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	ctx := context.Background()
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
+	audience := testDB.CreateTestUser(t, "audience", "audience@example.com")
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(ctx, game.ID, int32(audience.ID), "audience")
+	require.NoError(t, err)
+
+	err = svc.NotifyPhaseCreated(ctx, game.ID, 1, "Act One", int32(gm.ID))
+	require.NoError(t, err)
+
+	playerNotifs, err := svc.GetUserNotifications(ctx, int32(player.ID), 10, 0)
+	require.NoError(t, err)
+	var playerFound bool
+	for _, n := range playerNotifs {
+		if n.Type == core.NotificationTypePhaseCreated {
+			playerFound = true
+			break
+		}
+	}
+	assert.True(t, playerFound, "player should receive a phase_created notification")
+
+	audienceNotifs, err := svc.GetUserNotifications(ctx, int32(audience.ID), 10, 0)
+	require.NoError(t, err)
+	for _, n := range audienceNotifs {
+		assert.NotEqual(t, core.NotificationTypePhaseCreated, n.Type,
+			"audience member should not receive phase_created notifications")
+	}
 }
 
 // TestNotificationService_GetUnreadNotifications verifies that only unread notifications
@@ -635,29 +679,51 @@ func TestNotificationService_NotifyCharacterMention(t *testing.T) {
 	assert.Contains(t, notifs[0].Title, "MentionedChar")
 }
 
-// TestNotificationService_NotifyActionSubmitted verifies type and title for GM action alerts.
-// A wrong type or missing notification means the GM doesn't know a player submitted an action.
+// TestNotificationService_NotifyActionSubmitted verifies that the GM and co-GMs receive
+// action_submitted notifications, but not the submitting player.
 func TestNotificationService_NotifyActionSubmitted(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
+	defer testDB.CleanupTables(t, "notifications", "game_participants", "games", "users")
 
 	ctx := context.Background()
 	app := core.NewTestApp(testDB.Pool)
 	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
 
 	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	coGM := testDB.CreateTestUser(t, "cogm", "cogm@example.com")
+	player := testDB.CreateTestUser(t, "player", "player@example.com")
 	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(coGM.ID), "co_gm")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(ctx, game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
 
 	actionID := int32(7)
-	err := service.NotifyActionSubmitted(ctx, int32(gm.ID), actionID, game.ID, "BraveHero")
+	err = service.NotifyActionSubmitted(ctx, actionID, game.ID, int32(player.ID), "BraveHero")
 	require.NoError(t, err)
 
-	notifs, err := service.GetUserNotifications(ctx, int32(gm.ID), 10, 0)
+	// GM should be notified
+	gmNotifs, err := service.GetUserNotifications(ctx, int32(gm.ID), 10, 0)
 	require.NoError(t, err)
-	require.Len(t, notifs, 1)
-	assert.Equal(t, core.NotificationTypeActionSubmitted, notifs[0].Type)
-	assert.Contains(t, notifs[0].Title, "BraveHero")
-	assert.Contains(t, notifs[0].Title, "submitted")
+	require.Len(t, gmNotifs, 1)
+	assert.Equal(t, core.NotificationTypeActionSubmitted, gmNotifs[0].Type)
+	assert.Contains(t, gmNotifs[0].Title, "BraveHero")
+	assert.Contains(t, gmNotifs[0].Title, "submitted")
+
+	// co-GM should also be notified
+	coGMNotifs, err := service.GetUserNotifications(ctx, int32(coGM.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, coGMNotifs, 1)
+	assert.Equal(t, core.NotificationTypeActionSubmitted, coGMNotifs[0].Type)
+
+	// Submitting player should not receive their own notification
+	playerNotifs, err := service.GetUserNotifications(ctx, int32(player.ID), 10, 0)
+	require.NoError(t, err)
+	for _, n := range playerNotifs {
+		assert.NotEqual(t, core.NotificationTypeActionSubmitted, n.Type)
+	}
 }
 
 // TestNotificationService_NotifyActionResult verifies type and title for player result alerts.
