@@ -346,6 +346,59 @@ describe('ThreadViewModal', () => {
     });
   });
 
+  describe('Backdrop drag-close guard', () => {
+    it('should not close when mousedown is inside modal but click fires on backdrop (drag simulation)', async () => {
+      // Reproduces the Firefox-on-Windows behaviour: a resize-drag starts inside the
+      // modal content area (mousedown on the inner div), but mouseup happens over the
+      // backdrop, so Firefox synthesises a click on the backdrop directly.
+      // The guard must ignore that spurious click.
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockComment}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      const backdrop = document.querySelector('.fixed.inset-0.bg-black\\/60') as HTMLElement;
+      const modalContent = backdrop.querySelector('.surface-base') as HTMLElement;
+
+      // mousedown fires on the inner modal content (simulating drag start inside)
+      await user.pointer({ target: modalContent, keys: '[MouseLeft>]' });
+      // click fires on the backdrop (simulating Firefox synthesising click on backdrop at mouseup)
+      await user.pointer({ target: backdrop, keys: '[/MouseLeft]' });
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('should close when both mousedown and click occur on the backdrop', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ThreadViewModal
+          gameId={mockGameId}
+          postId={mockPostId}
+          comment={mockComment}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onClose={mockOnClose}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      const backdrop = document.querySelector('.fixed.inset-0.bg-black\\/60') as HTMLElement;
+      await user.click(backdrop);
+
+      expect(mockOnClose).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('Modal Behavior', () => {
     it('should display Thread View heading', () => {
       renderWithProviders(

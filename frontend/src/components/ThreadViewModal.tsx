@@ -50,6 +50,11 @@ export function ThreadViewModal({
 }: ThreadViewModalProps) {
   // State for nested modal (modal-within-modal for deeply nested threads)
   const [nestedModalComment, setNestedModalComment] = useState<Message | null>(null);
+  // Track where mousedown originated so a drag that ends on the backdrop doesn't close the modal.
+  // Firefox on Windows synthesizes a click on the backdrop when mouseup lands there after a drag
+  // that started inside the modal (e.g. resizing the CommentEditor). We only close on a "true"
+  // backdrop click where both mousedown and mouseup occurred on the backdrop itself.
+  const backdropMouseDownTarget = useRef<EventTarget | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   // Single source of truth: Set of comment IDs with pending reply content.
   // Using a ref+state pair avoids stale closures: the ref is mutated synchronously,
@@ -117,7 +122,10 @@ export function ThreadViewModal({
     <>
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={handleClose}
+        onMouseDown={(e) => { backdropMouseDownTarget.current = e.target; }}
+        onClick={(e) => {
+          if (backdropMouseDownTarget.current === e.currentTarget) handleClose();
+        }}
       >
         <div
           className="surface-base rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
