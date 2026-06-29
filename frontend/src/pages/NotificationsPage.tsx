@@ -12,9 +12,6 @@ export default function NotificationsPage() {
   const notifications = notificationsData?.data || [];
   const hasUnread = notifications.some(n => !n.is_read);
 
-  const handleNavigate = (url: string) => {
-    navigate(url);
-  };
 
   const handleMarkAllAsRead = () => {
     markAllAsRead.mutate();
@@ -81,7 +78,6 @@ export default function NotificationsPage() {
                 >
                   <NotificationItem
                     notification={notification}
-                    onNavigate={handleNavigate}
                   />
                 </div>
               ))}

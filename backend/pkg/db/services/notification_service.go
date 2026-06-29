@@ -631,10 +631,10 @@ func (s *NotificationService) NotifyPhaseCreated(ctx context.Context, gameID int
 }
 
 var gameStateDisplayNames = map[string]string{
-	core.GameStatePaused:    "paused",
+	core.GameStatePaused:     "paused",
 	core.GameStateInProgress: "resumed",
-	core.GameStateCompleted: "completed",
-	core.GameStateCancelled: "cancelled",
+	core.GameStateCompleted:  "completed",
+	core.GameStateCancelled:  "cancelled",
 }
 
 // NotifyGameStateChanged creates notifications for all participants when the game state changes.

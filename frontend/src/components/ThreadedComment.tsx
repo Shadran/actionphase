@@ -94,7 +94,7 @@ export const ThreadedComment = memo(function ThreadedComment({
   useEffect(() => {
     if (isReplyDirty) onDirtyStateChange?.(comment.id, true);
     return () => onDirtyStateChange?.(comment.id, false);
-  }, [isReplyDirty, onDirtyStateChange]);
+  }, [isReplyDirty, onDirtyStateChange, comment.id]);
 
   // Check if this comment has pre-loaded children (from tree structure)
   const hasPreloadedChildren = 'children' in comment && Array.isArray(comment.children) && comment.children.length > 0;
