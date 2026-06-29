@@ -127,11 +127,11 @@ describe('UpcomingDeadlinesCard', () => {
     expect(screen.getByText('Game Three')).toBeInTheDocument();
   });
 
-  it('applies red color for critical urgency (<6 hours)', () => {
+  it('applies red color for critical urgency (<1 hour)', () => {
     const deadline: DashboardDeadline = {
       ...baseDeadline,
-      hours_remaining: 3,
-      end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      hours_remaining: 0.5,
+      end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     };
 
     const { container } = renderWithProviders(<UpcomingDeadlinesCard deadlines={[deadline]} />);
@@ -139,11 +139,11 @@ describe('UpcomingDeadlinesCard', () => {
     expect(container.innerHTML).toContain('text-semantic-danger');
   });
 
-  it('applies yellow color for warning urgency (<24 hours)', () => {
+  it('applies yellow color for warning urgency (1-3 hours)', () => {
     const deadline: DashboardDeadline = {
       ...baseDeadline,
-      hours_remaining: 12,
-      end_time: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      hours_remaining: 2,
+      end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     };
 
     const { container } = renderWithProviders(<UpcomingDeadlinesCard deadlines={[deadline]} />);

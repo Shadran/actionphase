@@ -119,8 +119,8 @@ describe('DeadlineCard', () => {
   });
 
   describe('Urgency Display', () => {
-    it('shows critical urgency for deadlines < 24 hours away', () => {
-      const soon = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(); // 12 hours
+    it('shows critical urgency for deadlines < 1 hour away', () => {
+      const soon = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutes
       const deadline = { ...mockDeadline, deadline: soon };
       const { container } = render(<DeadlineCard deadline={deadline} isGM={false} />);
 
@@ -128,8 +128,8 @@ describe('DeadlineCard', () => {
       expect(card).toHaveClass('border-semantic-danger');
     });
 
-    it('shows warning urgency for deadlines 24-48 hours away', () => {
-      const warning = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(); // 36 hours
+    it('shows warning urgency for deadlines 1-3 hours away', () => {
+      const warning = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(); // 2 hours
       const deadline = { ...mockDeadline, deadline: warning };
       const { container } = render(<DeadlineCard deadline={deadline} isGM={false} />);
 
@@ -137,8 +137,8 @@ describe('DeadlineCard', () => {
       expect(card).toHaveClass('border-semantic-warning');
     });
 
-    it('shows normal urgency for deadlines > 48 hours away', () => {
-      const normal = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(); // 72 hours
+    it('shows normal urgency for deadlines > 3 hours away', () => {
+      const normal = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(); // 6 hours
       const deadline = { ...mockDeadline, deadline: normal };
       const { container } = render(<DeadlineCard deadline={deadline} isGM={false} />);
 

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { DashboardDeadline } from '../types/dashboard';
 import { Calendar, Clock, AlertCircle } from 'lucide-react';
 import { Badge } from './ui';
+import { getDeadlineUrgencyFromHours } from '../utils/deadlineUrgency';
 
 interface UpcomingDeadlinesCardProps {
   deadlines: DashboardDeadline[];
@@ -75,13 +76,10 @@ export function UpcomingDeadlinesCard({ deadlines, fillHeight = false }: Upcomin
  * Get urgency color based on hours remaining
  */
 function getUrgencyColor(hours: number): string {
-  if (hours < 6) {
-    return 'text-semantic-danger';
-  } else if (hours < 24) {
-    return 'text-semantic-warning';
-  } else {
-    return 'text-semantic-success';
-  }
+  const urgency = getDeadlineUrgencyFromHours(hours);
+  if (urgency === 'critical') return 'text-semantic-danger';
+  if (urgency === 'warning') return 'text-semantic-warning';
+  return 'text-semantic-success';
 }
 
 /**

@@ -14,7 +14,6 @@ import { HistoryView } from './HistoryView';
 import { AudienceView } from './AudienceView';
 import { PeopleView } from './PeopleView';
 import { HandoutsList } from './HandoutsList';
-import { DeadlinesTabContent } from './DeadlinesTabContent';
 import type { GameWithDetails, GameParticipant } from '../types/games';
 import type { GamePhase } from '../types/phases';
 
@@ -308,11 +307,6 @@ export function GameTabContent({
   // Handouts Tab (All States - tab is always visible per useGameTabs)
   if (activeTab === 'handouts') {
     return <HandoutsList gameId={gameId} isGM={isGM} gameState={game.state} />;
-  }
-
-  // Deadlines Tab (Character Creation, In Progress & Completed)
-  if (activeTab === 'deadlines' && (game.state === 'character_creation' || game.state === 'in_progress' || game.state === 'completed' || game.state === 'cancelled')) {
-    return <DeadlinesTabContent gameId={gameId} isGM={isGM} />;
   }
 
   // Audience Tab (In Progress & Completed)

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import type { UnifiedDeadline } from '../types/deadlines';
+import { getDeadlineUrgency, type DeadlineUrgencyLevel } from '../utils/deadlineUrgency';
 
-export type DeadlineUrgency = 'critical' | 'warning' | 'normal' | 'expired';
+export type DeadlineUrgency = DeadlineUrgencyLevel;
 
 interface DeadlineCardProps {
   deadline: UnifiedDeadline;
@@ -14,29 +15,6 @@ interface DeadlineCardProps {
   onClick?: () => void;
 }
 
-/**
- * Calculate urgency level based on hours until deadline
- * - critical (red): < 24 hours
- * - warning (yellow): 24-48 hours
- * - normal (blue): > 48 hours
- * - expired (gray): past deadline
- */
-function calculateUrgency(deadlineStr?: string): DeadlineUrgency {
-  if (!deadlineStr) return 'normal';
-
-  try {
-    const deadlineDate = new Date(deadlineStr);
-    const now = new Date();
-    const hoursRemaining = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    if (hoursRemaining < 0) return 'expired';
-    if (hoursRemaining < 24) return 'critical';
-    if (hoursRemaining < 48) return 'warning';
-    return 'normal';
-  } catch {
-    return 'normal';
-  }
-}
 
 /**
  * Format countdown in compact format (e.g., "18h 23m", "2d 3h")
@@ -90,14 +68,14 @@ function formatCountdown(deadlineStr?: string): string {
  */
 export function DeadlineCard({ deadline, isGM, onEdit, onDelete, onExtend, onClick }: DeadlineCardProps) {
   const [countdown, setCountdown] = useState(formatCountdown(deadline.deadline));
-  const [urgency, setUrgency] = useState(calculateUrgency(deadline.deadline));
+  const [urgency, setUrgency] = useState(getDeadlineUrgency(deadline.deadline));
   const [showActions, setShowActions] = useState(false);
 
   // Update countdown every minute
   useEffect(() => {
     const updateCountdown = () => {
       setCountdown(formatCountdown(deadline.deadline));
-      setUrgency(calculateUrgency(deadline.deadline));
+      setUrgency(getDeadlineUrgency(deadline.deadline));
     };
 
     updateCountdown();
