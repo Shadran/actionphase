@@ -1067,3 +1067,89 @@ func TestMessageService_GetManualReadCommentIDsForGame(t *testing.T) {
 		assert.Contains(t, postMap[post2.ID], comment2.ID)
 	})
 }
+
+func TestCreateComment_AutoMarksAuthorAsRead(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	app := core.NewTestApp(testDB.Pool)
+	service := &MessageService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	author := testDB.CreateTestUser(t, "automark_author", "automark_author@example.com")
+	other := testDB.CreateTestUser(t, "automark_other", "automark_other@example.com")
+	game := testDB.CreateTestGame(t, int32(author.ID), "AutoMark Test Game")
+
+	_, err := gameService.AddGameParticipant(context.Background(), game.ID, int32(author.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(other.ID), "player")
+	require.NoError(t, err)
+
+	char, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+		GameID:        game.ID,
+		UserID:        int32Ptr(int32(author.ID)),
+		Name:          "Author Char",
+		CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	post, err := service.CreatePost(context.Background(), core.CreatePostRequest{
+		GameID:      game.ID,
+		AuthorID:    int32(author.ID),
+		CharacterID: char.ID,
+		Content:     "Test post",
+		Visibility:  string(models.MessageVisibilityGame),
+	})
+	require.NoError(t, err)
+
+	t.Run("comment is auto-marked read for author when RootPostID is set", func(t *testing.T) {
+		comment, err := service.CreateComment(context.Background(), core.CreateCommentRequest{
+			GameID:      game.ID,
+			ParentID:    post.ID,
+			RootPostID:  post.ID,
+			AuthorID:    int32(author.ID),
+			CharacterID: char.ID,
+			Content:     "Author's own comment",
+			Visibility:  string(models.MessageVisibilityGame),
+		})
+		require.NoError(t, err)
+
+		reads, err := service.GetManualReadCommentIDsForGame(context.Background(), int32(author.ID), game.ID)
+		require.NoError(t, err)
+		require.Len(t, reads, 1)
+		assert.Contains(t, reads[0].ReadCommentIDs, comment.ID, "author's own comment should be auto-marked read")
+	})
+
+	t.Run("comment is NOT auto-marked read for other users", func(t *testing.T) {
+		reads, err := service.GetManualReadCommentIDsForGame(context.Background(), int32(other.ID), game.ID)
+		require.NoError(t, err)
+		assert.Empty(t, reads, "auto-mark should only apply to the author, not other users")
+	})
+
+	t.Run("comment is NOT auto-marked read when RootPostID is zero", func(t *testing.T) {
+		// Simulate old callers that don't set RootPostID
+		comment, err := service.CreateComment(context.Background(), core.CreateCommentRequest{
+			GameID:      game.ID,
+			ParentID:    post.ID,
+			AuthorID:    int32(author.ID),
+			CharacterID: char.ID,
+			Content:     "Comment without root post ID",
+			Visibility:  string(models.MessageVisibilityGame),
+		})
+		require.NoError(t, err)
+
+		reads, err := service.GetManualReadCommentIDsForGame(context.Background(), int32(author.ID), game.ID)
+		require.NoError(t, err)
+		// Only the first comment (from the previous sub-test) should be in the list
+		found := false
+		for _, r := range reads {
+			for _, id := range r.ReadCommentIDs {
+				if id == comment.ID {
+					found = true
+				}
+			}
+		}
+		assert.False(t, found, "comment without RootPostID should not be auto-marked read")
+	})
+}

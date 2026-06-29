@@ -211,7 +211,7 @@ export function useToggleCommentRead() {
       await apiClient.messages.toggleCommentRead(gameId, postId, commentId, read);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
+      queryClient.refetchQueries({
         queryKey: ['manualReadCommentIDs', variables.gameId],
       });
     },

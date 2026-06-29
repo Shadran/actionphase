@@ -221,6 +221,14 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 
 	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
 
+	// :postId in the URL is the immediate parent (post or comment).
+	// root_post_id in the body is the top-level post; required for read tracking.
+	// When replying directly to a post they are the same, so postID is the fallback.
+	rootPostID := int32(postID)
+	if data.RootPostID != nil {
+		rootPostID = *data.RootPostID
+	}
+
 	comment, err := messageService.CreateComment(ctx, core.CreateCommentRequest{
 		GameID:      int32(gameID),
 		PhaseID:     data.PhaseID,
@@ -228,6 +236,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		CharacterID: data.CharacterID,
 		Content:     data.Content,
 		ParentID:    int32(postID),
+		RootPostID:  rootPostID,
 		Visibility:  "game",
 	})
 

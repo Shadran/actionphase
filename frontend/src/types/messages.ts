@@ -38,6 +38,7 @@ export interface CreateCommentRequest {
   phase_id?: number;
   character_id: number;
   content: string;
+  root_post_id?: number;
 }
 
 export interface UpdateCommentRequest {

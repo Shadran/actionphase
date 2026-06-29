@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/models"
+	models "actionphase/pkg/db/models"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -23,10 +23,10 @@ import (
 //   - *core.ReadMarker: The updated read marker
 //   - error: Any error that occurred
 func (s *MessageService) MarkPostAsRead(ctx context.Context, userID, gameID, postID int32, lastReadCommentID *int32) (*core.ReadMarker, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
 	// Build the upsert params
-	params := db.MarkPostReadParams{
+	params := models.MarkPostReadParams{
 		UserID:            userID,
 		GameID:            gameID,
 		PostID:            postID,
@@ -54,9 +54,9 @@ func (s *MessageService) MarkPostAsRead(ctx context.Context, userID, gameID, pos
 //   - *core.ReadMarker: The read marker if found, nil if not found
 //   - error: Any error that occurred (except ErrNotFound)
 func (s *MessageService) GetUserReadMarker(ctx context.Context, userID, postID int32) (*core.ReadMarker, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
-	params := db.GetUserReadMarkerParams{
+	params := models.GetUserReadMarkerParams{
 		UserID: userID,
 		PostID: postID,
 	}
@@ -85,9 +85,9 @@ func (s *MessageService) GetUserReadMarker(ctx context.Context, userID, postID i
 //   - []*core.ReadMarker: List of read markers for the user/game
 //   - error: Any error that occurred
 func (s *MessageService) GetUserReadMarkersForGame(ctx context.Context, userID, gameID int32) ([]*core.ReadMarker, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
-	params := db.GetUserReadMarkersForGameParams{
+	params := models.GetUserReadMarkersForGameParams{
 		UserID: userID,
 		GameID: gameID,
 	}
@@ -117,7 +117,7 @@ func (s *MessageService) GetUserReadMarkersForGame(ctx context.Context, userID, 
 //   - []*core.PostUnreadInfo: List of post unread info
 //   - error: Any error that occurred
 func (s *MessageService) GetPostsWithUnreadInfo(ctx context.Context, gameID int32) ([]*core.PostUnreadInfo, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
 	rows, err := queries.GetPostsWithUnreadCount(ctx, gameID)
 	if err != nil {
@@ -160,9 +160,9 @@ func (s *MessageService) GetPostsWithUnreadInfo(ctx context.Context, gameID int3
 //   - []*core.PostUnreadComments: List of posts with their unread comment IDs
 //   - error: Any error that occurred
 func (s *MessageService) GetUnreadCommentIDsForPosts(ctx context.Context, userID, gameID int32) ([]*core.PostUnreadComments, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
-	params := db.GetUnreadCommentIDsForPostsParams{
+	params := models.GetUnreadCommentIDsForPostsParams{
 		UserID: userID,
 		GameID: gameID,
 	}
@@ -219,7 +219,7 @@ func (s *MessageService) GetUnreadCommentIDsForPosts(ctx context.Context, userID
 //   - commentID: The comment being toggled
 //   - markAsRead: true to mark as read, false to mark as unread
 func (s *MessageService) ToggleCommentRead(ctx context.Context, userID, gameID, postID, commentID int32, markAsRead bool) error {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
 	// Validate the comment belongs to the specified game to prevent cross-game manipulation
 	msg, err := queries.GetMessage(ctx, commentID)
@@ -231,14 +231,14 @@ func (s *MessageService) ToggleCommentRead(ctx context.Context, userID, gameID, 
 	}
 
 	if markAsRead {
-		return queries.MarkCommentRead(ctx, db.MarkCommentReadParams{
+		return queries.MarkCommentRead(ctx, models.MarkCommentReadParams{
 			UserID:    userID,
 			CommentID: commentID,
 			PostID:    postID,
 			GameID:    gameID,
 		})
 	}
-	return queries.UnmarkCommentRead(ctx, db.UnmarkCommentReadParams{
+	return queries.UnmarkCommentRead(ctx, models.UnmarkCommentReadParams{
 		UserID:    userID,
 		CommentID: commentID,
 	})
@@ -256,9 +256,9 @@ func (s *MessageService) ToggleCommentRead(ctx context.Context, userID, gameID, 
 //   - []*core.ManualCommentReads: Per-post lists of manually read comment IDs
 //   - error: Any error that occurred
 func (s *MessageService) GetManualReadCommentIDsForGame(ctx context.Context, userID, gameID int32) ([]*core.ManualCommentReads, error) {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 
-	rows, err := queries.GetManualReadCommentIDsForGame(ctx, db.GetManualReadCommentIDsForGameParams{
+	rows, err := queries.GetManualReadCommentIDsForGame(ctx, models.GetManualReadCommentIDsForGameParams{
 		UserID: userID,
 		GameID: gameID,
 	})
@@ -287,7 +287,7 @@ func (s *MessageService) GetManualReadCommentIDsForGame(ctx context.Context, use
 // DeleteManualCommentReadsForGame deletes all manual read records for a game.
 // Should be called when a game transitions to completed/archived status.
 func (s *MessageService) DeleteManualCommentReadsForGame(ctx context.Context, gameID int32) error {
-	queries := db.New(s.DB)
+	queries := models.New(s.DB)
 	if err := queries.DeleteManualCommentReadsForGame(ctx, gameID); err != nil {
 		return fmt.Errorf("failed to delete manual comment reads for game: %w", err)
 	}
@@ -295,7 +295,7 @@ func (s *MessageService) DeleteManualCommentReadsForGame(ctx context.Context, ga
 }
 
 // Helper function to convert DB read marker to core model
-func readMarkerToCore(dbMarker *db.UserCommonRoomRead) *core.ReadMarker {
+func readMarkerToCore(dbMarker *models.UserCommonRoomRead) *core.ReadMarker {
 	marker := &core.ReadMarker{
 		ID:         dbMarker.ID,
 		UserID:     dbMarker.UserID,

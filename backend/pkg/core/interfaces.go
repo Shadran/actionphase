@@ -816,6 +816,7 @@ type CreateCommentRequest struct {
 	CharacterID int32
 	Content     string
 	ParentID    int32  // Required - the post or comment being replied to
+	RootPostID  int32  // Required - the top-level post this comment belongs to (for read tracking)
 	Visibility  string // "game" or "private"
 }
 

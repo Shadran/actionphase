@@ -29,6 +29,7 @@ type CreateCommentRequest struct {
 	PhaseID     *int32 `json:"phase_id,omitempty"`
 	CharacterID int32  `json:"character_id" validate:"required"`
 	Content     string `json:"content" validate:"required,min=1"`
+	RootPostID  *int32 `json:"root_post_id,omitempty"`
 }
 
 func (r *CreateCommentRequest) Bind(req *http.Request) error {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,8 +16,8 @@ import { RecentResultsSection } from './RecentResultsSection';
 import { usePreviousPhaseResults } from '../hooks/usePreviousPhaseResults';
 import { getRootPostId } from '../utils/commentUtils';
 import { usePollsByPhase, useDraftPost } from '../hooks';
-import { useCommentReadMode } from '../hooks/useUserPreferences';
 import { useToggleCommentRead } from '../hooks/useReadTracking';
+import { useCommentReadMode } from '../hooks/useUserPreferences';
 import { logger } from '@/services/LoggingService';
 
 // Lazy load PollsTab component
@@ -38,11 +39,12 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   const { currentUser } = useAuth();
   const currentUserId = currentUser?.id;
 
-  // Read character data and game settings from GameContext — single source of truth
-  const { userCharacters, allGameCharacters } = useGameContext();
-
+  const queryClient = useQueryClient();
   const commentReadMode = useCommentReadMode();
   const toggleCommentReadMutation = useToggleCommentRead();
+
+  // Read character data and game settings from GameContext — single source of truth
+  const { userCharacters, allGameCharacters } = useGameContext();
 
   // URL search params for deep linking to comments and sub-tab navigation
   const [searchParams, setSearchParams] = useSearchParams();
@@ -264,24 +266,33 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
       const response = await apiClient.messages.createComment(gameId, parentId, {
         character_id: characterId,
         content,
-        phase_id: phaseId
+        phase_id: phaseId,
+        root_post_id: rootPostId,
       });
       // Don't reload all posts - let the individual PostCard/ThreadedComment handle the update
       // This prevents jarring full-page reloads when commenting deep in a thread
 
-      // In manual read mode, auto-mark the user's own comment as read immediately.
-      // The user just wrote it — it shouldn't appear as something they need to read.
-      if (commentReadMode === 'manual' && currentUserId) {
-        toggleCommentReadMutation.mutate({
-          gameId,
-          postId: rootPostId,
-          commentId: response.data.id,
-          read: true,
-        }, {
-          onError: (err) => {
-            logger.error('Failed to auto-mark own comment as read', { error: err, gameId, commentId: response.data.id });
-          },
-        });
+      // In manual read mode, the backend already marks the author's own comment as read.
+      // Call toggle-read so the frontend cache reflects this immediately.
+      const newCommentId = response.data?.id;
+      if (newCommentId && commentReadMode === 'manual') {
+        // Optimistically update the cache so the UI shows the comment as read right away
+        queryClient.setQueryData<import('../types/messages').ManualCommentReads[]>(
+          ['manualReadCommentIDs', gameId],
+          (prev = []) => {
+            const existing = prev.find(r => r.post_id === rootPostId);
+            if (existing) {
+              return prev.map(r =>
+                r.post_id === rootPostId
+                  ? { ...r, read_comment_ids: [...r.read_comment_ids, newCommentId] }
+                  : r
+              );
+            }
+            return [...prev, { post_id: rootPostId, read_comment_ids: [newCommentId] }];
+          }
+        );
+        // Also fire the API call so the backend state and cache refetch stay in sync
+        toggleCommentReadMutation.mutate({ gameId, postId: rootPostId, commentId: newCommentId, read: true });
       }
     } catch (_err) {
       logger.error('Failed to create comment', { error: _err, gameId, parentId, characterId });
