@@ -30,7 +30,7 @@ export function ParentCommentPreview({
   content,
   createdAt,
   isDeleted,
-  messageType,
+  messageType: _messageType,
   authorUsername,
   characterId,
   characterName,

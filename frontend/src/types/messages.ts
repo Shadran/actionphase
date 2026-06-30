@@ -131,6 +131,7 @@ export interface CommentWithParent {
     message_type?: string | null;
     author_username?: string | null;
     character_name?: string | null;
+    character_avatar_url?: string | null;
   } | null;
 
   // Parent context (flattened fields)
