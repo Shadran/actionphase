@@ -78,7 +78,7 @@ export async function findRootPostId(gameId: number, startMessage: Message): Pro
       current = parent;
     } catch {
       // If we can't walk further, best effort: return what we have
-      return current.parent_id;
+      return current.parent_id!;
     }
   }
 
