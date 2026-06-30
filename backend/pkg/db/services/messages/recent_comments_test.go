@@ -77,6 +77,50 @@ func TestMessageService_ListRecentCommentsWithParents(t *testing.T) {
 		assert.Equal(t, "post", *comments[0].ParentMessageType)
 	})
 
+	t.Run("deeply nested comment (5+ levels) has non-nil post_id", func(t *testing.T) {
+		// Create root post
+		post, err := service.CreatePost(context.Background(), core.CreatePostRequest{
+			GameID:      game.ID,
+			AuthorID:    int32(player.ID),
+			CharacterID: char.ID,
+			Content:     "Root post for deep nesting test",
+			Visibility:  string(models.MessageVisibilityGame),
+		})
+		require.NoError(t, err)
+
+		// Chain 5 nested replies: post → c1 → c2 → c3 → c4 → c5
+		parentID := post.ID
+		var deepComment *models.Message
+		for i := 0; i < 5; i++ {
+			deepComment, err = service.CreateComment(context.Background(), core.CreateCommentRequest{
+				GameID:      game.ID,
+				AuthorID:    int32(player.ID),
+				CharacterID: char.ID,
+				ParentID:    parentID,
+				Content:     fmt.Sprintf("Deep reply level %d", i+1),
+				Visibility:  string(models.MessageVisibilityGame),
+			})
+			require.NoError(t, err)
+			parentID = deepComment.ID
+		}
+
+		// List recent comments
+		comments, err := service.ListRecentCommentsWithParents(context.Background(), game.ID, 50, 0)
+		require.NoError(t, err)
+
+		var found *core.CommentWithParent
+		for i := range comments {
+			if comments[i].ID == deepComment.ID {
+				found = &comments[i]
+				break
+			}
+		}
+
+		require.NotNil(t, found, "Deeply nested comment should appear in results")
+		require.NotNil(t, found.PostID, "post_id must not be nil for deeply nested comments (controls Mark as Read button)")
+		assert.Equal(t, post.ID, *found.PostID, "post_id should point to the root post")
+	})
+
 	t.Run("returns nested comment with parent comment context", func(t *testing.T) {
 		// Create post
 		post, err := service.CreatePost(context.Background(), core.CreatePostRequest{

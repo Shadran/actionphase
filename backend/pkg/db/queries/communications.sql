@@ -289,7 +289,7 @@ WHERE id = $1;
 
 -- name: ListRecentCommentsWithParents :many
 -- Get recent comments with their parent comments/posts for New Comments view
-WITH recent_comments AS (
+WITH RECURSIVE recent_comments AS (
     SELECT
         m.id,
         m.game_id,
@@ -315,29 +315,24 @@ WITH recent_comments AS (
     ORDER BY m.created_at DESC
     LIMIT $2 OFFSET $3
 ),
--- Walk up the message tree to find the root post for each comment
+-- Walk up the message tree recursively to find the root post for each comment
 root_posts AS (
-    SELECT rc.id as comment_id, m.id as post_id
+    -- Base: walk up from each recent comment, tracking the original comment's id
+    SELECT rc.id AS comment_id, rc.parent_id AS current_id
     FROM recent_comments rc
-    JOIN messages m ON m.id = rc.parent_id AND m.message_type = 'post'
+    WHERE rc.parent_id IS NOT NULL
     UNION ALL
-    SELECT rc.id as comment_id, m2.id as post_id
-    FROM recent_comments rc
-    JOIN messages m1 ON m1.id = rc.parent_id AND m1.message_type = 'comment'
-    JOIN messages m2 ON m2.id = m1.parent_id AND m2.message_type = 'post'
-    UNION ALL
-    SELECT rc.id as comment_id, m3.id as post_id
-    FROM recent_comments rc
-    JOIN messages m1 ON m1.id = rc.parent_id AND m1.message_type = 'comment'
-    JOIN messages m2 ON m2.id = m1.parent_id AND m2.message_type = 'comment'
-    JOIN messages m3 ON m3.id = m2.parent_id AND m3.message_type = 'post'
-    UNION ALL
-    SELECT rc.id as comment_id, m4.id as post_id
-    FROM recent_comments rc
-    JOIN messages m1 ON m1.id = rc.parent_id AND m1.message_type = 'comment'
-    JOIN messages m2 ON m2.id = m1.parent_id AND m2.message_type = 'comment'
-    JOIN messages m3 ON m3.id = m2.parent_id AND m3.message_type = 'comment'
-    JOIN messages m4 ON m4.id = m3.parent_id AND m4.message_type = 'post'
+    -- Recursive step: keep walking up until we hit a post
+    SELECT rp.comment_id, m.parent_id AS current_id
+    FROM root_posts rp
+    JOIN messages m ON m.id = rp.current_id AND m.message_type = 'comment'
+    WHERE m.parent_id IS NOT NULL
+),
+-- Pick the post at the top of each comment's chain
+root_post_ids AS (
+    SELECT rp.comment_id, rp.current_id AS post_id
+    FROM root_posts rp
+    JOIN messages m ON m.id = rp.current_id AND m.message_type = 'post'
 ),
 parent_messages AS (
     SELECT
@@ -383,7 +378,7 @@ SELECT
     pm.character_name as parent_character_name,
     pm.character_avatar_url as parent_character_avatar_url
 FROM recent_comments rc
-LEFT JOIN root_posts rp ON rp.comment_id = rc.id
+LEFT JOIN root_post_ids rp ON rp.comment_id = rc.id
 LEFT JOIN parent_messages pm ON rc.parent_id = pm.id
 ORDER BY rc.created_at DESC;
 
