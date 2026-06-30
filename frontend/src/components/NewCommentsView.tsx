@@ -29,7 +29,7 @@ export function NewCommentsView({ gameId }: NewCommentsViewProps) {
   } = useRecentComments(gameId);
 
   const commentReadMode = useCommentReadMode();
-  const { data: manualReads = [] } = useManualReadCommentIDs(gameId);
+  const { data: manualReads = [], refetch: refetchManualReads } = useManualReadCommentIDs(gameId);
   const toggleReadMutation = useToggleCommentRead();
 
   // Flatten all manually-read comment IDs across all posts into a single Set for O(1) lookup
@@ -132,7 +132,7 @@ export function NewCommentsView({ gameId }: NewCommentsViewProps) {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([refetch(), refetchManualReads()]);
     } finally {
       setIsRefreshing(false);
     }
