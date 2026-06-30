@@ -134,6 +134,7 @@ export class MessagesApi extends BaseApiClient {
           parent_message_type: comment.parent?.message_type,
           parent_author_username: comment.parent?.author_username,
           parent_character_name: comment.parent?.character_name,
+          parent_character_avatar_url: comment.parent?.character_avatar_url,
         })),
       },
     };
