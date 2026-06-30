@@ -80,7 +80,13 @@ export function pruneDeletedLeaves(nodes: CommentTreeNode[]): CommentTreeNode[] 
   return nodes
     .map(node => {
       const children = pruneDeletedLeaves(node.children);
-      return { ...node, children, reply_count: children.length };
+      // Only override reply_count when deleted leaves were actually pruned — otherwise
+      // preserve the original count, which may reflect replies beyond the loaded max_depth.
+      const prunedCount = node.children.length - children.length;
+      const reply_count = prunedCount > 0
+        ? Math.max(0, (node.reply_count ?? node.children.length) - prunedCount)
+        : node.reply_count;
+      return { ...node, children, reply_count };
     })
     .filter(node => !node.is_deleted || node.children.length > 0);
 }

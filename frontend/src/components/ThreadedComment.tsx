@@ -385,8 +385,8 @@ export const ThreadedComment = memo(function ThreadedComment({
           if (isMountedRef.current) {
             const visibleReplies = response.data.filter(r => !r.is_deleted || (r.reply_count ?? 0) > 0);
             setReplies(visibleReplies);
-            // Update comment reply_count to match actual count from server
-            setComment(prev => ({ ...prev, reply_count: response.data.length }));
+            // Update reply_count to match visible (non-deleted-leaf) count
+            setComment(prev => ({ ...prev, reply_count: visibleReplies.length }));
             hasLoadedRef.current = true;
           }
         } catch (loadErr) {
