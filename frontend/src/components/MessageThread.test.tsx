@@ -173,4 +173,16 @@ describe('MessageThread edit functionality', () => {
 
     expect(screen.queryByTestId('edited-label')).not.toBeInTheDocument();
   });
+
+  it('edit and delete buttons have explicit text color class for dark mode visibility', () => {
+    baseConversationContext.messages = [makeMessage({ sender_user_id: 1 })];
+
+    render(<MessageThread {...defaultProps} />);
+
+    const editButton = screen.getByTestId('edit-message-button');
+    expect(editButton).toHaveClass('text-content-secondary');
+
+    const deleteButton = editButton.nextElementSibling as HTMLElement;
+    expect(deleteButton).toHaveClass('text-content-secondary');
+  });
 });

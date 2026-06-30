@@ -378,7 +378,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                         <div className="ml-auto flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleStartEdit(message.id, message.content)}
-                            className="p-1 hover:bg-interactive-primary-subtle hover:text-interactive-primary rounded"
+                            className="p-1 text-content-secondary hover:bg-interactive-primary-subtle hover:text-interactive-primary rounded"
                             title="Edit message"
                             data-testid="edit-message-button"
                           >
@@ -386,7 +386,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                           </button>
                           <button
                             onClick={() => setDeleteMessageId(message.id)}
-                            className="p-1 hover:bg-semantic-danger hover:text-content-inverse rounded"
+                            className="p-1 text-content-secondary hover:bg-semantic-danger hover:text-content-inverse rounded"
                             title="Delete message"
                           >
                             <Trash2 className="w-4 h-4" />
