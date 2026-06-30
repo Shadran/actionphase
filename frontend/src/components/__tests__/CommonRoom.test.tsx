@@ -1139,4 +1139,200 @@ describe('CommonRoom', () => {
       expect(toggleReadCalled).toBe(false);
     });
   });
+
+  describe('Deep-link modal read tracking (regression)', () => {
+    // Regression: When a comment is opened via ?comment=ID deep-link and the comment
+    // is more than 3 levels deep (beyond fetchCommentWithParents maxDepth), the
+    // ThreadViewModal must still receive the correct postId and read tracking props.
+    // Previously the modal received no manualReadCommentIDs/onToggleRead, so the
+    // mark-as-read button was missing and read comments weren't styled as read.
+
+    const rootPostId = 10;
+    const depth1Id = 20;
+    const depth2Id = 30;
+    const deepCommentId = 40; // depth 3 — past maxDepth=2, so findRootPostId must walk up
+
+    const rootPost: Message = {
+      id: rootPostId,
+      game_id: 1,
+      phase_id: 1,
+      character_id: 1,
+      character_name: 'Author',
+      content: 'Root post content',
+      message_type: 'post',
+      parent_id: undefined,
+      thread_depth: 0,
+      author_id: 1,
+      author_username: 'testuser',
+      is_edited: false,
+      is_deleted: false,
+      is_draft: false,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    };
+
+    const depth1Comment: Message = {
+      ...rootPost,
+      id: depth1Id,
+      content: 'Depth 1 comment',
+      message_type: 'comment',
+      parent_id: rootPostId,
+      thread_depth: 1,
+    };
+
+    const depth2Comment: Message = {
+      ...rootPost,
+      id: depth2Id,
+      content: 'Depth 2 comment',
+      message_type: 'comment',
+      parent_id: depth1Id,
+      thread_depth: 2,
+    };
+
+    const deepComment: Message = {
+      ...rootPost,
+      id: deepCommentId,
+      content: 'Deep comment content',
+      message_type: 'comment',
+      parent_id: depth2Id,
+      thread_depth: 3,
+      phase_id: 1,
+    };
+
+    function setupDeepLinkHandlers() {
+      Element.prototype.scrollIntoView = vi.fn();
+
+      server.use(
+        http.get('/api/v1/auth/preferences', () =>
+          HttpResponse.json({ preferences: { comment_read_mode: 'manual', theme: 'auto' } })
+        ),
+        http.get('/api/v1/games/:gameId/posts', () =>
+          HttpResponse.json([rootPost])
+        ),
+        http.get('/api/v1/games/:gameId/unread-comment-ids', () =>
+          HttpResponse.json([])
+        ),
+        http.get('/api/v1/games/:gameId/manual-read-comment-ids', () =>
+          HttpResponse.json([{ post_id: rootPostId, read_comment_ids: [deepCommentId] }])
+        ),
+        http.get('/api/v1/games/:gameId/posts/:postId/comments-with-threads', () =>
+          HttpResponse.json({
+            comments: [],
+            total_top_level: 0,
+            returned_top_level: 0,
+            returned_total: 0,
+            has_more: false,
+            limit: 200,
+            offset: 0,
+          })
+        ),
+        http.post('/api/v1/games/:gameId/posts/:postId/mark-read', () =>
+          HttpResponse.json({}, { status: 204 })
+        ),
+        http.get('/api/v1/games/:gameId/phases/:phaseId/polls', () =>
+          HttpResponse.json([])
+        ),
+        // getMessage returns different messages based on ID
+        http.get('/api/v1/games/:gameId/messages/:messageId', ({ params }) => {
+          const id = Number(params.messageId);
+          if (id === deepCommentId) return HttpResponse.json(deepComment);
+          if (id === depth2Id) return HttpResponse.json(depth2Comment);
+          if (id === depth1Id) return HttpResponse.json(depth1Comment);
+          if (id === rootPostId) return HttpResponse.json(rootPost);
+          return HttpResponse.json({}, { status: 404 });
+        }),
+      );
+    }
+
+    it('opens ThreadViewModal with correct postId for a deep comment (findRootPostId regression)', async () => {
+      setupDeepLinkHandlers();
+
+      // Mock getElementById so comment isn't found in DOM — triggers the fetch path
+      const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockReturnValue(null);
+
+      renderWithProviders(<CommonRoom gameId={1} phaseId={1} isCurrentPhase={true} />, {
+        gameId: 1,
+        initialEntries: [`/games/1?tab=common-room&comment=${deepCommentId}`],
+      });
+
+      // Modal should open showing the deep comment content
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /thread view/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      expect(screen.getAllByText('Deep comment content').length).toBeGreaterThan(0);
+
+      getElementByIdSpy.mockRestore();
+    });
+
+    it('shows mark-as-read button in modal for deep-linked comment (regression)', async () => {
+      setupDeepLinkHandlers();
+
+      const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockReturnValue(null);
+
+      renderWithProviders(<CommonRoom gameId={1} phaseId={1} isCurrentPhase={true} />, {
+        gameId: 1,
+        initialEntries: [`/games/1?tab=common-room&comment=${deepCommentId}`],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /thread view/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // In manual mode, read tracking buttons must appear — previously they were missing
+      // because the modal received no onToggleRead prop
+      await waitFor(() => {
+        const readButtons = screen.queryAllByRole('button', { name: /mark as (read|unread)/i });
+        expect(readButtons.length).toBeGreaterThan(0);
+      });
+
+      getElementByIdSpy.mockRestore();
+    });
+
+    it('calls toggle-read with the root post ID when marking a deep-linked comment', async () => {
+      let toggleReadParams: { postId: string; commentId: string } | null = null;
+
+      setupDeepLinkHandlers();
+      server.use(
+        http.post('/api/v1/games/:gameId/posts/:postId/comments/:commentId/toggle-read', ({ params }) => {
+          toggleReadParams = {
+            postId: params.postId as string,
+            commentId: params.commentId as string,
+          };
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockReturnValue(null);
+      const user = userEvent.setup();
+
+      renderWithProviders(<CommonRoom gameId={1} phaseId={1} isCurrentPhase={true} />, {
+        gameId: 1,
+        initialEntries: [`/games/1?tab=common-room&comment=${deepCommentId}`],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /thread view/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // deepCommentId is pre-marked as read, so button shows "Mark as unread"
+      await waitFor(() => {
+        const unreadButtons = screen.queryAllByRole('button', { name: /mark as unread/i });
+        expect(unreadButtons.length).toBeGreaterThan(0);
+      });
+
+      // Click — this should call toggle-read with the ROOT post ID
+      const unreadButtons = screen.getAllByRole('button', { name: /mark as unread/i });
+      await user.click(unreadButtons[0]);
+
+      await waitFor(() => {
+        expect(toggleReadParams).not.toBeNull();
+      });
+
+      // The critical assertion: postId must be the root post, not a comment ID
+      expect(toggleReadParams!.postId).toBe(String(rootPostId));
+
+      getElementByIdSpy.mockRestore();
+    });
+  });
 });

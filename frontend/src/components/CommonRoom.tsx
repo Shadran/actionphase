@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
@@ -14,9 +14,8 @@ import { NewCommentsView } from './NewCommentsView';
 import { MarkdownPreview } from './MarkdownPreview';
 import { RecentResultsSection } from './RecentResultsSection';
 import { usePreviousPhaseResults } from '../hooks/usePreviousPhaseResults';
-import { getRootPostId } from '../utils/commentUtils';
 import { usePollsByPhase, useDraftPost } from '../hooks';
-import { useToggleCommentRead } from '../hooks/useReadTracking';
+import { useToggleCommentRead, usePostManualReadCommentIDs } from '../hooks/useReadTracking';
 import { useCommentReadMode } from '../hooks/useUserPreferences';
 import { logger } from '@/services/LoggingService';
 
@@ -32,6 +31,31 @@ interface CommonRoomProps {
   isCurrentPhase?: boolean;
   isGM?: boolean;
   isAudience?: boolean;
+}
+
+// Inner component so hooks run unconditionally with a known postId
+function ThreadViewModalWithReadTracking(props: React.ComponentProps<typeof ThreadViewModal> & { gameId: number; postId: number }) {
+  const { gameId, postId, ...rest } = props;
+  const commentReadMode = useCommentReadMode();
+  const manualReadCommentIDs = usePostManualReadCommentIDs(gameId, postId);
+  const toggleMutation = useToggleCommentRead();
+  const handleToggleRead = useCallback(
+    (commentId: number, currentlyRead: boolean) => {
+      toggleMutation.mutate({ gameId, postId, commentId, read: !currentlyRead });
+    },
+    [gameId, postId, toggleMutation]
+  );
+
+  return (
+    <ThreadViewModal
+      {...rest}
+      gameId={gameId}
+      postId={postId}
+      commentReadMode={commentReadMode}
+      manualReadCommentIDs={manualReadCommentIDs}
+      onToggleRead={handleToggleRead}
+    />
+  );
 }
 
 export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, currentPhase, isCurrentPhase = true, isGM = false, isAudience = false }: CommonRoomProps) {
@@ -60,6 +84,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
     parentChain: Message[];
     hasFullThread: boolean;
     targetCommentId: number;
+    postId: number;
   } | null>(null);
   // Initialize activeTab from URL parameter, default to 'posts'
   const [activeTab, setActiveTab] = useState<'posts' | 'newComments' | 'polls'>(viewParam || 'posts');
@@ -172,7 +197,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
               }
 
               // Comment is in the current phase but deeply nested — open in ThreadViewModal
-              const { fetchCommentWithParents } = await import('../utils/threadUtils');
+              const { fetchCommentWithParents, findRootPostId } = await import('../utils/threadUtils');
               const { messages, hasFullThread } = await fetchCommentWithParents(
                 gameId,
                 parseInt(commentIdParam),
@@ -186,12 +211,21 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
               // The target comment is the last one in the array
               const targetComment = messages[messages.length - 1];
 
+              // Derive the root post ID from the parent chain.
+              // When hasFullThread=true, messages[0] is the root (no parent_id).
+              // When hasFullThread=false (deep chain truncated at maxDepth), walk further up.
+              const rootMessage = messages[0];
+              const resolvedPostId = (hasFullThread && rootMessage.message_type === 'post')
+                ? rootMessage.id
+                : await findRootPostId(gameId, rootMessage);
+
               // Store the comment and its context for the modal
               setThreadModalComment(targetComment);
               setThreadModalContext({
                 parentChain: messages,
                 hasFullThread,
-                targetCommentId: parseInt(commentIdParam)
+                targetCommentId: parseInt(commentIdParam),
+                postId: resolvedPostId,
               });
 
               // Clear the comment parameter from URL
@@ -500,10 +534,10 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
       )}
 
       {/* Thread View Modal for deep-linked comments */}
-      {threadModalComment && (
-        <ThreadViewModal
+      {threadModalComment && threadModalContext && (
+        <ThreadViewModalWithReadTracking
           gameId={gameId}
-          postId={getRootPostId(threadModalComment)} // Calculate root post ID from comment
+          postId={threadModalContext.postId}
           comment={threadModalComment}
           characters={allGameCharacters}
           controllableCharacters={userCharacters}
@@ -513,9 +547,9 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
           }}
           onCreateReply={handleCreateComment}
           currentUserId={currentUserId}
-          parentChain={threadModalContext?.parentChain}
-          hasFullThread={threadModalContext?.hasFullThread}
-          targetCommentId={threadModalContext?.targetCommentId}
+          parentChain={threadModalContext.parentChain}
+          hasFullThread={threadModalContext.hasFullThread}
+          targetCommentId={threadModalContext.targetCommentId}
           readOnly={!isCurrentPhase}
         />
       )}

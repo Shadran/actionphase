@@ -63,6 +63,30 @@ async function fetchMessageWithRetry(
 }
 
 /**
+ * Walk up the parent chain from a given message ID until we find the root post.
+ * Used to resolve the root post ID for read tracking when the full chain wasn't fetched.
+ */
+export async function findRootPostId(gameId: number, startMessage: Message): Promise<number> {
+  let current = startMessage;
+
+  while (current.parent_id) {
+    try {
+      const parent = await fetchMessageWithRetry(gameId, current.parent_id, 2);
+      if (parent.message_type === 'post' || !parent.parent_id) {
+        return parent.id;
+      }
+      current = parent;
+    } catch {
+      // If we can't walk further, best effort: return what we have
+      return current.parent_id;
+    }
+  }
+
+  // current has no parent_id — it is the root post
+  return current.id;
+}
+
+/**
  * Fetch a comment with its parent chain context (up to N levels)
  * Walks up the parent chain by fetching each parent message
  * Returns messages in parent-to-child order (oldest → target)

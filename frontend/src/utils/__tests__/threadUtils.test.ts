@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchCommentWithParents } from '../threadUtils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { fetchCommentWithParents, findRootPostId } from '../threadUtils';
 import { apiClient } from '../../lib/api';
 import { AxiosError } from 'axios';
 import type { AxiosResponse } from 'axios';
@@ -285,5 +285,102 @@ describe('threadUtils - Retry Logic', () => {
       expect(result.hasFullThread).toBe(false); // Didn't reach root
       expect(getMessageMock).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe('findRootPostId', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const baseComment = (overrides: Partial<Message>): Message => ({
+    id: 1,
+    game_id: 1,
+    phase_id: 1,
+    character_id: 1,
+    character_name: 'Test Character',
+    content: 'Test comment',
+    message_type: 'comment',
+    author_id: 1,
+    author_username: 'testuser',
+    thread_depth: 1,
+    is_edited: false,
+    is_deleted: false,
+    is_draft: false,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  });
+
+  it('returns own id when the message has no parent (is a root post)', async () => {
+    const rootPost = baseComment({ id: 100, parent_id: undefined, message_type: 'post' });
+
+    const promise = findRootPostId(1, rootPost);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe(100);
+    expect(vi.mocked(apiClient.messages.getMessage)).not.toHaveBeenCalled();
+  });
+
+  it('returns parent id when the parent is a post (depth-1 comment)', async () => {
+    const getMessageMock = vi.mocked(apiClient.messages.getMessage);
+    const rootPost = baseComment({ id: 50, parent_id: undefined, message_type: 'post' });
+    getMessageMock.mockResolvedValueOnce(mockResponse(rootPost));
+
+    const depth1Comment = baseComment({ id: 51, parent_id: 50 });
+    const promise = findRootPostId(1, depth1Comment);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe(50);
+    expect(getMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('walks up multi-level chain to find the root post (regression: deep thread_depth)', async () => {
+    // This is the bug scenario: comment at depth 6, fetchCommentWithParents stopped at depth 3,
+    // so messages[0] is still a comment. findRootPostId must keep walking.
+    const getMessageMock = vi.mocked(apiClient.messages.getMessage);
+
+    const rootPost   = baseComment({ id: 9000, parent_id: undefined, message_type: 'post' });
+    const depth1     = baseComment({ id: 9001, parent_id: 9000 });
+    const depth2     = baseComment({ id: 9002, parent_id: 9001 });
+
+    // Start from depth2 (what messages[0] would be after a maxDepth=1 walk)
+    getMessageMock
+      .mockResolvedValueOnce(mockResponse(depth1))    // fetch parent of depth2
+      .mockResolvedValueOnce(mockResponse(rootPost)); // fetch parent of depth1
+
+    const promise = findRootPostId(1, depth2);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe(9000);
+    expect(getMessageMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns best-effort parent_id when a fetch fails mid-walk', async () => {
+    const getMessageMock = vi.mocked(apiClient.messages.getMessage);
+    const error500 = new AxiosError('Server error');
+    error500.response = { status: 500, data: {} } as AxiosError['response'];
+
+    // All retries fail for the first parent fetch
+    getMessageMock
+      .mockRejectedValueOnce(error500)
+      .mockRejectedValueOnce(error500)
+      .mockRejectedValueOnce(error500);
+
+    const commentWithParent = baseComment({ id: 51, parent_id: 50 });
+    const promise = findRootPostId(1, commentWithParent);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    // Falls back to the known parent_id
+    expect(result).toBe(50);
   });
 });
