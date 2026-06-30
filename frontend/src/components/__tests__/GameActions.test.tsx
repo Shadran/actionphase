@@ -56,4 +56,11 @@ describe('GameActions - Join as Audience button visibility', () => {
     render(<GameActions {...defaultProps} isGM game={{ ...baseGame, state: 'in_progress' }} />);
     expect(screen.queryByTestId('join-as-audience-button')).not.toBeInTheDocument();
   });
+
+  it('renders Join as Audience button with warning variant', () => {
+    render(<GameActions {...defaultProps} game={{ ...baseGame, state: 'in_progress' }} />);
+    const button = screen.getByTestId('join-as-audience-button');
+    // Warning variant applies bg-semantic-warning class (via tv() utility)
+    expect(button.className).toMatch(/semantic-warning/);
+  });
 });

@@ -125,7 +125,7 @@ export function GameActions({
 
       {showPlayerActions && showJoinAsAudienceButton && (
         <Button
-          variant="secondary"
+          variant="warning"
           size="sm"
           onClick={onApplyToGame}
           disabled={actionLoading}
