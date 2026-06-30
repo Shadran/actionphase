@@ -35,6 +35,10 @@ export class NotificationsApi extends BaseApiClient {
     return this.client.put<Notification>(`/api/v1/notifications/${id}/mark-read`);
   }
 
+  async markNotificationAsUnread(id: number) {
+    return this.client.put<Notification>(`/api/v1/notifications/${id}/mark-unread`);
+  }
+
   async markAllNotificationsAsRead() {
     return this.client.put<MarkAllReadResponse>('/api/v1/notifications/mark-all-read');
   }

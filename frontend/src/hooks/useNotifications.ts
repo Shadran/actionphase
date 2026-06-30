@@ -58,6 +58,21 @@ export function useMarkNotificationAsRead() {
   });
 }
 
+export function useMarkNotificationAsUnread() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (notificationId: number) => {
+      const response = await apiClient.notifications.markNotificationAsUnread(notificationId);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 export function useMarkAllAsRead() {
   const queryClient = useQueryClient();
 

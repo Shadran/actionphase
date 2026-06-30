@@ -318,6 +318,51 @@ func (h *Handler) MarkNotificationAsRead(w http.ResponseWriter, r *http.Request)
 	render.Render(w, r, response)
 }
 
+// MarkNotificationAsUnread - PUT /api/v1/notifications/:id/mark-unread
+// Mark a notification as unread
+func (h *Handler) MarkNotificationAsUnread(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_mark_notification_as_unread")()
+
+	authUser := core.GetAuthenticatedUser(ctx)
+	if authUser == nil {
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
+		return
+	}
+
+	userID := int32(authUser.ID)
+
+	notificationIDStr := chi.URLParam(r, "id")
+	notificationID, err := strconv.ParseInt(notificationIDStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, &core.ErrResponse{
+			HTTPStatusCode: http.StatusBadRequest,
+			StatusText:     "Bad Request",
+			ErrorText:      "Invalid notification ID",
+		})
+		return
+	}
+
+	service := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+	err = service.MarkAsUnread(ctx, int32(notificationID), userID)
+	if err != nil {
+		render.Render(w, r, &core.ErrResponse{
+			HTTPStatusCode: http.StatusInternalServerError,
+			StatusText:     "Internal Server Error",
+			ErrorText:      fmt.Sprintf("Failed to mark notification as unread: %v", err),
+		})
+		return
+	}
+
+	response := &NotificationResponse{
+		ID:     int32(notificationID),
+		IsRead: false,
+	}
+
+	render.Status(r, http.StatusOK)
+	render.Render(w, r, response)
+}
+
 // MarkAllAsRead - PUT /api/v1/notifications/mark-all-read
 // Mark all user's notifications as read
 func (h *Handler) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {

@@ -28,6 +28,12 @@ SET is_read = true, read_at = NOW()
 WHERE id = $1 AND user_id = $2
 RETURNING *;
 
+-- name: MarkNotificationUnread :one
+UPDATE notifications
+SET is_read = false, read_at = NULL
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
 -- name: MarkAllNotificationsRead :exec
 UPDATE notifications
 SET is_read = true, read_at = NOW()

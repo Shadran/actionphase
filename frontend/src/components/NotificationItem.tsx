@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge, Button } from './ui';
 import { ConfirmModal } from './ConfirmModal';
 import type { Notification } from '../types/notifications';
-import { useMarkNotificationAsRead, useDeleteNotification } from '../hooks/useNotifications';
+import { useMarkNotificationAsRead, useMarkNotificationAsUnread, useDeleteNotification } from '../hooks/useNotifications';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -14,6 +14,7 @@ interface NotificationItemProps {
 export default function NotificationItem({ notification, onNavigate }: NotificationItemProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const markAsRead = useMarkNotificationAsRead();
+  const markAsUnread = useMarkNotificationAsUnread();
   const deleteNotification = useDeleteNotification();
 
   const handleClick = () => {
@@ -31,6 +32,16 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
 
   const handleDeleteConfirm = () => {
     deleteNotification.mutate(notification.id);
+  };
+
+  const handleToggleRead = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (notification.is_read) {
+      markAsUnread.mutate(notification.id);
+    } else {
+      markAsRead.mutate(notification.id);
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -102,6 +113,30 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
           {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
         </p>
       </div>
+
+      {/* Toggle read/unread button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleToggleRead}
+        className="text-content-secondary hover:text-content-primary flex-shrink-0 p-1 h-auto"
+        title={notification.is_read ? 'Mark as unread' : 'Mark as read'}
+        aria-label={notification.is_read ? 'Mark as unread' : 'Mark as read'}
+        data-testid="toggle-read-button"
+      >
+        {notification.is_read ? (
+          /* Slash eye — click to mark unread */
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        ) : (
+          /* Open eye — click to mark read */
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        )}
+      </Button>
 
       {/* Delete button */}
       <Button

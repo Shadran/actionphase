@@ -157,6 +157,47 @@ func TestNotificationService_MarkAsRead(t *testing.T) {
 	assert.NotNil(t, notifications[0].ReadAt)
 }
 
+func TestNotificationService_MarkAsUnread(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	service := &NotificationService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	user := testDB.CreateTestUser(t, "testuser", "test@example.com")
+	otherUser := testDB.CreateTestUser(t, "other", "other@example.com")
+
+	notification, err := service.CreateNotification(ctx, &core.CreateNotificationRequest{
+		UserID: int32(user.ID),
+		Type:   core.NotificationTypePrivateMessage,
+		Title:  "Test notification",
+	})
+	require.NoError(t, err)
+
+	// Mark read, then unread
+	err = service.MarkAsRead(ctx, notification.ID, int32(user.ID))
+	require.NoError(t, err)
+
+	err = service.MarkAsUnread(ctx, notification.ID, int32(user.ID))
+	require.NoError(t, err)
+
+	// Verify unread state is restored
+	notifications, err := service.GetUserNotifications(ctx, int32(user.ID), 10, 0)
+	require.NoError(t, err)
+	require.Len(t, notifications, 1)
+	assert.False(t, notifications[0].IsRead)
+	assert.Nil(t, notifications[0].ReadAt)
+
+	t.Run("ownership check: cannot mark another user's notification as unread", func(t *testing.T) {
+		// pgx `:one` query returns "no rows in result set" when user_id does not match,
+		// which the service wraps and returns as an error — ownership enforced.
+		err = service.MarkAsUnread(ctx, notification.ID, int32(otherUser.ID))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to mark notification as unread")
+	})
+}
+
 func TestNotificationService_MarkAllAsRead(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()

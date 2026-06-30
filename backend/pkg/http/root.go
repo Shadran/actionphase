@@ -425,6 +425,7 @@ func (h *Handler) Start() {
 			r.Put("/mark-all-read", notificationHandler.MarkAllAsRead)
 			r.Get("/{id}", notificationHandler.GetNotification)
 			r.Put("/{id}/mark-read", notificationHandler.MarkNotificationAsRead)
+			r.Put("/{id}/mark-unread", notificationHandler.MarkNotificationAsUnread)
 			r.Delete("/{id}", notificationHandler.DeleteNotification)
 		})
 	})

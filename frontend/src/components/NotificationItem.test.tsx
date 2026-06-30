@@ -295,4 +295,87 @@ describe('NotificationItem', () => {
     expect(screen.getByText('Delete Notification')).toBeInTheDocument();
     expect(mockOnNavigate).not.toHaveBeenCalled();
   });
+
+  it('shows open-eye button with "Mark as read" label when notification is unread', () => {
+    const notification = createMockNotification({ is_read: false });
+
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    const toggleBtn = screen.getByTestId('toggle-read-button');
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Mark as read');
+    expect(toggleBtn).toHaveAttribute('title', 'Mark as read');
+  });
+
+  it('shows slash-eye button with "Mark as unread" label when notification is read', () => {
+    const notification = createMockNotification({ is_read: true });
+
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    const toggleBtn = screen.getByTestId('toggle-read-button');
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Mark as unread');
+    expect(toggleBtn).toHaveAttribute('title', 'Mark as unread');
+  });
+
+  it('calls markAsRead when toggle button is clicked on an unread notification', async () => {
+    const notification = createMockNotification({ is_read: false });
+
+    let markReadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        markReadCalled = true;
+        return HttpResponse.json({ id: notification.id, is_read: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.click(screen.getByTestId('toggle-read-button'));
+
+    await waitFor(() => {
+      expect(markReadCalled).toBe(true);
+    });
+  });
+
+  it('calls markAsUnread when toggle button is clicked on a read notification', async () => {
+    const notification = createMockNotification({ is_read: true });
+
+    let markUnreadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-unread', () => {
+        markUnreadCalled = true;
+        return HttpResponse.json({ id: notification.id, is_read: false });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.click(screen.getByTestId('toggle-read-button'));
+
+    await waitFor(() => {
+      expect(markUnreadCalled).toBe(true);
+    });
+  });
+
+  it('toggle button click does not trigger navigation', async () => {
+    const notification = createMockNotification({ is_read: false });
+    const mockOnNavigate = vi.fn();
+
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        return HttpResponse.json({ id: notification.id, is_read: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationItem notification={notification} onNavigate={mockOnNavigate} />
+    );
+
+    await user.click(screen.getByTestId('toggle-read-button'));
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(mockOnNavigate).not.toHaveBeenCalled();
+  });
 });

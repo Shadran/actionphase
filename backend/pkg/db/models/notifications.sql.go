@@ -341,6 +341,38 @@ func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotification
 	return i, err
 }
 
+const markNotificationUnread = `-- name: MarkNotificationUnread :one
+UPDATE notifications
+SET is_read = false, read_at = NULL
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, game_id, type, title, content, related_type, related_id, link_url, is_read, read_at, created_at
+`
+
+type MarkNotificationUnreadParams struct {
+	ID     int32 `json:"id"`
+	UserID int32 `json:"user_id"`
+}
+
+func (q *Queries) MarkNotificationUnread(ctx context.Context, arg MarkNotificationUnreadParams) (Notification, error) {
+	row := q.db.QueryRow(ctx, markNotificationUnread, arg.ID, arg.UserID)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.GameID,
+		&i.Type,
+		&i.Title,
+		&i.Content,
+		&i.RelatedType,
+		&i.RelatedID,
+		&i.LinkUrl,
+		&i.IsRead,
+		&i.ReadAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const notifyAudienceMembers = `-- name: NotifyAudienceMembers :exec
 INSERT INTO notifications (user_id, game_id, type, title, content, related_type, related_id, link_url)
 SELECT gp.user_id, $1, $2, $3, $4, $5, $6, $7

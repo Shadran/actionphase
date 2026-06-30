@@ -418,6 +418,30 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID, us
 	return nil
 }
 
+// MarkAsUnread marks a single notification as unread.
+func (s *NotificationService) MarkAsUnread(ctx context.Context, notificationID, userID int32) error {
+	s.Logger.Info(ctx, "Marking notification as unread",
+		"notification_id", notificationID,
+		"user_id", userID,
+	)
+
+	queries := models.New(s.DB)
+
+	_, err := queries.MarkNotificationUnread(ctx, models.MarkNotificationUnreadParams{
+		ID:     notificationID,
+		UserID: userID,
+	})
+	if err != nil {
+		s.Logger.LogError(ctx, err, "Failed to mark notification as unread",
+			"notification_id", notificationID,
+			"user_id", userID,
+		)
+		return fmt.Errorf("failed to mark notification as unread: %w", err)
+	}
+
+	return nil
+}
+
 // MarkAllAsRead marks all notifications as read for a user.
 func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID int32) error {
 	s.Logger.Info(ctx, "Marking all notifications as read",

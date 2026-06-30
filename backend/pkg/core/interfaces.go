@@ -982,6 +982,9 @@ type NotificationServiceInterface interface {
 	// MarkAsRead marks a notification as read
 	MarkAsRead(ctx context.Context, notificationID, userID int32) error
 
+	// MarkAsUnread marks a notification as unread (allows users to revisit it later)
+	MarkAsUnread(ctx context.Context, notificationID, userID int32) error
+
 	// MarkAllAsRead marks all of a user's unread notifications as read
 	MarkAllAsRead(ctx context.Context, userID int32) error
 
