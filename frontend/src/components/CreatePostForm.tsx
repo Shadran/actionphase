@@ -136,6 +136,7 @@ export function CreatePostForm({ gameId: _gameId, characters, allCharacters, onS
           disabled={isSubmitting}
           rows={12}
           warnOnUnsavedChanges
+          stickyTabBar
           characters={allCharacters || characters}
           showPreviewByDefault={false}
           maxLength={50000}

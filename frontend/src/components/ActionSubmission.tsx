@@ -250,6 +250,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 disabled={submitActionMutation.isPending}
                 maxLength={100000}
                 warnOnUnsavedChanges
+                stickyTabBar
                 showCharacterCount={true}
                 textareaTestId="action-textarea"
                 characters={availableCharacters}

@@ -64,6 +64,7 @@ interface CommentEditorProps {
   showCharacterCount?: boolean; // Show character counter below textarea
   textareaTestId?: string; // data-testid forwarded to the inner textarea (for E2E tests)
   warnOnUnsavedChanges?: boolean; // Show confirmation dialog when navigating away with unsaved content
+  stickyTabBar?: boolean; // Stick the tab bar below the nav when scrolling (only appropriate for full-page editors, not inline edit forms)
   sheetButton?: ReactNode; // Optional node rendered in the drag-handle bar (e.g. "Character Sheet" toggle)
   insertSheetItemRef?: MutableRefObject<((item: SheetItem) => void) | null>; // Ref to expose cursor-aware insert for external callers (e.g. Drawer)
 }
@@ -94,6 +95,7 @@ export const CommentEditor = memo(function CommentEditor({
   showCharacterCount = false,
   textareaTestId,
   warnOnUnsavedChanges = false,
+  stickyTabBar = false,
   sheetButton,
   insertSheetItemRef,
 }: CommentEditorProps) {
@@ -409,8 +411,8 @@ export const CommentEditor = memo(function CommentEditor({
 
   return (
     <div className="comment-editor">
-      {/* Tab bar + secondary controls — sticky below the 64px nav bar so it stays visible when the editor is taller than the viewport */}
-      <div className="sticky top-16 z-10 surface-base border-b border-theme-default">
+      {/* Tab bar + secondary controls */}
+      <div className={`${stickyTabBar ? 'sticky top-16' : ''} z-10 surface-base border-b border-theme-default`}>
         <div className="flex items-center justify-between pt-2 pb-1 gap-2">
           {/* Manila-style tabs */}
           <div className="flex items-end gap-1 shrink-0">
