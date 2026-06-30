@@ -43,7 +43,7 @@ export function CommentWithParentCard({
   const { allGameCharacters, game, isGM, userCharacters } = useGameContext();
   const { currentUser } = useAuth();
   const { adminModeEnabled } = useAdminMode();
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast();
   const updateCommentMutation = useUpdateComment();
   const deleteCommentMutation = useDeleteComment();
   const isMountedRef = useRef(true);
@@ -59,6 +59,7 @@ export function CommentWithParentCard({
     () => userCharacters[0]?.id ?? null
   );
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [replyPostedId, setReplyPostedId] = useState<number | null>(null);
 
   const portraitAvatars = game?.portrait_avatars ?? false;
   const isAuthor = currentUser?.id === comment.author_id;
@@ -145,14 +146,15 @@ export function CommentWithParentCard({
     if (!selectedCharacterId || !replyContent.trim() || !comment.post_id) return;
     try {
       setIsSubmittingReply(true);
-      await apiClient.messages.createComment(gameId, comment.id, {
+      const response = await apiClient.messages.createComment(gameId, comment.id, {
         character_id: selectedCharacterId,
         content: replyContent.trim(),
         root_post_id: comment.post_id,
       });
       setReplyContent('');
       setIsReplying(false);
-      showSuccess('Reply posted successfully');
+      setReplyPostedId(response.data.id);
+      setTimeout(() => { if (isMountedRef.current) setReplyPostedId(null); }, 4000);
     } catch (_err) {
       logger.error('Failed to post reply', { error: _err, commentId: comment.id, gameId });
       showError('Failed to post reply. Please try again.');
@@ -367,6 +369,25 @@ export function CommentWithParentCard({
                 </svg>
               </a>
             )}
+          </div>
+        )}
+
+        {/* Reply posted confirmation */}
+        {replyPostedId && (
+          <div className="mt-3 p-3 bg-bg-secondary rounded-lg border border-semantic-success flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-semantic-success">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Reply posted!
+            </div>
+            <a
+              href={`/games/${gameId}?tab=common-room&comment=${replyPostedId}`}
+              onClick={(e) => { e.preventDefault(); onNavigateToComment?.(); }}
+              className="text-sm text-interactive-primary hover:text-accent-secondary font-medium shrink-0"
+            >
+              View in thread →
+            </a>
           </div>
         )}
 

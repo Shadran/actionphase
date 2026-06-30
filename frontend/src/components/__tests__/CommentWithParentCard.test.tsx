@@ -333,6 +333,34 @@ describe('CommentWithParentCard', () => {
         expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument();
       });
     });
+
+    it('shows inline confirmation with "View in thread" link after successful reply', async () => {
+      const user = userEvent.setup();
+      vi.mocked(useGameContext).mockReturnValue({
+        ...mockGameContext,
+        userCharacters: [mockControllableCharacter],
+      } as never);
+      vi.mocked(apiClient.messages.createComment).mockResolvedValue({ data: { id: 999 } } as never);
+
+      renderWithProviders(
+        <CommentWithParentCard
+          comment={commentWithPostId}
+          gameId={1}
+          onNavigateToComment={vi.fn()}
+        />,
+        { gameId: 1 }
+      );
+
+      await user.click(screen.getByRole('button', { name: /reply/i }));
+      await user.type(screen.getByPlaceholderText('Write a reply...'), 'Hello there');
+      await user.click(screen.getByRole('button', { name: /^reply$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Reply posted!')).toBeInTheDocument();
+        // Confirmation banner adds a second "View in thread →" link
+        expect(screen.getAllByText('View in thread →').length).toBeGreaterThanOrEqual(2);
+      });
+    });
   });
 
   describe('Edit button', () => {
