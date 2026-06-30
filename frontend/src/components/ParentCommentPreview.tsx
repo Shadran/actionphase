@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Badge } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
 import CharacterAvatar from './CharacterAvatar';
 import { useOptionalGameContext } from '../contexts/GameContext';
@@ -57,13 +56,8 @@ export function ParentCommentPreview({
 
   return (
     <div className="border-l-2 border-border-secondary pl-3 mb-3 opacity-70">
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <div className="flex items-center gap-2 text-sm min-w-0">
-          {messageType && (
-            <Badge variant="secondary" size="sm">
-              {messageType === 'post' ? 'Post' : 'Comment'}
-            </Badge>
-          )}
+      <div className="flex items-start justify-between mb-2 gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm min-w-0">
           {characterName && (
             <CharacterAvatar
               avatarUrl={characterAvatarUrl}
@@ -74,22 +68,22 @@ export function ParentCommentPreview({
           )}
           {characterName ? (
             characterId ? (
-              <Link to={`/characters/${characterId}`} className="font-medium text-text-heading truncate hover:underline">{characterName}</Link>
+              <Link to={`/characters/${characterId}`} className="font-medium text-text-heading hover:underline">{characterName}</Link>
             ) : (
-              <span className="font-medium text-text-heading truncate">{characterName}</span>
+              <span className="font-medium text-text-heading">{characterName}</span>
             )
           ) : authorUsername ? (
-            <span className="text-content-secondary truncate">@{authorUsername}</span>
+            <span className="text-content-secondary">@{authorUsername}</span>
           ) : null}
           {timeAgo && (
-            <span className="text-content-tertiary shrink-0">{timeAgo}</span>
+            <span className="text-content-tertiary">{timeAgo}</span>
           )}
         </div>
 
         {!isDeleted && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-xs text-interactive-primary hover:text-interactive-secondary flex items-center gap-1"
+            className="text-xs text-interactive-primary hover:text-interactive-secondary flex items-center gap-1 shrink-0"
           >
             <svg
               className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}

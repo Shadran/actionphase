@@ -19,22 +19,9 @@ describe('ParentCommentPreview', () => {
       />
     );
 
-    expect(screen.getByText('Post')).toBeInTheDocument();
     expect(screen.getByText('Test Character')).toBeInTheDocument();
     expect(screen.getByText(/this is the parent comment content/i)).toBeInTheDocument();
     expect(screen.getByText(/view in thread/i)).toBeInTheDocument();
-  });
-
-  it('shows "Comment" badge for comment type', () => {
-    render(
-      <ParentCommentPreview
-        content="Parent content"
-        messageType="comment"
-        onNavigateToParent={mockNavigate}
-      />
-    );
-
-    expect(screen.getByText('Comment')).toBeInTheDocument();
   });
 
   it('shows deleted marker when parent is deleted', () => {
