@@ -2057,4 +2057,46 @@ describe('ThreadedComment', () => {
       expect(loadCount).toBe(0);
     });
   });
+
+  describe('allowReadTracking prop', () => {
+    it('hides toggle button when allowReadTracking=false even in manual mode', () => {
+      renderWithProviders(
+        <ThreadedComment
+          comment={mockComment}
+          gameId={mockGameId}
+          postId={10}
+          characters={mockCharacters}
+          controllableCharacters={[]}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+          commentReadMode="manual"
+          manualReadCommentIDs={[]}
+          onToggleRead={vi.fn()}
+          allowReadTracking={false}
+        />
+      );
+
+      expect(screen.queryByRole('button', { name: /mark as (read|unread)/i })).not.toBeInTheDocument();
+    });
+
+    it('shows toggle button when allowReadTracking=true in manual mode', () => {
+      renderWithProviders(
+        <ThreadedComment
+          comment={mockComment}
+          gameId={mockGameId}
+          postId={10}
+          characters={mockCharacters}
+          controllableCharacters={[]}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+          commentReadMode="manual"
+          manualReadCommentIDs={[]}
+          onToggleRead={vi.fn()}
+          allowReadTracking={true}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /mark as (read|unread)/i })).toBeInTheDocument();
+    });
+  });
 });

@@ -286,7 +286,7 @@ export function GameTabContent({
 
   // History Tab (In Progress & Completed)
   if (activeTab === 'history' && (game.state === 'in_progress' || game.state === 'completed')) {
-    return <HistoryView gameId={gameId} currentPhaseId={currentPhaseData?.phase?.id} isGM={isGM} isAudience={isAudience} />;
+    return <HistoryView gameId={gameId} currentPhaseId={currentPhaseData?.phase?.id} isGM={isGM} isAudience={isAudience} isGameCompleted={game.state === 'completed'} />;
   }
 
   // Private Messages Tab (In Progress & Completed)

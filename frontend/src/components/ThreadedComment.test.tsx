@@ -175,14 +175,24 @@ describe('ThreadedComment — manual read mode', () => {
     });
   });
 
-  describe('manual mode — readOnly', () => {
-    it('hides the Mark as Read button when readOnly=true', () => {
+  describe('manual mode — allowReadTracking', () => {
+    it('hides the Mark as Read button when allowReadTracking=false', () => {
+      renderComment({
+        commentReadMode: 'manual',
+        manualReadCommentIDs: [],
+        allowReadTracking: false,
+      });
+      expect(screen.queryByTestId('toggle-read-button')).toBeNull();
+    });
+
+    it('shows the Mark as Read button when readOnly=true but allowReadTracking=true', () => {
       renderComment({
         commentReadMode: 'manual',
         manualReadCommentIDs: [],
         readOnly: true,
+        allowReadTracking: true,
       });
-      expect(screen.queryByTestId('toggle-read-button')).toBeNull();
+      expect(screen.getByTestId('toggle-read-button')).toBeInTheDocument();
     });
   });
 

@@ -1660,4 +1660,66 @@ describe('PostCard', () => {
     });
   });
 
+  describe('allowReadTracking prop', () => {
+    it('hides mark-as-read toggle when allowReadTracking=false', async () => {
+      renderWithProviders(
+        <PostCard
+          post={mockPost}
+          gameId={1}
+          characters={mockCharacters}
+          controllableCharacters={[]}
+          onCreateComment={mockOnCreateComment}
+          allowReadTracking={false}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText(/loading comments/i)).not.toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: /mark as (read|unread)/i })).not.toBeInTheDocument();
+    });
+
+    it('shows mark-as-read toggle when allowReadTracking=true (default) in manual mode', async () => {
+      renderWithProviders(
+        <PostCard
+          post={mockPost}
+          gameId={1}
+          characters={mockCharacters}
+          controllableCharacters={[]}
+          onCreateComment={mockOnCreateComment}
+          allowReadTracking={true}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText(/loading comments/i)).not.toBeInTheDocument();
+      });
+
+      const toggleButtons = screen.queryAllByRole('button', { name: /mark as (read|unread)/i });
+      expect(toggleButtons.length).toBeGreaterThan(0);
+    });
+
+    it('allows read tracking when readOnly=true but allowReadTracking=true', async () => {
+      renderWithProviders(
+        <PostCard
+          post={mockPost}
+          gameId={1}
+          characters={mockCharacters}
+          controllableCharacters={[]}
+          onCreateComment={mockOnCreateComment}
+          readOnly={true}
+          allowReadTracking={true}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText(/loading comments/i)).not.toBeInTheDocument();
+      });
+
+      const toggleButtons = screen.queryAllByRole('button', { name: /mark as (read|unread)/i });
+      expect(toggleButtons.length).toBeGreaterThan(0);
+    });
+  });
+
 });

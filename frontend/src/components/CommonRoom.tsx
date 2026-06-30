@@ -31,6 +31,7 @@ interface CommonRoomProps {
   isCurrentPhase?: boolean;
   isGM?: boolean;
   isAudience?: boolean;
+  isGameCompleted?: boolean;
 }
 
 // Inner component so hooks run unconditionally with a known postId
@@ -58,7 +59,7 @@ function ThreadViewModalWithReadTracking(props: React.ComponentProps<typeof Thre
   );
 }
 
-export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, currentPhase, isCurrentPhase = true, isGM = false, isAudience = false }: CommonRoomProps) {
+export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, currentPhase, isCurrentPhase = true, isGM = false, isAudience = false, isGameCompleted = false }: CommonRoomProps) {
   // Get current user from AuthContext
   const { currentUser } = useAuth();
   const currentUserId = currentUser?.id;
@@ -66,6 +67,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   const queryClient = useQueryClient();
   const commentReadMode = useCommentReadMode();
   const toggleCommentReadMutation = useToggleCommentRead();
+  const allowReadTracking = !isGameCompleted;
 
   // Read character data and game settings from GameContext — single source of truth
   const { userCharacters, allGameCharacters } = useGameContext();
@@ -518,6 +520,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
                   currentUserId={currentUserId}
                   data-testid={`post-${post.id}`}
                   readOnly={!isCurrentPhase}
+                  allowReadTracking={allowReadTracking}
                 />
               ))}
             </div>
@@ -551,6 +554,7 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
           hasFullThread={threadModalContext.hasFullThread}
           targetCommentId={threadModalContext.targetCommentId}
           readOnly={!isCurrentPhase}
+          allowReadTracking={allowReadTracking}
         />
       )}
     </div>

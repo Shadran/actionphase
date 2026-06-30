@@ -23,6 +23,7 @@ interface ThreadViewModalProps {
   hasFullThread?: boolean; // Whether we fetched all the way to root
   targetCommentId?: number; // ID of the originally requested comment to highlight
   readOnly?: boolean; // Disable all interactive features (for history view)
+  allowReadTracking?: boolean; // Show faded read state and toggle button (default true)
 }
 
 /**
@@ -47,6 +48,7 @@ export function ThreadViewModal({
   hasFullThread = true,
   targetCommentId,
   readOnly = false,
+  allowReadTracking = true,
 }: ThreadViewModalProps) {
   // State for nested modal (modal-within-modal for deeply nested threads)
   const [nestedModalComment, setNestedModalComment] = useState<Message | null>(null);
@@ -194,6 +196,7 @@ export function ThreadViewModal({
                     onToggleRead={onToggleRead}
                     onOpenThread={(nestedComment) => setNestedModalComment(nestedComment)}
                     readOnly={readOnly}
+                    allowReadTracking={allowReadTracking}
                     onDirtyStateChange={handleDirtyStateChange}
                   />
                 );
@@ -210,6 +213,7 @@ export function ThreadViewModal({
                 onCommentDeleted={onClose}
                 currentUserId={currentUserId}
                 readOnly={readOnly}
+                allowReadTracking={allowReadTracking}
                 depth={0}
                 maxDepth={10}
                 unreadCommentIDs={unreadCommentIDs}
@@ -240,6 +244,7 @@ export function ThreadViewModal({
           commentReadMode={commentReadMode}
           onToggleRead={onToggleRead}
           readOnly={readOnly}
+          allowReadTracking={allowReadTracking}
         />
       )}
 

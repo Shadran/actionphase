@@ -35,6 +35,7 @@ interface ThreadedCommentProps {
   onToggleRead?: (commentId: number, currentlyRead: boolean) => void; // Callback to toggle manual read state
   onOpenThread?: (comment: Message) => void; // Callback to open thread modal with comment object
   readOnly?: boolean; // Disable all interactive features (for history view)
+  allowReadTracking?: boolean; // Show faded read state and toggle button (default true)
   parentComment?: Message | CommentTreeNode | null; // Parent comment for smart character defaulting in nested replies
   variant?: 'desktop' | 'mobile'; // Used to create unique IDs for desktop vs mobile rendering
   onDirtyStateChange?: (commentId: number, isDirty: boolean) => void; // Fired when pending reply content goes from empty↔non-empty
@@ -57,6 +58,7 @@ export const ThreadedComment = memo(function ThreadedComment({
   onToggleRead,
   onOpenThread,
   readOnly = false,
+  allowReadTracking = true,
   parentComment = null,
   variant,
   onDirtyStateChange,
@@ -662,7 +664,7 @@ export const ThreadedComment = memo(function ThreadedComment({
             )}
           </Button>
 
-          {commentReadMode === 'manual' && !readOnly && !comment.is_deleted && (
+          {commentReadMode === 'manual' && allowReadTracking && !comment.is_deleted && (
             <Button
               variant="ghost"
               onClick={() => onToggleRead?.(comment.id, isManuallyRead)}
@@ -874,6 +876,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 onToggleRead={onToggleRead}
                                 onOpenThread={onOpenThread}
                                 readOnly={readOnly}
+                                allowReadTracking={allowReadTracking}
                                 parentComment={comment}
                                 variant="desktop"
                                 onDirtyStateChange={onDirtyStateChange}
@@ -918,6 +921,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                                 onToggleRead={onToggleRead}
                                 onOpenThread={onOpenThread}
                                 readOnly={readOnly}
+                                allowReadTracking={allowReadTracking}
                                 parentComment={comment}
                                 variant="mobile"
                                 onDirtyStateChange={onDirtyStateChange}

@@ -29,6 +29,7 @@ interface PostCardProps {
   currentUserId?: number;
   'data-testid'?: string;
   readOnly?: boolean; // Disable all interactive features (for history view)
+  allowReadTracking?: boolean; // Show faded read state and toggle button (default true)
 }
 
 // Memoized comment list that only re-renders when commentTree changes
@@ -48,6 +49,7 @@ const CommentList = memo(function CommentList({
   onToggleRead,
   onOpenThread,
   readOnly,
+  allowReadTracking,
 }: {
   commentTree: CommentTreeNode[];
   gameId: number;
@@ -63,6 +65,7 @@ const CommentList = memo(function CommentList({
   onToggleRead: (commentId: number, currentlyRead: boolean) => void;
   onOpenThread: (comment: Message) => void;
   readOnly: boolean;
+  allowReadTracking: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -85,6 +88,7 @@ const CommentList = memo(function CommentList({
           onToggleRead={onToggleRead}
           onOpenThread={onOpenThread}
           readOnly={readOnly}
+          allowReadTracking={allowReadTracking}
           parentComment={null}
         />
       ))}
@@ -92,7 +96,7 @@ const CommentList = memo(function CommentList({
   );
 });
 
-export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false }: PostCardProps) {
+export const PostCard = React.memo(function PostCard({ post, gameId, characters, controllableCharacters, onCreateComment, onPostUpdated, currentUserId, 'data-testid': dataTestId, readOnly = false, allowReadTracking = true }: PostCardProps) {
   const [showComments, setShowComments] = useState(true);
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentTree, setCommentTree] = useState<CommentTreeNode[]>([]);
@@ -123,12 +127,10 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
   // Local state to preserve unread IDs and prevent auto-clearing
   const [localUnreadCommentIDs, setLocalUnreadCommentIDs] = useState<number[]>([]);
 
-  // Manual read tracking — suppressed in read-only (history) view since fading
-  // has no workflow value when users can no longer change the state
   const commentReadModeRaw = useCommentReadMode();
-  const commentReadMode = readOnly ? 'auto' : commentReadModeRaw;
+  const commentReadMode = allowReadTracking ? commentReadModeRaw : 'auto';
   const manualReadCommentIDsRaw = usePostManualReadCommentIDs(gameId, post.id);
-  const manualReadCommentIDs = readOnly ? [] : manualReadCommentIDsRaw;
+  const manualReadCommentIDs = allowReadTracking ? manualReadCommentIDsRaw : [];
   const toggleCommentReadMutation = useToggleCommentRead();
 
   const handleToggleRead = useCallback((commentId: number, currentlyRead: boolean) => {
@@ -665,6 +667,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
                 onToggleRead={handleToggleRead}
                 onOpenThread={handleOpenThread}
                 readOnly={readOnly}
+                allowReadTracking={allowReadTracking}
               />
 
               {/* Load More Button */}
@@ -720,6 +723,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
           commentReadMode={commentReadMode}
           onToggleRead={handleToggleRead}
           readOnly={readOnly}
+          allowReadTracking={allowReadTracking}
         />
       )}
     </div>

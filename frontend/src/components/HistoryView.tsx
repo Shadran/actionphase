@@ -22,9 +22,10 @@ interface HistoryViewProps {
   currentPhaseId?: number;
   isGM?: boolean;
   isAudience?: boolean;
+  isGameCompleted?: boolean;
 }
 
-export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience = false }: HistoryViewProps) {
+export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience = false, isGameCompleted = false }: HistoryViewProps) {
   const gameContext = useOptionalGameContext();
   const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
   const [selectedPhaseId, setSelectedPhaseId] = useUrlParam<number | null>(
@@ -192,6 +193,7 @@ export function HistoryView({ gameId, currentPhaseId, isGM = false, isAudience =
             phaseDescription={selectedPhase.description}
             isCurrentPhase={false} // Always read-only in history view
             isGM={isGM}
+            isGameCompleted={isGameCompleted}
           />
         ) : (
           <div className="surface-base rounded-lg shadow-md p-6">
