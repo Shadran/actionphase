@@ -11,7 +11,7 @@ vi.mock('../../hooks/useRecentComments');
 
 // Mock read tracking hooks
 vi.mock('../../hooks/useReadTracking', () => ({
-  useManualReadCommentIDs: () => ({ data: [] }),
+  useManualReadCommentIDs: () => ({ data: [], refetch: vi.fn() }),
   useToggleCommentRead: () => ({ mutate: vi.fn() }),
 }));
 

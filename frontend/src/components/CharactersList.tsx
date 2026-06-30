@@ -133,7 +133,7 @@ export function CharactersList({
     if (gameState === 'completed' || gameState === 'cancelled') return false;
     if (userRole === 'gm') return true;
     // Players must be active participants to create characters
-    if (userRole === 'player' && isParticipant && (gameState === 'character_creation' || gameState === 'setup')) return true;
+    if (userRole === 'player' && isParticipant && (gameState === 'character_creation' || gameState === 'in_progress')) return true;
     return false;
   };
 

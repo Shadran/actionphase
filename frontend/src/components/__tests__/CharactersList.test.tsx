@@ -101,7 +101,7 @@ describe('CharactersList', () => {
       )
 
       renderWithProviders(
-        <CharactersList gameId={123} userRole="player" currentUserId={1} gameState="setup" isParticipant={true} />,
+        <CharactersList gameId={123} userRole="player" currentUserId={1} gameState="in_progress" isParticipant={true} />,
       { gameId: 123 })
 
       await waitFor(() => {
@@ -305,15 +305,13 @@ describe('CharactersList', () => {
         { gameId: 123 }
       )
 
+      // Wait for both the NPC to render AND the controllable-characters fetch to resolve
+      // (which determines whether the audience member sees "Edit Sheet" vs "View Sheet")
       await waitFor(() => {
-        expect(screen.getAllByText('Audience NPC')[0]).toBeInTheDocument()
+        const editButtons = screen.getAllByTestId('edit-character-button')
+        const npcEditButton = editButtons.find(btn => btn.textContent === 'Edit Sheet')
+        expect(npcEditButton).toBeTruthy()
       })
-
-      // The NPC sheet button should say "Edit Sheet" (not "View Sheet") because the
-      // audience member is the assigned controller of this NPC
-      const editButtons = screen.getAllByTestId('edit-character-button')
-      const npcEditButton = editButtons.find(btn => btn.textContent === 'Edit Sheet')
-      expect(npcEditButton).toBeTruthy()
     })
   })
 
@@ -336,6 +334,28 @@ describe('CharactersList', () => {
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Create Character' })).toBeInTheDocument()
       })
+    })
+
+    it('should show create button for participant player in in_progress state', async () => {
+      renderWithProviders(
+        <CharactersList gameId={123} userRole="player" currentUserId={1} gameState="in_progress" isParticipant={true} />,
+      { gameId: 123 })
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Character' })).toBeInTheDocument()
+      })
+    })
+
+    it('should NOT show create button for non-participant player in in_progress state', async () => {
+      renderWithProviders(
+        <CharactersList gameId={123} userRole="player" currentUserId={1} gameState="in_progress" isParticipant={false} />,
+      { gameId: 123 })
+
+      await waitFor(() => {
+        expect(screen.getByText('Characters')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByRole('button', { name: 'Create Character' })).not.toBeInTheDocument()
     })
 
     it('should NOT show create button for player in active state', async () => {
@@ -421,8 +441,9 @@ describe('CharactersList', () => {
       })
     })
 
-    it('should show create button for participant player in setup', async () => {
-      // Active participant in setup phase
+    it('should NOT show create button for participant player in setup (participants do not exist in setup)', async () => {
+      // Participants are created on recruitment → character_creation transition,
+      // so no player is ever a participant during setup.
       renderWithProviders(
         <CharactersList
           gameId={123}
@@ -434,8 +455,10 @@ describe('CharactersList', () => {
       { gameId: 123 })
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Create Character' })).toBeInTheDocument()
+        expect(screen.getByText('Characters')).toBeInTheDocument()
       })
+
+      expect(screen.queryByRole('button', { name: 'Create Character' })).not.toBeInTheDocument()
     })
 
     it('GM should see create button regardless of isParticipant prop', async () => {
