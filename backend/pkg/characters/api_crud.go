@@ -184,6 +184,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(ctx)
 	var isGM bool
 	var isOwner bool
+	var isAssignedUser bool
 	var userRole string
 	if authUser != nil {
 		isGM = core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
@@ -206,12 +207,19 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 				userRole = "player"
 			}
 		}
+		// Check if user is the assigned controller of this NPC
+		if character.CharacterType == "npc" {
+			queries := models.New(h.App.Pool)
+			if assignment, err := queries.GetNPCAssignment(ctx, character.ID); err == nil {
+				isAssignedUser = assignment.AssignedUserID == authUser.ID
+			}
+		}
 	}
 
-	// Filter pending/rejected characters for non-GMs AND non-owners in in_progress games
+	// Filter pending/rejected characters for non-GMs, non-owners, and non-assigned users in in_progress games
 	// This prevents information disclosure about OTHER players' characters that haven't been approved
-	// But allows players to see their own pending/rejected characters
-	if game.State.String == "in_progress" && !isGM && !isOwner {
+	// But allows players to see their own pending/rejected characters, and audience members to see their assigned NPCs
+	if game.State.String == "in_progress" && !isGM && !isOwner && !isAssignedUser {
 		if character.Status.String == "pending" || character.Status.String == "rejected" {
 			h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Get character not found")
 			return

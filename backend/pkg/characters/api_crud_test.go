@@ -777,3 +777,64 @@ func TestCharacterAPI_ValidationErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestGetCharacter_AudienceAssignedPendingNPC_InProgress tests that an audience member
+// can fetch a pending NPC that has been assigned to them, even when the game is in_progress.
+// Regression test for: assigned audience members getting 404 on GetCharacter for their pending NPCs.
+func TestGetCharacter_AudienceAssignedPendingNPC_InProgress(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "npc_assignments", "characters", "game_participants", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupCharacterTestRouter(app, testDB)
+	ctx := context.Background()
+
+	gmUser := testDB.CreateTestUser(t, "npc_gm", "npc_gm@example.com")
+	audienceUser := testDB.CreateTestUser(t, "npc_audience", "npc_audience@example.com")
+	otherPlayer := testDB.CreateTestUser(t, "npc_other", "npc_other@example.com")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	characterService := &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	game := testDB.CreateTestGameWithState(t, int32(gmUser.ID), "NPC Test Game", "in_progress")
+
+	_, err := gameService.AddGameParticipant(ctx, game.ID, int32(audienceUser.ID), "audience")
+	core.AssertNoError(t, err, "Adding audience user should succeed")
+	_, err = gameService.AddGameParticipant(ctx, game.ID, int32(otherPlayer.ID), "player")
+	core.AssertNoError(t, err, "Adding other player should succeed")
+
+	// Create a pending NPC and assign to the audience user
+	pendingNPC, err := characterService.CreateCharacter(ctx, db.CreateCharacterRequest{
+		GameID:        game.ID,
+		Name:          "Pending Assigned NPC",
+		CharacterType: "npc",
+	})
+	core.AssertNoError(t, err, "Creating pending NPC should succeed")
+	core.AssertEqual(t, "pending", pendingNPC.Status.String, "NPC should start as pending")
+
+	err = characterService.AssignNPCToUser(ctx, pendingNPC.ID, int32(audienceUser.ID), int32(gmUser.ID))
+	core.AssertNoError(t, err, "Assigning NPC to audience user should succeed")
+
+	audienceToken, _ := createTestAuthToken(app, audienceUser)
+	otherPlayerToken, _ := createTestAuthToken(app, otherPlayer)
+	charURL := "/api/v1/characters/" + strconv.Itoa(int(pendingNPC.ID)) + "/"
+
+	t.Run("assigned audience user can fetch their pending NPC", func(t *testing.T) {
+		req := httptest.NewRequest("GET", charURL, nil)
+		req.Header.Set("Authorization", "Bearer "+audienceToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusOK, w.Code, "Assigned audience user should get 200, not 404")
+	})
+
+	t.Run("unassigned player cannot fetch pending NPC", func(t *testing.T) {
+		req := httptest.NewRequest("GET", charURL, nil)
+		req.Header.Set("Authorization", "Bearer "+otherPlayerToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, http.StatusNotFound, w.Code, "Unassigned player should get 404 for pending NPC")
+	})
+}

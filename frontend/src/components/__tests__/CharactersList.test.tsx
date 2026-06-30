@@ -273,6 +273,50 @@ describe('CharactersList', () => {
     })
   })
 
+  describe('Role-based visibility (Audience)', () => {
+    const pendingAudienceNPC: Character = {
+      id: 10,
+      name: 'Audience NPC',
+      game_id: 123,
+      character_type: 'npc',
+      status: 'pending',
+      assigned_user_id: 5,
+      assigned_username: 'audienceuser',
+      attributes: {},
+      inventory: [],
+      notes: '',
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    }
+
+    it('audience member with assigned pending NPC in in_progress game can edit the NPC sheet', async () => {
+      server.use(
+        http.get('http://localhost:3000/api/v1/games/:gameId/characters', () => {
+          return HttpResponse.json([...mockCharacters, pendingAudienceNPC])
+        }),
+        http.get('http://localhost:3000/api/v1/games/:gameId/characters/controllable', () => {
+          // Backend returns assigned pending NPCs to their assignee
+          return HttpResponse.json([pendingAudienceNPC])
+        })
+      )
+
+      renderWithProviders(
+        <CharactersList gameId={123} userRole="audience" currentUserId={5} gameState="in_progress" />,
+        { gameId: 123 }
+      )
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Audience NPC')[0]).toBeInTheDocument()
+      })
+
+      // The NPC sheet button should say "Edit Sheet" (not "View Sheet") because the
+      // audience member is the assigned controller of this NPC
+      const editButtons = screen.getAllByTestId('edit-character-button')
+      const npcEditButton = editButtons.find(btn => btn.textContent === 'Edit Sheet')
+      expect(npcEditButton).toBeTruthy()
+    })
+  })
+
   describe('Create Character button', () => {
     it('should show create button for GM in setup state', async () => {
       renderWithProviders(
