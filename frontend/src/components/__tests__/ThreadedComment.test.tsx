@@ -1789,6 +1789,90 @@ describe('ThreadedComment', () => {
     });
   });
 
+  describe('Hide deleted comments with no children', () => {
+    it('does not render a deleted reply with reply_count=0 in the lazy-load path', async () => {
+      const deletedLeafReply: Message = {
+        id: 50,
+        game_id: mockGameId,
+        parent_id: 1,
+        author_id: 200,
+        character_id: 3,
+        content: 'Deleted leaf',
+        message_type: 'comment',
+        thread_depth: 1,
+        author_username: 'someone',
+        character_name: 'Ghost',
+        reply_count: 0,
+        is_deleted: true,
+        is_edited: false,
+        created_at: '2025-01-15T11:00:00Z',
+        updated_at: '2025-01-15T11:00:00Z',
+      };
+
+      server.use(
+        http.get('/api/v1/games/:gameId/posts/:postId/comments', () => {
+          return HttpResponse.json([deletedLeafReply]);
+        })
+      );
+
+      renderWithProviders(
+        <ThreadedComment
+          comment={mockCommentWithReplies}
+          gameId={mockGameId}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(screen.queryByText('[Comment deleted]')).not.toBeInTheDocument();
+    });
+
+    it('still renders a deleted reply that has replies (reply_count > 0)', async () => {
+      const deletedWithChildren: Message = {
+        id: 51,
+        game_id: mockGameId,
+        parent_id: 1,
+        author_id: 200,
+        character_id: 3,
+        content: 'Deleted middle',
+        message_type: 'comment',
+        thread_depth: 1,
+        author_username: 'someone',
+        character_name: 'Ghost',
+        reply_count: 1,
+        is_deleted: true,
+        is_edited: false,
+        created_at: '2025-01-15T11:00:00Z',
+        updated_at: '2025-01-15T11:00:00Z',
+      };
+
+      server.use(
+        http.get('/api/v1/games/:gameId/posts/:postId/comments', () => {
+          return HttpResponse.json([deletedWithChildren]);
+        })
+      );
+
+      renderWithProviders(
+        <ThreadedComment
+          comment={mockCommentWithReplies}
+          gameId={mockGameId}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onCreateReply={mockOnCreateReply}
+          currentUserId={mockCurrentUserId}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.queryAllByText('[Comment deleted]').length).toBeGreaterThanOrEqual(1);
+      });
+    });
+  });
+
   describe('Bug #2: Parent link navigation', () => {
     it('should link to post in common room when parent is a post (thread_depth === 1)', () => {
       // Top-level reply to a post (thread_depth === 1)

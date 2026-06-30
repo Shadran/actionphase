@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCommentTree, flattenCommentTree, countCommentsInTree } from './commentTree';
+import { buildCommentTree, flattenCommentTree, countCommentsInTree, pruneDeletedLeaves } from './commentTree';
 import type { CommentWithDepth } from '@/types/messages';
 
 describe('commentTree utilities', () => {
@@ -262,6 +262,62 @@ describe('commentTree utilities', () => {
 
       // Assert
       expect(flattened).toHaveLength(0);
+    });
+  });
+
+  describe('pruneDeletedLeaves', () => {
+    it('removes a deleted top-level comment with no children', () => {
+      const comments: CommentWithDepth[] = [
+        { id: 1, depth: 0, parent_id: undefined, content: 'Active', is_deleted: false, created_at: '2024-01-01T12:00:00Z' } as CommentWithDepth,
+        { id: 2, depth: 0, parent_id: undefined, content: 'Deleted leaf', is_deleted: true, created_at: '2024-01-01T12:01:00Z' } as CommentWithDepth,
+      ];
+      const tree = buildCommentTree(comments);
+      const pruned = pruneDeletedLeaves(tree);
+
+      expect(pruned).toHaveLength(1);
+      expect(pruned[0].id).toBe(1);
+    });
+
+    it('keeps a deleted comment that has surviving children', () => {
+      const comments: CommentWithDepth[] = [
+        { id: 1, depth: 0, parent_id: undefined, content: 'Deleted middle', is_deleted: true, created_at: '2024-01-01T12:00:00Z' } as CommentWithDepth,
+        { id: 2, depth: 1, parent_id: 1, content: 'Active child', is_deleted: false, created_at: '2024-01-01T12:01:00Z' } as CommentWithDepth,
+      ];
+      const tree = buildCommentTree(comments);
+      const pruned = pruneDeletedLeaves(tree);
+
+      expect(pruned).toHaveLength(1);
+      expect(pruned[0].id).toBe(1);
+      expect(pruned[0].children).toHaveLength(1);
+      expect(pruned[0].children[0].id).toBe(2);
+    });
+
+    it('removes a deleted child when all its descendants are also deleted', () => {
+      const comments: CommentWithDepth[] = [
+        { id: 1, depth: 0, parent_id: undefined, content: 'Active root', is_deleted: false, created_at: '2024-01-01T12:00:00Z' } as CommentWithDepth,
+        { id: 2, depth: 1, parent_id: 1, content: 'Deleted', is_deleted: true, created_at: '2024-01-01T12:01:00Z' } as CommentWithDepth,
+        { id: 3, depth: 2, parent_id: 2, content: 'Also deleted', is_deleted: true, created_at: '2024-01-01T12:02:00Z' } as CommentWithDepth,
+      ];
+      const tree = buildCommentTree(comments);
+      const pruned = pruneDeletedLeaves(tree);
+
+      expect(pruned).toHaveLength(1);
+      expect(pruned[0].id).toBe(1);
+      expect(pruned[0].children).toHaveLength(0);
+    });
+
+    it('keeps a deleted middle node when a live comment exists below it', () => {
+      const comments: CommentWithDepth[] = [
+        { id: 1, depth: 0, parent_id: undefined, content: 'Active root', is_deleted: false, created_at: '2024-01-01T12:00:00Z' } as CommentWithDepth,
+        { id: 2, depth: 1, parent_id: 1, content: 'Deleted middle', is_deleted: true, created_at: '2024-01-01T12:01:00Z' } as CommentWithDepth,
+        { id: 3, depth: 2, parent_id: 2, content: 'Live grandchild', is_deleted: false, created_at: '2024-01-01T12:02:00Z' } as CommentWithDepth,
+      ];
+      const tree = buildCommentTree(comments);
+      const pruned = pruneDeletedLeaves(tree);
+
+      expect(pruned[0].children).toHaveLength(1);
+      expect(pruned[0].children[0].id).toBe(2);
+      expect(pruned[0].children[0].children[0].id).toBe(3);
     });
   });
 

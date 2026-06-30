@@ -14,7 +14,7 @@ import { useCommentReadMode } from '../hooks/useUserPreferences';
 import { useUpdatePost } from '../hooks';
 import { Button, Select } from './ui';
 import { logger } from '@/services/LoggingService';
-import { buildCommentTree, type CommentTreeNode } from '../lib/utils/commentTree';
+import { buildCommentTree, pruneDeletedLeaves, type CommentTreeNode } from '../lib/utils/commentTree';
 import { COMMENT_MAX_DEPTH } from '@/config/comments';
 import { usePostCollapseState } from '../hooks/usePostCollapseState';
 import { useOptionalGameContext } from '../contexts/GameContext';
@@ -182,7 +182,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
           );
           if (isMounted) {
             // Build tree from flat array
-            const tree = buildCommentTree(response.data.comments);
+            const tree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
             setCommentTree(tree);
             setTotalTopLevel(response.data.total_top_level);
             setReturnedTopLevel(response.data.returned_top_level);
@@ -239,7 +239,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
         0,
         5 // max_depth
       );
-      const tree = buildCommentTree(response.data.comments);
+      const tree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
       setCommentTree(tree);
       setTotalTopLevel(response.data.total_top_level);
       setReturnedTopLevel(response.data.returned_top_level);
@@ -263,7 +263,7 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
         offset,
         5 // max_depth
       );
-      const newTree = buildCommentTree(response.data.comments);
+      const newTree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
       setCommentTree(prev => [...prev, ...newTree]);
       setReturnedTopLevel(prev => prev + response.data.returned_top_level);
       setHasMore(response.data.has_more);

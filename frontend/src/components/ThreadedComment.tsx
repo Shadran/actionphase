@@ -182,7 +182,7 @@ export const ThreadedComment = memo(function ThreadedComment({
       setLoadingReplies(true);
       const response = await apiClient.messages.getPostComments(gameId, comment.id);
       if (isMountedRef.current) {
-        setReplies(response.data);
+        setReplies(response.data.filter(r => !r.is_deleted || (r.reply_count ?? 0) > 0));
         hasLoadedRef.current = true; // Only mark as loaded after successful state update
       }
     } catch (_err) {
@@ -383,7 +383,8 @@ export const ThreadedComment = memo(function ThreadedComment({
           setLoadingReplies(true);
           const response = await apiClient.messages.getPostComments(gameId, comment.id);
           if (isMountedRef.current) {
-            setReplies(response.data);
+            const visibleReplies = response.data.filter(r => !r.is_deleted || (r.reply_count ?? 0) > 0);
+            setReplies(visibleReplies);
             // Update comment reply_count to match actual count from server
             setComment(prev => ({ ...prev, reply_count: response.data.length }));
             hasLoadedRef.current = true;

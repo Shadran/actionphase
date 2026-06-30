@@ -71,6 +71,21 @@ export function buildCommentTree(comments: CommentWithDepth[]): CommentTreeNode[
 }
 
 /**
+ * Recursively removes deleted comments that have no children.
+ * A deleted comment is only kept when it has surviving descendants (to preserve
+ * thread structure). This runs bottom-up: children are pruned first, then the
+ * parent is evaluated based on the post-prune children array.
+ */
+export function pruneDeletedLeaves(nodes: CommentTreeNode[]): CommentTreeNode[] {
+  return nodes
+    .map(node => {
+      const children = pruneDeletedLeaves(node.children);
+      return { ...node, children, reply_count: children.length };
+    })
+    .filter(node => !node.is_deleted || node.children.length > 0);
+}
+
+/**
  * Flattens a comment tree back into a flat array (useful for rendering)
  *
  * @param tree - Tree of comments with children
