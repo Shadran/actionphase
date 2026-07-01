@@ -79,7 +79,7 @@ export interface UpdateMessageRequest {
 }
 
 // Read tracking types
-interface ConversationReadInfo {
+export interface ConversationReadInfo {
   conversation_id: number;
   unread_count: number;
   first_unread_message_id?: number;

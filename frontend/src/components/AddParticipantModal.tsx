@@ -85,7 +85,7 @@ export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess, 
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, selectedUser]);
+  }, [searchQuery, selectedUser, excludeUserIds]);
 
   // Keep dropdown position in sync if the window is resized while open
   useEffect(() => {

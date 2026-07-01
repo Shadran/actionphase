@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import type { UserGameRole } from '../contexts/GameContext';
 import type { GameWithDetails, GameParticipant } from '../types/games';
 
 export interface GamePermissions {

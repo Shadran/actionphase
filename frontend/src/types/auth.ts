@@ -33,7 +33,7 @@ export interface AuthResponse {
   token?: string; // Keep lowercase for backward compatibility
 }
 
-interface AuthError {
+export interface AuthError {
   message: string;
 }
 

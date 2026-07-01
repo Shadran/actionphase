@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import type { UnifiedDeadline } from '../types/deadlines';
-import { getDeadlineUrgency, type DeadlineUrgencyLevel } from '../utils/deadlineUrgency';
+import { getDeadlineUrgency } from '../utils/deadlineUrgency';
 
 
 interface DeadlineCardProps {

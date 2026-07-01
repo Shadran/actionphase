@@ -53,13 +53,6 @@ export function setCorrelationId(correlationId: string | null): void {
 }
 
 /**
- * Get the current correlation ID
- */
-function getCorrelationId(): string | null {
-  return currentCorrelationId;
-}
-
-/**
  * Add correlation ID to log metadata if available
  */
 function enrichMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {

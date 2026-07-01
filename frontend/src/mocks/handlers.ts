@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 
 // MSW v2 - using path patterns to match requests regardless of protocol/host
 // This works for both relative URLs (axios with empty baseURL) and absolute URLs
-const handlers = [
+export const handlers = [
   // Auth endpoints
   http.post('/api/v1/auth/register', () => {
     return HttpResponse.json({

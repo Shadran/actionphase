@@ -54,7 +54,7 @@ export interface AssignNPCRequest {
   assigned_user_id: number;
 }
 
-interface ReassignCharacterRequest {
+export interface ReassignCharacterRequest {
   new_owner_user_id: number;
 }
 
