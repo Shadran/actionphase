@@ -40,7 +40,7 @@ const player2Username = getWorkerUsername('TestPlayer2');
 
 test.describe.serial('Player to Audience — UI Lifecycle', () => {
 
-  test('"Move to Audience" menu item is visible for primary GM on a player', async ({ page }) => {
+  test('"Move to Former Players" menu item is visible for primary GM on a player', async ({ page }) => {
     await loginAs(page, 'GM');
 
     const gamePage = new GameDetailsPage(page);
@@ -54,7 +54,7 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
 
-    await expect(page.getByRole('menuitem', { name: 'Move to Audience' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Move to Former Players' })).toBeVisible();
   });
 
   test('Confirmation modal opens with warning and "confirm" input', async ({ page }) => {
@@ -68,14 +68,14 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
 
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
-    await page.getByRole('menuitem', { name: 'Move to Audience' }).click();
+    await page.getByRole('menuitem', { name: 'Move to Former Players' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Move Player to Audience?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Transition Player Out of Game?' })).toBeVisible();
     await expect(page.getByText('This action cannot be reversed')).toBeVisible();
     await expect(page.getByText('Their character(s) will remain active')).toBeVisible();
 
     // Submit must be disabled until "confirm" is typed
-    const submitButton = page.getByRole('button', { name: 'Move to Audience' }).last();
+    const submitButton = page.getByRole('button', { name: 'Move to Former Players' }).last();
     await expect(submitButton).toBeDisabled();
   });
 
@@ -90,10 +90,10 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
 
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
-    await page.getByRole('menuitem', { name: 'Move to Audience' }).click();
+    await page.getByRole('menuitem', { name: 'Move to Former Players' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Move Player to Audience?' })).toBeVisible();
-    const submitButton = page.getByRole('button', { name: 'Move to Audience' }).last();
+    await expect(page.getByRole('heading', { name: 'Transition Player Out of Game?' })).toBeVisible();
+    const submitButton = page.getByRole('button', { name: 'Move to Former Players' }).last();
     const confirmInput = page.getByPlaceholder('confirm');
 
     await confirmInput.fill('confi');
@@ -120,14 +120,14 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
 
     const player2Card = page.getByTestId('participant-card').filter({ hasText: player2Username });
     await player2Card.getByRole('button', { name: 'Participant actions' }).click();
-    await page.getByRole('menuitem', { name: 'Move to Audience' }).click();
+    await page.getByRole('menuitem', { name: 'Move to Former Players' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Move Player to Audience?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Transition Player Out of Game?' })).toBeVisible();
 
     const confirmInput = page.getByPlaceholder('confirm');
     await confirmInput.fill('confirm');
 
-    const submitButton = page.getByRole('button', { name: 'Move to Audience' }).last();
+    const submitButton = page.getByRole('button', { name: 'Move to Former Players' }).last();
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
 
@@ -172,7 +172,7 @@ test.describe.serial('Player to Audience — UI Lifecycle', () => {
     await formerPlayerCard.getByRole('button', { name: 'Participant actions' }).click();
 
     // "Move to Audience" must not appear — player is already audience
-    await expect(page.getByRole('menuitem', { name: 'Move to Audience' })).not.toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Move to Former Players' })).not.toBeVisible();
     // Audience members can be promoted to co-GM
     await expect(page.getByRole('menuitem', { name: 'Promote to Co-GM' })).toBeVisible();
 
@@ -342,7 +342,7 @@ test.describe('Player to Audience — Post-Transition Consequences', () => {
 
     await formerPlayerCard.getByRole('button', { name: 'Participant actions' }).click();
 
-    await expect(page.getByRole('menuitem', { name: 'Move to Audience' })).not.toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Move to Former Players' })).not.toBeVisible();
 
     await page.keyboard.press('Escape');
   });
