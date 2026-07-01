@@ -84,7 +84,9 @@
   },
   "overrides": {
     "prismjs": "1.30.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "@emnapi/core": "1.11.1",
+    "@emnapi/runtime": "1.11.1"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.60.2"
