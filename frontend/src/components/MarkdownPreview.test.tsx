@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import MarkdownPreview from './MarkdownPreview';
+import { MarkdownPreview } from './MarkdownPreview';
 
 describe('MarkdownPreview', () => {
   describe('Basic Markdown Rendering', () => {

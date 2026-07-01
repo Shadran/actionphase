@@ -4,6 +4,7 @@ import { ThreadedComment } from './ThreadedComment';
 import type { Message } from '../types/messages';
 import type { Character } from '../types/characters';
 import { Button } from './ui';
+import { THREAD_VIEW_MAX_DEPTH } from '../config/comments';
 
 interface ThreadViewModalProps {
   gameId: number;
@@ -114,7 +115,7 @@ export function ThreadViewModal({
   }, [targetCommentId, showingContext]);
 
   // Strip children property from comment to force ThreadedComment to load fresh replies
-  // Comments from main view have pre-loaded children with maxDepth=5, but in thread view we want maxDepth=10
+  // Comments from main view have pre-loaded children with maxDepth=5, but in thread view we want THREAD_VIEW_MAX_DEPTH
   const stripChildren = (msg: Message): Message => {
     const { _children, ...rest } = msg as Message & { _children?: unknown };
     return rest;
@@ -189,7 +190,7 @@ export function ThreadViewModal({
                     onCommentDeleted={onClose}
                     currentUserId={currentUserId}
                     depth={0}
-                    maxDepth={10}
+                    maxDepth={THREAD_VIEW_MAX_DEPTH}
                     unreadCommentIDs={unreadCommentIDs}
                     manualReadCommentIDs={manualReadCommentIDs}
                     commentReadMode={commentReadMode}

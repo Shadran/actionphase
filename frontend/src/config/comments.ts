@@ -40,12 +40,6 @@ export const COMMENT_MAX_DEPTH_MOBILE = parseInt(
   10
 );
 
-/**
- * Thread view modal depth limit
- * When viewing a specific thread in modal, show many levels
- * Default: 10 (nearly unlimited for thread view)
- */
-export const THREAD_VIEW_MAX_DEPTH = 10;
 
 // Validate configuration
 if (COMMENT_MAX_DEPTH < 1 || COMMENT_MAX_DEPTH > 10) {
@@ -55,3 +49,10 @@ if (COMMENT_MAX_DEPTH < 1 || COMMENT_MAX_DEPTH > 10) {
 if (COMMENT_MAX_DEPTH_MOBILE < 1 || COMMENT_MAX_DEPTH_MOBILE > 10) {
   logger.error(`Invalid VITE_COMMENT_MAX_DEPTH_MOBILE: ${COMMENT_MAX_DEPTH_MOBILE}. Must be 1-10.`);
 }
+
+/**
+ * Thread view modal depth limit
+ * When viewing a specific thread in modal, show many levels
+ * Default: 10 (nearly unlimited for thread view)
+ */
+export const THREAD_VIEW_MAX_DEPTH = 10;

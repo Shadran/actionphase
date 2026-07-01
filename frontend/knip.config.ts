@@ -7,6 +7,7 @@ const config: KnipConfig = {
     'src/mocks/server.ts',
     'src/mocks/handlers.ts',
     'src/pages/*.tsx',
+    'src/**/*.test.{ts,tsx}',
   ],
   project: ['src/**/*.{ts,tsx}'],
 

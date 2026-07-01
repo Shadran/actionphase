@@ -238,32 +238,3 @@ export function logError(error: AppError, additionalContext?: Record<string, unk
   }
 }
 
-/**
- * Creates context-specific error handlers
- */
-export const errorHandlers = {
-  authentication: (error: unknown) => createAppError(error, {
-    type: ErrorType.AUTHENTICATION_ERROR,
-    category: ErrorCategory.RECOVERABLE,
-    severity: ErrorSeverity.HIGH,
-  }),
-
-  validation: (error: unknown, field?: string) => createAppError(error, {
-    type: ErrorType.VALIDATION_ERROR,
-    category: ErrorCategory.RECOVERABLE,
-    severity: ErrorSeverity.LOW,
-    metadata: field ? { field } : undefined,
-  }),
-
-  gameState: (error: unknown) => createAppError(error, {
-    type: ErrorType.GAME_STATE_ERROR,
-    category: ErrorCategory.NON_RECOVERABLE,
-    severity: ErrorSeverity.MEDIUM,
-  }),
-
-  network: (error: unknown) => createAppError(error, {
-    type: ErrorType.NETWORK_ERROR,
-    category: ErrorCategory.RECOVERABLE,
-    severity: ErrorSeverity.HIGH,
-  }),
-} as const;

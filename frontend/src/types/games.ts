@@ -205,11 +205,6 @@ export interface GameListingFilters {
   page_size?: number;
 }
 
-export const DEADLINE_URGENCY_COLORS: Record<DeadlineUrgency, string> = {
-  critical: 'bg-semantic-danger-subtle text-semantic-danger border-semantic-danger',
-  warning: 'bg-semantic-warning-subtle text-semantic-warning border-semantic-warning',
-  normal: 'surface-raised text-content-secondary border-theme-default'
-};
 
 export const USER_RELATIONSHIP_LABELS: Record<UserRelationship, string> = {
   gm: 'You are GM',
