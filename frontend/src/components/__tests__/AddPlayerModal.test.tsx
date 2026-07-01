@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test-utils/render';
 import { AddParticipantModal } from '../AddParticipantModal';
@@ -33,8 +33,13 @@ const makeMutation = (overrides = {}) => ({
 
 describe('AddParticipantModal', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     vi.mocked(useAddParticipant).mockReturnValue(makeMutation() as never);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders player title and button label for role=player', () => {
@@ -63,10 +68,9 @@ describe('AddParticipantModal', () => {
     renderWithProviders(<AddParticipantModal gameId={10} role="player" isOpen onClose={vi.fn()} />);
 
     await user.type(screen.getByPlaceholderText(/type username to search/i), 'ali');
+    await act(async () => { vi.runAllTimers(); });
 
-    await waitFor(() => {
-      expect(screen.getByText('alice')).toBeInTheDocument();
-    }, { timeout: 500 });
+    expect(screen.getByText('alice')).toBeInTheDocument();
   });
 
   it('selects a user from dropdown and enables submit button', async () => {
@@ -78,7 +82,7 @@ describe('AddParticipantModal', () => {
     renderWithProviders(<AddParticipantModal gameId={10} role="player" isOpen onClose={vi.fn()} />);
 
     await user.type(screen.getByPlaceholderText(/type username to search/i), 'ali');
-    await waitFor(() => expect(screen.getByText('alice')).toBeInTheDocument(), { timeout: 500 });
+    await act(async () => { vi.runAllTimers(); });
     await user.click(screen.getByText('alice'));
 
     expect(screen.getByRole('button', { name: /add player/i })).not.toBeDisabled();
@@ -100,7 +104,7 @@ describe('AddParticipantModal', () => {
     );
 
     await user.type(screen.getByPlaceholderText(/type username to search/i), 'ali');
-    await waitFor(() => expect(screen.getByText('alice')).toBeInTheDocument(), { timeout: 500 });
+    await act(async () => { vi.runAllTimers(); });
     await user.click(screen.getByText('alice'));
     await user.click(screen.getByRole('button', { name: /add player/i }));
 
@@ -119,10 +123,9 @@ describe('AddParticipantModal', () => {
 
     renderWithProviders(<AddParticipantModal gameId={10} role="player" isOpen onClose={vi.fn()} />);
     await user.type(screen.getByPlaceholderText(/type username to search/i), 'xyz');
+    await act(async () => { vi.runAllTimers(); });
 
-    await waitFor(() => {
-      expect(screen.getByText(/no users found matching "xyz"/i)).toBeInTheDocument();
-    }, { timeout: 500 });
+    expect(screen.getByText(/no users found matching "xyz"/i)).toBeInTheDocument();
   });
 
   it('calls onClose when Cancel is clicked', async () => {

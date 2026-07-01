@@ -254,10 +254,10 @@ describe('ParticipantActionsMenu', () => {
     });
   });
 
-  describe('Move to Audience', () => {
+  describe('Move to Former Players', () => {
     const playerParticipant: GameParticipant = { ...baseParticipant, role: 'player' };
 
-    it('shows Move to Audience for primary GM with player participant', async () => {
+    it('shows Move to Former Players for primary GM with player participant', async () => {
       const user = userEvent.setup();
       renderWithProviders(
         <ParticipantActionsMenu
@@ -267,10 +267,10 @@ describe('ParticipantActionsMenu', () => {
         />
       );
       await user.click(screen.getByRole('button', { name: /participant actions/i }));
-      expect(screen.getByRole('menuitem', { name: /move to audience/i })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: /move to former players/i })).toBeInTheDocument();
     });
 
-    it('does not show Move to Audience for non-primary GM', async () => {
+    it('does not show Move to Former Players for non-primary GM', async () => {
       const user = userEvent.setup();
       renderWithProviders(
         <ParticipantActionsMenu
@@ -280,10 +280,10 @@ describe('ParticipantActionsMenu', () => {
         />
       );
       await user.click(screen.getByRole('button', { name: /participant actions/i }));
-      expect(screen.queryByRole('menuitem', { name: /move to audience/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /move to former players/i })).not.toBeInTheDocument();
     });
 
-    it('does not show Move to Audience for audience participant', async () => {
+    it('does not show Move to Former Players for audience participant', async () => {
       const user = userEvent.setup();
       renderWithProviders(
         <ParticipantActionsMenu
@@ -293,7 +293,7 @@ describe('ParticipantActionsMenu', () => {
         />
       );
       await user.click(screen.getByRole('button', { name: /participant actions/i }));
-      expect(screen.queryByRole('menuitem', { name: /move to audience/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /move to former players/i })).not.toBeInTheDocument();
     });
 
     it('submit button is disabled until "confirm" is typed', async () => {
@@ -306,8 +306,8 @@ describe('ParticipantActionsMenu', () => {
         />
       );
       await user.click(screen.getByRole('button', { name: /participant actions/i }));
-      await user.click(screen.getByRole('menuitem', { name: /move to audience/i }));
-      const submitButton = screen.getByRole('button', { name: /^move to audience$/i });
+      await user.click(screen.getByRole('menuitem', { name: /move to former players/i }));
+      const submitButton = screen.getByRole('button', { name: /^move to former players$/i });
       expect(submitButton).toBeDisabled();
       await user.type(screen.getByPlaceholderText('confirm'), 'confirm');
       expect(submitButton).not.toBeDisabled();
@@ -327,9 +327,9 @@ describe('ParticipantActionsMenu', () => {
         />
       );
       await user.click(screen.getByRole('button', { name: /participant actions/i }));
-      await user.click(screen.getByRole('menuitem', { name: /move to audience/i }));
+      await user.click(screen.getByRole('menuitem', { name: /move to former players/i }));
       await user.type(screen.getByPlaceholderText('confirm'), 'confirm');
-      await user.click(screen.getByRole('button', { name: /^move to audience$/i }));
+      await user.click(screen.getByRole('button', { name: /^move to former players$/i }));
       await waitFor(() => {
         expect(transitionMutation.mutateAsync).toHaveBeenCalledWith(42);
         expect(onSuccess).toHaveBeenCalled();

@@ -42,7 +42,9 @@ interface DropdownPosition {
   width: number;
 }
 
-export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess, excludeUserIds = [] }: AddParticipantModalProps) {
+const EMPTY_ARRAY: number[] = [];
+
+export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess, excludeUserIds = EMPTY_ARRAY }: AddParticipantModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedUser, setSelectedUser] = useState<SearchResult | null>(null);
