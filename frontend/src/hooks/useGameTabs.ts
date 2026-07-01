@@ -161,6 +161,11 @@ export function useGameTabs({
       tabList.push({ id: 'info', label: 'Game Info', icon: icons.info });
     }
 
+    if (isGM || (gameState === 'completed' || gameState === 'cancelled')) {
+      // Game Logs for the game
+      tabList.push({ id: 'logs', 'label': 'Game Logs', icon: icons.info });
+    }
+
     return tabList;
   }, [gameState, isGM, participantCount, currentPhaseType, isParticipant, isAudience, hasCharacters, unvotedPollsCount, hasSubmittedAction]);
 

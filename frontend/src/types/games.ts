@@ -104,6 +104,15 @@ export interface GameApplication {
   reviewed_by_user_id?: number;
 }
 
+
+export interface GameLog {
+  id: number;
+  game_id: number;
+  type: string;
+  message: string;
+  created_at: string;
+}
+
 // Public applicant view (no status, message, email, or review info)
 // Available to anyone when game is in recruitment state
 export interface PublicGameApplicant {

@@ -12,7 +12,8 @@ import type {
   PublicGameApplicant,
   ReviewApplicationRequest,
   GameListingFilters,
-  GameListingResponse
+  GameListingResponse,
+  GameLog
 } from '../../types/games';
 import type {
   AudienceConversationListItem,
@@ -224,5 +225,11 @@ export class GamesApi extends BaseApiClient {
       : `/api/v1/games/${gameId}/action-submissions/all`;
 
     return this.client.get<{ action_submissions: ActionSubmission[]; total: number }>(url);
+  }
+
+  
+
+  async getGameLogs(id: number) {
+    return this.client.get<GameLog[]>(`/api/v1/games/${id}/logs`);
   }
 }
