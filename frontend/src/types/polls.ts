@@ -6,7 +6,7 @@
  * or individual voters (with character names when available).
  */
 
-export interface PollOption {
+interface PollOption {
   id: number;
   poll_id: number;
   option_text: string;
@@ -49,20 +49,20 @@ export interface PollVote {
   updated_at?: string;
 }
 
-export interface VoterInfo {
+interface VoterInfo {
   user_id: number;
   character_name: string;
   other_response?: string;
 }
 
-export interface OptionResult {
+interface OptionResult {
   poll_option_id?: number;
   option_text?: string;
   vote_count: number;
   voters?: VoterInfo[]; // Only populated if show_individual_votes is true
 }
 
-export interface OtherResponse {
+interface OtherResponse {
   vote_id: number;
   other_text: string;
   character_name: string;
@@ -77,7 +77,7 @@ export interface PollResults {
 }
 
 // Request types
-export interface CreatePollOptionRequest {
+interface CreatePollOptionRequest {
   text: string;
   display_order: number;
 }

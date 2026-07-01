@@ -2,8 +2,6 @@ import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   entry: [
-    'src/main.tsx',
-    'src/setupTests.ts',
     'src/mocks/server.ts',
     'src/mocks/handlers.ts',
     'src/pages/*.tsx',
@@ -25,8 +23,6 @@ const config: KnipConfig = {
   includeEntryExports: true,
 
   ignore: [
-    'src/vite-env.d.ts',
-    'e2e/**',
     // UI component library — exports are intentional public API for consumers
     'src/components/ui/**',
   ],
@@ -34,6 +30,8 @@ const config: KnipConfig = {
   ignoreDependencies: [
     // types for react-router-dom v5, kept for potential v5-compat imports — verify if truly needed
     '@types/react-router-dom',
+    // dompurify ships its own types in newer versions; @types/dompurify still needed for TS to resolve them
+    '@types/dompurify',
   ],
 };
 

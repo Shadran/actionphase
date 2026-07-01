@@ -33,7 +33,7 @@ export interface AuthResponse {
   token?: string; // Keep lowercase for backward compatibility
 }
 
-export interface AuthError {
+interface AuthError {
   message: string;
 }
 
@@ -47,7 +47,7 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
-export interface Session {
+interface Session {
   id: number;
   created_at: string;
   expires: string;

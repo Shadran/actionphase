@@ -23,7 +23,7 @@ export interface UserProfile {
  * Character within a game (for game history)
  * Only populated for non-anonymous games
  */
-export interface UserGameCharacter {
+interface UserGameCharacter {
   id: number;
   name: string;
   avatar_url: string | null;

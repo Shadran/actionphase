@@ -54,7 +54,7 @@ export interface AssignNPCRequest {
   assigned_user_id: number;
 }
 
-export interface ReassignCharacterRequest {
+interface ReassignCharacterRequest {
   new_owner_user_id: number;
 }
 
@@ -112,7 +112,7 @@ export interface CharacterModule {
   fields: CharacterModuleField[];
 }
 
-export interface CharacterModuleField {
+interface CharacterModuleField {
   name: string;
   type: 'text' | 'number' | 'boolean' | 'json';
   label: string;

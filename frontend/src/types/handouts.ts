@@ -29,7 +29,7 @@ export interface HandoutComment {
   deleted_by_user_id?: number | null;
 }
 
-export interface HandoutCommentWithAuthor extends HandoutComment {
+interface HandoutCommentWithAuthor extends HandoutComment {
   author_username: string;
 }
 

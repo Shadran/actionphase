@@ -31,7 +31,7 @@ export interface User {
   discord_username?: string;
 }
 
-export interface UserListResponse {
+interface UserListResponse {
   users: User[];
   total: number;
   page: number;

@@ -9,7 +9,7 @@ import type {
   User
 } from '../../types/auth';
 
-export type Theme = 'light' | 'dark' | 'auto';
+type Theme = 'light' | 'dark' | 'auto';
 export type CommentReadMode = 'auto' | 'manual';
 
 export type NotificationTypePref =
@@ -37,7 +37,7 @@ export interface DiscordStatus {
   discord_username?: string;
 }
 
-export interface DiscordConnectURL {
+interface DiscordConnectURL {
   url: string;
 }
 

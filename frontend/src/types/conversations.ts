@@ -8,7 +8,7 @@ export interface Conversation {
   updated_at: string;
 }
 
-export interface ConversationParticipant {
+interface ConversationParticipant {
   id: number;
   conversation_id: number;
   user_id: number;
@@ -79,7 +79,7 @@ export interface UpdateMessageRequest {
 }
 
 // Read tracking types
-export interface ConversationReadInfo {
+interface ConversationReadInfo {
   conversation_id: number;
   unread_count: number;
   first_unread_message_id?: number;

@@ -54,8 +54,8 @@ export type GameState =
   | 'completed'
   | 'cancelled';
 
-export type ParticipantRole = 'player' | 'co_gm' | 'audience';
-export type ParticipantStatus = 'active' | 'inactive' | 'removed';
+type ParticipantRole = 'player' | 'co_gm' | 'audience';
+type ParticipantStatus = 'active' | 'inactive' | 'removed';
 
 export interface CreateGameRequest {
   title: string;
@@ -161,8 +161,8 @@ export const APPLICATION_STATUS_COLORS: Record<ApplicationStatus, string> = {
 // Enhanced game listing types
 
 export type UserRelationship = 'gm' | 'participant' | 'applied' | 'none';
-export type DeadlineUrgency = 'critical' | 'warning' | 'normal';
-export type PhaseType = 'action' | 'common_room';
+type DeadlineUrgency = 'critical' | 'warning' | 'normal';
+type PhaseType = 'action' | 'common_room';
 
 export interface EnrichedGameListItem extends Game {
   gm_username: string;
@@ -175,7 +175,7 @@ export interface EnrichedGameListItem extends Game {
   has_recent_activity: boolean;
 }
 
-export interface GameListingMetadata {
+interface GameListingMetadata {
   total_count: number;
   filtered_count: number;
   available_states: GameState[];
