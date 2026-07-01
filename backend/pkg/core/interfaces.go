@@ -1223,53 +1223,6 @@ type EmailServiceInterface interface {
 	SendAccountDeletionScheduledEmail(ctx context.Context, email string, scheduledFor time.Time) error
 }
 
-// CaptchaServiceInterface defines the contract for CAPTCHA verification.
-// Validates hCaptcha tokens from client submissions.
-//
-// Usage Example:
-//
-//	captchaService := &captcha.HCaptchaService{
-//	    Secret: os.Getenv("HCAPTCHA_SECRET"),
-//	}
-//
-//	// Verify CAPTCHA token from registration form
-//	valid, err := captchaService.Verify(ctx, "captcha-token-from-client", "192.168.1.1")
-type CaptchaServiceInterface interface {
-	// Verify validates a CAPTCHA token
-	// Returns true if token is valid, false otherwise
-	Verify(ctx context.Context, token, remoteIP string) (bool, error)
-}
-
-// BotPreventionServiceInterface defines the contract for bot detection operations.
-// Implements multi-layer bot prevention (IP limits, disposable emails, spammy usernames).
-//
-// Usage Example:
-//
-//	botService := &botprevention.BotPreventionService{DB: pool}
-//
-//	// Check if registration should be allowed
-//	err := botService.CheckRegistrationAllowed(ctx, &RegistrationCheck{
-//	    IPAddress: "192.168.1.1",
-//	    Email: "user@example.com",
-//	    Username: "player1",
-//	    CaptchaToken: "token",
-//	    HoneypotFilled: false,
-//	})
-type BotPreventionServiceInterface interface {
-	// CheckRegistrationAllowed validates if registration should proceed
-	// Returns error with specific reason if registration should be blocked
-	CheckRegistrationAllowed(ctx context.Context, req *RegistrationCheck) error
-
-	// RecordRegistrationAttempt logs a registration attempt for analytics
-	RecordRegistrationAttempt(ctx context.Context, req *RegistrationAttempt) error
-
-	// IsDisposableEmail checks if email domain is in disposable list
-	IsDisposableEmail(email string) bool
-
-	// IsSpammyUsername checks if username contains spam patterns
-	IsSpammyUsername(username string) bool
-}
-
 // ==========================================
 // Account Security Request/Response Types
 // ==========================================
@@ -1280,27 +1233,6 @@ type SendEmailRequest struct {
 	Subject  string
 	HTMLBody string
 	TextBody string
-}
-
-// RegistrationCheck represents a request to check if registration should be allowed
-type RegistrationCheck struct {
-	IPAddress      string
-	Email          string
-	Username       string
-	CaptchaToken   string
-	HoneypotFilled bool
-}
-
-// RegistrationAttempt represents a logged registration attempt
-type RegistrationAttempt struct {
-	Email             string
-	Username          string
-	IPAddress         string
-	UserAgent         string
-	CaptchaPassed     bool
-	HoneypotTriggered bool
-	BlockedReason     string
-	Successful        bool
 }
 
 // ==========================================
