@@ -239,7 +239,8 @@ export function ParticipantActionsMenu({
                   className="block w-full text-left px-4 py-2 text-sm text-content-primary hover:bg-bg-secondary"
                   role="menuitem"
                 >
-                  Move to Audience
+                  <div>Move to Former Players</div>
+                  <div className="text-xs text-content-tertiary">For players exiting the game</div>
                 </button>
               )}
 
@@ -354,12 +355,12 @@ export function ParticipantActionsMenu({
       <Modal
         isOpen={showTransitionToAudienceConfirm}
         onClose={() => { setShowTransitionToAudienceConfirm(false); setTransitionConfirmText(''); }}
-        title="Move Player to Audience?"
+        title="Transition Player Out of Game?"
       >
         <div className="space-y-4">
           <Alert variant="warning" title="This action cannot be reversed">
             <p className="text-sm">
-              <strong>{participant?.username}</strong> will be moved to audience status.
+              <strong>{participant?.username}</strong> will be moved to the Former Players section.
             </p>
             <ul className="text-sm space-y-1 list-disc list-inside mt-2">
               <li>Their character(s) will remain active (not deactivated)</li>
@@ -369,6 +370,10 @@ export function ParticipantActionsMenu({
               Note: this does not disable posting in common rooms (to allow for meta threads / epilogue
               threads) or sending private messages, so make sure the player is aware of expectations
               around being an audience member.
+            </p>
+            <p className="text-sm mt-2 font-medium">
+              This will place them in the "Former Players" section, not Audience. To add a spectator
+              who was never a player, use "Add Audience Member" instead.
             </p>
           </Alert>
 
@@ -393,14 +398,14 @@ export function ParticipantActionsMenu({
               loading={transitionToAudience.isPending}
               disabled={transitionConfirmText.toLowerCase() !== 'confirm'}
             >
-              Move to Audience
+              Move to Former Players
             </Button>
           </div>
 
           {transitionToAudience.isError && (
             <Alert variant="danger" dismissible onDismiss={() => transitionToAudience.reset()}>
               <p className="text-sm">
-                Failed to move player to audience. {(transitionToAudience.error as Error)?.message || 'Please try again.'}
+                Failed to move player to Former Players. {(transitionToAudience.error as Error)?.message || 'Please try again.'}
               </p>
             </Alert>
           )}
