@@ -191,6 +191,11 @@ func (gs *GameService) UpdateGameState(ctx context.Context, gameID int32, newSta
 		"to_state", game.State,
 		"title", game.Title,
 	)
+	queries.CreateLog(ctx, models.CreateLogParams{
+		GameID:  gameID,
+		Type:    "GAME_STATE_CHANGE",
+		Message: pgtype.Text{String: fmt.Sprintf("Game state changed to: %s", newState), Valid: true},
+	})
 
 	// When a game is cancelled, automatically reject all pending applications
 	if newState == core.GameStateCancelled {
@@ -1279,4 +1284,11 @@ func parseHHMM(s string) (pgtype.Time, error) {
 	}
 	microseconds := int64(t.Hour())*3600*1e6 + int64(t.Minute())*60*1e6
 	return pgtype.Time{Microseconds: microseconds, Valid: true}, nil
+}
+
+// GetGameLogs - Get game logs
+func (gs *GameService) GetGameLogs(ctx context.Context, gameID int32) ([]models.GameLog, error) {
+	queries := models.New(gs.DB)
+	logs, err := queries.GetGameLogs(ctx, gameID)
+	return logs, err
 }
