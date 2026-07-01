@@ -260,6 +260,12 @@ vet:
 lint: fmt vet
   @echo "Go linting complete"
 
+# Find unreachable/dead code in backend (excludes test helpers and mocks)
+dead-code:
+  #!/usr/bin/env bash
+  cd backend && deadcode ./... 2>&1 | grep -v \
+    "pkg/core/test_\|pkg/core/mocks\|pkg/core/repository_mocks\|pkg/db/services/test_suite\|pkg/http/test_helpers\|pkg/core/test_best_practices"
+
 # ═══════════════════════════════════════════════════════════════════════════
 # BUILD COMMANDS
 # ═══════════════════════════════════════════════════════════════════════════
