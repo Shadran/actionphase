@@ -103,4 +103,3 @@ export function CharacterAutocomplete({
   );
 }
 
-export default CharacterAutocomplete;

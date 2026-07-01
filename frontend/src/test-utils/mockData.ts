@@ -1,5 +1,5 @@
 import type { User } from '../types/auth'
-import type { Game } from '../types/game'
+import type { Game } from '../types/games'
 
 /**
  * Creates a mock user for testing

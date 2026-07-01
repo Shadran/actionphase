@@ -599,4 +599,3 @@ export const CommentEditor = memo(function CommentEditor({
   );
 });
 
-export default CommentEditor;
