@@ -405,11 +405,13 @@ export function PeopleView({
             gameId={gameId}
             isOpen={showAddPlayerModal}
             onClose={() => setShowAddPlayerModal(false)}
+            excludeUserIds={participants.map(p => p.user_id)}
           />
           <AddAudienceMemberModal
             gameId={gameId}
             isOpen={showAddAudienceModal}
             onClose={() => setShowAddAudienceModal(false)}
+            excludeUserIds={participants.map(p => p.user_id)}
           />
         </>
       )}

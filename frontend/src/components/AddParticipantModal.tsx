@@ -12,6 +12,7 @@ interface AddParticipantModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  excludeUserIds?: number[];
 }
 
 interface SearchResult {
@@ -41,7 +42,7 @@ interface DropdownPosition {
   width: number;
 }
 
-export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess }: AddParticipantModalProps) {
+export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess, excludeUserIds = [] }: AddParticipantModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedUser, setSelectedUser] = useState<SearchResult | null>(null);
@@ -70,7 +71,10 @@ export function AddParticipantModal({ gameId, role, isOpen, onClose, onSuccess }
       updateDropdownPos();
       try {
         const response = await apiClient.auth.searchUsers(searchQuery);
-        setSearchResults(response.data.users);
+        const filtered = excludeUserIds.length > 0
+          ? response.data.users.filter((u: SearchResult) => !excludeUserIds.includes(u.id))
+          : response.data.users;
+        setSearchResults(filtered);
         setShowDropdown(true);
       } catch (error) {
         logger.error('Failed to search users', { error, searchQuery });

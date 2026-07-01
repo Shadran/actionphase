@@ -5,9 +5,10 @@ interface AddPlayerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  excludeUserIds?: number[];
 }
 
-export function AddPlayerModal({ gameId, isOpen, onClose, onSuccess }: AddPlayerModalProps) {
+export function AddPlayerModal({ gameId, isOpen, onClose, onSuccess, excludeUserIds }: AddPlayerModalProps) {
   return (
     <AddParticipantModal
       gameId={gameId}
@@ -15,6 +16,7 @@ export function AddPlayerModal({ gameId, isOpen, onClose, onSuccess }: AddPlayer
       isOpen={isOpen}
       onClose={onClose}
       onSuccess={onSuccess}
+      excludeUserIds={excludeUserIds}
     />
   );
 }
