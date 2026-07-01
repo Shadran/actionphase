@@ -131,7 +131,7 @@ export class GamesApi extends BaseApiClient {
     return this.client.delete(`/api/v1/games/${gameId}/participants/${userId}`);
   }
 
-  async addPlayerDirectly(gameId: number, data: { user_id: number }) {
+  async addParticipantDirectly(gameId: number, data: { user_id: number; role: 'player' | 'audience' }) {
     return this.client.post<GameParticipant>(`/api/v1/games/${gameId}/participants/direct-add`, data);
   }
 

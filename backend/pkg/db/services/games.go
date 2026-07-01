@@ -915,13 +915,15 @@ func (gs *GameService) RemovePlayer(ctx context.Context, gameID, userID, gmUserI
 	return nil
 }
 
-// AddPlayerDirectly adds a player directly to the game without application process
-func (gs *GameService) AddPlayerDirectly(ctx context.Context, gameID, userID int32) (*models.GameParticipant, error) {
+// AddParticipantWithRole adds a user directly to the game with the given role, bypassing the application process.
+// Valid roles: "player", "audience"
+func (gs *GameService) AddParticipantWithRole(ctx context.Context, gameID, userID int32, role string) (*models.GameParticipant, error) {
 	queries := models.New(gs.DB)
 
-	participant, err := queries.AddParticipantDirectly(ctx, models.AddParticipantDirectlyParams{
+	participant, err := queries.AddParticipantWithRole(ctx, models.AddParticipantWithRoleParams{
 		GameID: gameID,
 		UserID: userID,
+		Role:   role,
 	})
 
 	if err != nil {

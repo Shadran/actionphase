@@ -48,25 +48,27 @@ func (q *Queries) AddGameParticipant(ctx context.Context, arg AddGameParticipant
 	return i, err
 }
 
-const addParticipantDirectly = `-- name: AddParticipantDirectly :one
+const addParticipantWithRole = `-- name: AddParticipantWithRole :one
 INSERT INTO game_participants (game_id, user_id, role, status)
-VALUES ($1, $2, 'player', 'active')
+VALUES ($1, $2, $3, 'active')
 ON CONFLICT (game_id, user_id) DO UPDATE
 SET removed_at = NULL,
     removed_by_user_id = NULL,
     status = 'active',
+    role = EXCLUDED.role,
     joined_at = NOW()
 WHERE game_participants.removed_at IS NOT NULL
 RETURNING id, game_id, user_id, role, status, joined_at, removed_at, removed_by_user_id, is_former_player
 `
 
-type AddParticipantDirectlyParams struct {
-	GameID int32 `json:"game_id"`
-	UserID int32 `json:"user_id"`
+type AddParticipantWithRoleParams struct {
+	GameID int32  `json:"game_id"`
+	UserID int32  `json:"user_id"`
+	Role   string `json:"role"`
 }
 
-func (q *Queries) AddParticipantDirectly(ctx context.Context, arg AddParticipantDirectlyParams) (GameParticipant, error) {
-	row := q.db.QueryRow(ctx, addParticipantDirectly, arg.GameID, arg.UserID)
+func (q *Queries) AddParticipantWithRole(ctx context.Context, arg AddParticipantWithRoleParams) (GameParticipant, error) {
+	row := q.db.QueryRow(ctx, addParticipantWithRole, arg.GameID, arg.UserID, arg.Role)
 	var i GameParticipant
 	err := row.Scan(
 		&i.ID,

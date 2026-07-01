@@ -94,27 +94,27 @@ type UnifiedDeadline struct {
 }
 
 // CalculateDeadlineStatus determines urgency level based on hours remaining.
-// Returns: "critical" (<6h), "warning" (6-24h), or "normal" (>24h)
+// Returns: "critical" (<1h), "warning" (1-3h), or "normal" (>3h)
 func CalculateDeadlineStatus(deadline time.Time) string {
 	hoursRemaining := time.Until(deadline).Hours()
 
-	if hoursRemaining < 6 {
+	if hoursRemaining < 1 {
 		return "critical"
-	} else if hoursRemaining < 24 {
+	} else if hoursRemaining < 3 {
 		return "warning"
 	}
 	return "normal"
 }
 
 // IsGameUrgent determines if a game should be marked as urgent.
-// A game is urgent if it has a deadline <24h AND the user has a pending action.
+// A game is urgent if it has a deadline <3h AND the user has a pending action.
 func IsGameUrgent(hasPendingAction bool, deadline *time.Time) bool {
 	if deadline == nil {
 		return false
 	}
 
 	hoursRemaining := time.Until(*deadline).Hours()
-	return hasPendingAction && hoursRemaining < 24
+	return hasPendingAction && hoursRemaining < 3
 }
 
 // TruncateContent truncates message content to a specified length for previews.

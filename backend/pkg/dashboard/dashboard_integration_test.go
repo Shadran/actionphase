@@ -192,7 +192,7 @@ func TestDashboardAPI_GetUserDashboard_WithUrgentGame(t *testing.T) {
 		InGame(game).
 		ActionPhase().
 		Active().
-		WithDeadline(time.Now().Add(3 * time.Hour)).
+		WithDeadline(time.Now().Add(30 * time.Minute)).
 		Create()
 
 	// Create pending action

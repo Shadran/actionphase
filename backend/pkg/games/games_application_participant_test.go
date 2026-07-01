@@ -177,7 +177,7 @@ func TestGameAPI_ApplicationManagement(t *testing.T) {
 }
 
 // TestGameAPI_ParticipantManagementAdvanced tests GM participant management
-// Covers: AddPlayerDirectly, RemovePlayer
+// Covers: AddParticipantDirectly (player and audience roles), RemovePlayer
 func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
@@ -226,12 +226,13 @@ func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 	core.AssertNoError(t, err, "Game creation should succeed")
 
 	t.Run("add_player_directly_as_gm", func(t *testing.T) {
-		payload := map[string]int32{
+		payload := map[string]interface{}{
 			"user_id": int32(player1.ID),
+			"role":    "player",
 		}
 		payloadBytes, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants", bytes.NewBuffer(payloadBytes))
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+gmToken)
 		w := httptest.NewRecorder()
@@ -252,13 +253,48 @@ func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 		core.AssertEqual(t, player1.Username, participants[0]["username"].(string), "Username should match")
 	})
 
-	t.Run("add_player_directly_as_non_gm", func(t *testing.T) {
-		payload := map[string]int32{
+	t.Run("add_audience_directly_as_gm", func(t *testing.T) {
+		payload := map[string]interface{}{
 			"user_id": int32(player2.ID),
+			"role":    "audience",
 		}
 		payloadBytes, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants", bytes.NewBuffer(payloadBytes))
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, 201, w.Code, "Should return 201 Created for audience role")
+	})
+
+	t.Run("add_participant_directly_invalid_role", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id": int32(player2.ID),
+			"role":    "co_gm",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		core.AssertEqual(t, 400, w.Code, "Should return 400 for invalid role")
+	})
+
+	t.Run("add_player_directly_as_non_gm", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id": int32(player2.ID),
+			"role":    "player",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+player1Token)
 		w := httptest.NewRecorder()
@@ -269,10 +305,10 @@ func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 	})
 
 	t.Run("add_player_directly_missing_user_id", func(t *testing.T) {
-		payload := map[string]string{}
+		payload := map[string]string{"role": "player"}
 		payloadBytes, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants", bytes.NewBuffer(payloadBytes))
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+gmToken)
 		w := httptest.NewRecorder()
@@ -283,12 +319,13 @@ func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 	})
 
 	t.Run("add_player_directly_unauthorized", func(t *testing.T) {
-		payload := map[string]int32{
+		payload := map[string]interface{}{
 			"user_id": int32(player2.ID),
+			"role":    "player",
 		}
 		payloadBytes, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants", bytes.NewBuffer(payloadBytes))
+		req := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/participants/direct-add", bytes.NewBuffer(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 

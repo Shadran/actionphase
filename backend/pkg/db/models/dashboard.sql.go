@@ -311,7 +311,7 @@ SELECT
   gp.phase_number,
   gp.deadline as end_time,
   CASE
-    WHEN gp.phase_type = 'action' THEN
+    WHEN gp.phase_type = 'action' AND part.user_id IS NOT NULL THEN
       (SELECT CASE WHEN COUNT(*) = 0 THEN true
                    WHEN bool_or(is_draft = true) THEN true
                    ELSE false END
