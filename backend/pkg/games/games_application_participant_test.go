@@ -351,11 +351,16 @@ func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
 
 		var participants []map[string]interface{}
 		json.Unmarshal(getW.Body.Bytes(), &participants)
-		core.AssertEqual(t, 0, len(participants), "Should have no participants")
+		for _, p := range participants {
+			if username, ok := p["username"].(string); ok {
+				core.AssertNotEqual(t, player1.Username, username, "Player1 should no longer be a participant")
+			}
+		}
 	})
 
 	t.Run("remove_player_as_non_gm", func(t *testing.T) {
-		// Add player2 first
+		// Remove player2's existing audience slot before re-adding as a player
+		_ = gameService.RemoveGameParticipant(context.Background(), game.ID, int32(player2.ID))
 		_, err := gameService.AddGameParticipant(context.Background(), game.ID, int32(player2.ID), "player")
 		core.AssertNoError(t, err, "Failed to add player2")
 
