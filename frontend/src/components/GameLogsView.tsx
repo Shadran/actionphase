@@ -1,4 +1,3 @@
-import { useToast } from "@/contexts/ToastContext";
 import { apiClient } from "@/lib/api";
 import type { GameLog } from "@/types/games";
 import { useCallback, useEffect, useState } from "react";
@@ -9,7 +8,6 @@ export interface GameLogsViewProps {
 }
 
 export const GameLogsView = ({ gameId } : GameLogsViewProps) => {
-    const { showError } = useToast();
     const [logs, setLogs] = useState<GameLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
