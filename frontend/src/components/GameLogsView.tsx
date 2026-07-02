@@ -9,7 +9,6 @@ export interface GameLogsViewProps {
 }
 
 export const GameLogsView = ({ gameId } : GameLogsViewProps) => {
-    const { showError } = useToast();
     const [logs, setLogs] = useState<GameLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
