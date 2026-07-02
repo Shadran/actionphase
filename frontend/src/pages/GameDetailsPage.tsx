@@ -133,7 +133,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
   const [searchParams] = useSearchParams();
 
   // Custom hooks for tab management
-  const { tabs, activeTab, setActiveTab } = useGameTabs({
+  const { tabs, activeTab, setActiveTab, overflowTabIds } = useGameTabs({
     gameState: game?.state,
     isGM,
     participantCount: participants.length,
@@ -491,6 +491,7 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               getTabHref={getTabHref}
+              overflowTabIds={overflowTabIds}
             />
 
             {/* Tab Content */}
