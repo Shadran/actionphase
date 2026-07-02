@@ -1,10 +1,11 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useRecentComments } from '../hooks/useRecentComments';
 import { CommentWithParentCard } from './CommentWithParentCard';
 import { Spinner, Alert, Button } from './ui';
 import { useManualReadCommentIDs, useToggleCommentRead } from '../hooks/useReadTracking';
+import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import { useCommentReadMode } from '../hooks/useUserPreferences';
 
 interface NewCommentsViewProps {
@@ -52,31 +53,15 @@ export function NewCommentsView({ gameId }: NewCommentsViewProps) {
     });
   }, [gameId, toggleReadMutation]);
 
-  // Infinite scroll sentinel ref
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Set up intersection observer for infinite scrolling
-  useEffect(() => {
-    if (!sentinelRef.current || !hasNextPage || isFetchingNextPage) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(sentinelRef.current);
-
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // Infinite scroll sentinel
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasNextPage && !isFetchingNextPage,
+    onIntersect: fetchNextPage,
+    threshold: 0.1,
+  });
 
   // Loading state
   if (isLoading) {

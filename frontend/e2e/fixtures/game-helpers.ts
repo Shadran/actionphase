@@ -63,6 +63,9 @@ export const FIXTURE_GAMES = {
   // Deep linking test (701)
   DEEP_LINKING_TEST: 'E2E Deep Linking Test',                      // Game #701 - "Deep linking regression tests"
 
+  // Infinite scroll test (710) — shared, read-only
+  INFINITE_SCROLL: 'E2E Test: Infinite Scroll',                    // Game #710 - "infinite-scroll.spec.ts"
+
   // Manual read tracking test (702)
   MANUAL_READ_TRACKING: 'E2E Test: Manual Read Tracking',          // Game #702 - "manual-read-tracking.spec.ts"
 

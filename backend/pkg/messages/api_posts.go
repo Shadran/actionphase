@@ -406,7 +406,7 @@ func (h *Handler) GetPostCommentsWithThreads(w http.ResponseWriter, r *http.Requ
 
 	// Parse query parameters with defaults
 	limitStr := r.URL.Query().Get("limit")
-	limit := int32(200) // Default: 200 top-level comments
+	limit := int32(5) // Default: 5 top-level comments
 	if limitStr != "" {
 		limitInt, err := strconv.ParseInt(limitStr, 10, 32)
 		if err != nil || limitInt < 1 || limitInt > 500 {

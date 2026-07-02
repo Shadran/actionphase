@@ -57,7 +57,7 @@ export class MessagesApi extends BaseApiClient {
   async getPostCommentsWithThreads(
     gameId: number,
     postId: number,
-    limit: number = 200,
+    limit: number = 15,
     offset: number = 0,
     maxDepth: number = COMMENT_MAX_DEPTH
   ) {

@@ -1,8 +1,9 @@
-import { useRef, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useCharacterComments } from '../hooks/useCharacterComments';
+import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import { useCharacterStats } from '../hooks/useCharacterStats';
 import CharacterAvatar from '../components/CharacterAvatar';
 import { useOptionalGameContext } from '../contexts/GameContext';
@@ -28,7 +29,6 @@ export function CharacterPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
   const gameContext = useOptionalGameContext();
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -67,23 +67,11 @@ export function CharacterPage() {
   } = useCharacterComments(characterIdNum);
 
   // Infinite scroll
-  useEffect(() => {
-    if (!sentinelRef.current || !hasNextPage || isFetchingNextPage) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasNextPage && !isFetchingNextPage,
+    onIntersect: fetchNextPage,
+    threshold: 0.1,
+  });
 
   if (!characterId || isNaN(parseInt(characterId, 10))) {
     return (

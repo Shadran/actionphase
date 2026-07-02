@@ -17,6 +17,7 @@ import { logger } from '@/services/LoggingService';
 import { buildCommentTree, pruneDeletedLeaves, type CommentTreeNode } from '../lib/utils/commentTree';
 import { COMMENT_MAX_DEPTH } from '@/config/comments';
 import { usePostCollapseState } from '../hooks/usePostCollapseState';
+import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import { useOptionalGameContext } from '../contexts/GameContext';
 
 interface PostCardProps {
@@ -110,12 +111,16 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
   const gameContext = useOptionalGameContext();
   const portraitAvatars = gameContext?.game?.portrait_avatars ?? false;
 
-  // Pagination state
-  const [offset, setOffset] = useState(0);
+  // Pagination state. `offset` lives in a ref, not state: nothing renders it,
+  // and reading it through the ref means loadComments/loadMoreComments always
+  // see the current value even when a fetch was started from an older render.
+  const offsetRef = useRef(0);
   const [hasMore, setHasMore] = useState(false);
   const [totalTopLevel, setTotalTopLevel] = useState(0);
   const [returnedTopLevel, setReturnedTopLevel] = useState(0);
-  const COMMENTS_PER_PAGE = 200;
+  const [initialLoadFailed, setInitialLoadFailed] = useState(false);
+  const [initialLoadAttempt, setInitialLoadAttempt] = useState(0);
+  const THREADS_PER_PAGE = 5;
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -148,6 +153,16 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
   // Ref for the post container (for intersection observer)
   const postRef = useRef<HTMLDivElement>(null);
 
+  // Serializes silent refreshes: a refresh only applies its results if no
+  // newer refresh has started since (prevents a stale response from resurrecting
+  // just-deleted comments or hiding a just-posted one).
+  const refreshSeqRef = useRef(0);
+  // Dedupes the initial comments fetch. A ref (not state) so it survives
+  // StrictMode's dev-only unmount/remount cycle, which otherwise fires the
+  // effect — and the network request — twice. Keyed so a different post/game
+  // on the same mounted component still triggers a fresh load.
+  const initialLoadKeyRef = useRef<string | null>(null);
+
   // Track if we've already marked this post as read in this session
   const hasMarkedAsRead = useRef(false);
 
@@ -165,46 +180,49 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
     }
   }, [unreadCommentIDs, localUnreadCommentIDs.length]);
 
-  // Load paginated comments with all nested replies when showing comments
+  // Load paginated comments with all nested replies when showing comments.
+  // No isMounted guard: the single deduped fetch must apply its results even
+  // when StrictMode has already "cleaned up" the effect run that started it
+  // (setState after unmount is a no-op in React 18, not an error).
   useEffect(() => {
-    let isMounted = true;
+    if (!showComments) return;
+
+    const loadKey = `${gameId}:${post.id}`;
+    if (initialLoadKeyRef.current === loadKey) return;
+    initialLoadKeyRef.current = loadKey;
 
     const loadInitialComments = async () => {
-      if (showComments && commentTree.length === 0 && offset === 0) {
-        try {
-          if (isMounted) setLoadingComments(true);
-          const response = await apiClient.messages.getPostCommentsWithThreads(
-            gameId,
-            post.id,
-            COMMENTS_PER_PAGE,
-            0,
-            5 // max_depth
-          );
-          if (isMounted) {
-            // Build tree from flat array
-            const tree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
-            setCommentTree(tree);
-            setTotalTopLevel(response.data.total_top_level);
-            setReturnedTopLevel(response.data.returned_top_level);
-            setHasMore(response.data.has_more);
-            setOffset(COMMENTS_PER_PAGE); // Next page starts here
-          }
-        } catch (_err) {
-          if (isMounted) {
-            logger.error('Failed to load comments', { error: _err, gameId, postId: post.id });
-          }
-        } finally {
-          if (isMounted) setLoadingComments(false);
-        }
+      try {
+        setLoadingComments(true);
+        setInitialLoadFailed(false);
+        const response = await apiClient.messages.getPostCommentsWithThreads(
+          gameId,
+          post.id,
+          THREADS_PER_PAGE,
+          0,
+          5 // max_depth
+        );
+        const tree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
+        setCommentTree(tree);
+        setTotalTopLevel(response.data.total_top_level);
+        setReturnedTopLevel(response.data.returned_top_level);
+        setHasMore(response.data.has_more);
+        offsetRef.current = THREADS_PER_PAGE;
+      } catch (_err) {
+        logger.error('Failed to load comments', { error: _err, gameId, postId: post.id });
+        // Surface the failure (instead of a false "No comments yet" empty state)
+        // and clear the dedupe key so the Retry button's attempt counter can
+        // re-run this effect. Re-renders alone do NOT retry — the deps below
+        // only change on retry, post/game change, or collapse/re-expand.
+        setInitialLoadFailed(true);
+        initialLoadKeyRef.current = null;
+      } finally {
+        setLoadingComments(false);
       }
     };
 
     loadInitialComments();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [showComments, commentTree.length, offset, gameId, post.id, COMMENTS_PER_PAGE]);
+  }, [showComments, gameId, post.id, initialLoadAttempt]);
 
   // Mark post as read immediately when user views it (on page load)
   useEffect(() => {
@@ -223,57 +241,86 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
     }
   }, [gameId, post.id, markAsReadMutation]);
 
-  // Reload all comments from beginning (resets pagination)
-  // Wrapped in useCallback to provide stable reference for memoized CommentList
+  // Window-preserving silent refresh — re-fetches the currently-loaded window without
+  // collapsing the list or resetting scroll position.
   const loadComments = useCallback(async (delayMs: number = 0) => {
+    const seq = ++refreshSeqRef.current;
     try {
-      setLoadingComments(true);
-      // Optional delay when reloading after creating a comment
       if (delayMs > 0) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
-      const response = await apiClient.messages.getPostCommentsWithThreads(
-        gameId,
-        post.id,
-        COMMENTS_PER_PAGE,
-        0,
-        5 // max_depth
-      );
+      // Re-fetch the entire currently-loaded window in one request.
+      // Cap at backend max of 500 to avoid exceeding server limits.
+      // If a concurrent loadMoreComments lands while we're fetching, the
+      // window we asked for no longer covers [0, offset) — re-fetch with the
+      // grown window so applying the result can't drop the appended page.
+      // Terminates: offset only grows and the window is capped at 500.
+      let windowSize: number;
+      let response;
+      do {
+        windowSize = Math.min(Math.max(offsetRef.current, THREADS_PER_PAGE), 500);
+        response = await apiClient.messages.getPostCommentsWithThreads(
+          gameId,
+          post.id,
+          windowSize,
+          0,
+          5 // max_depth
+        );
+      } while (windowSize < Math.min(Math.max(offsetRef.current, THREADS_PER_PAGE), 500));
+      // A newer refresh started while this one was in flight — let it win.
+      if (seq !== refreshSeqRef.current) return;
       const tree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
       setCommentTree(tree);
       setTotalTopLevel(response.data.total_top_level);
       setReturnedTopLevel(response.data.returned_top_level);
       setHasMore(response.data.has_more);
-      setOffset(COMMENTS_PER_PAGE);
+      // Keep `offset` unchanged — the window covers [0, offset), so the next
+      // sentinel-triggered page continues from where it did before.
     } catch (_err) {
-      logger.error('Failed to reload comments', { error: _err, gameId, postId: post.id });
-    } finally {
-      setLoadingComments(false);
+      logger.error('Failed to refresh comments', { error: _err, gameId, postId: post.id });
     }
-  }, [gameId, post.id, COMMENTS_PER_PAGE]);
+  }, [gameId, post.id]);
 
   // Load more comments (append to existing tree)
-  const loadMoreComments = async () => {
+  const loadMoreComments = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
     try {
       setLoadingMore(true);
       const response = await apiClient.messages.getPostCommentsWithThreads(
         gameId,
         post.id,
-        COMMENTS_PER_PAGE,
-        offset,
+        THREADS_PER_PAGE,
+        offsetRef.current,
         5 // max_depth
       );
       const newTree = pruneDeletedLeaves(buildCommentTree(response.data.comments));
-      setCommentTree(prev => [...prev, ...newTree]);
+      setCommentTree(prev => {
+        const existingIds = new Set(prev.map(node => node.id));
+        const uniqueNew = newTree.filter(node => !existingIds.has(node.id));
+        return [...prev, ...uniqueNew];
+      });
       setReturnedTopLevel(prev => prev + response.data.returned_top_level);
+      // Refresh the total too: concurrent posting shifts it, and a stale total
+      // makes the "N remaining" label drift wrong (even negative).
+      setTotalTopLevel(response.data.total_top_level);
       setHasMore(response.data.has_more);
-      setOffset(prev => prev + COMMENTS_PER_PAGE);
+      offsetRef.current += THREADS_PER_PAGE;
     } catch (_err) {
-      logger.error('Failed to load more comments', { error: _err, gameId, postId: post.id, offset });
+      logger.error('Failed to load more comments', { error: _err, gameId, postId: post.id, offset: offsetRef.current });
     } finally {
       setLoadingMore(false);
     }
-  };
+  // The loadingMore dep doubles as the sentinel re-arm signal: a new callback
+  // identity re-creates the observer below, which re-checks intersection so
+  // back-to-back pages keep loading while the sentinel stays visible.
+  }, [loadingMore, hasMore, gameId, post.id]);
+
+  // Auto-load the next page when the sentinel scrolls within 800px of the viewport.
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasMore,
+    onIntersect: loadMoreComments,
+    rootMargin: '800px',
+  });
 
   const handleShowComments = () => {
     setShowComments(!showComments);
@@ -648,6 +695,13 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
         {showComments && (
           loadingComments ? (
             <div className="text-sm text-content-secondary text-center py-4">Loading comments...</div>
+          ) : initialLoadFailed ? (
+            <div className="flex flex-col items-center gap-2 py-4">
+              <span className="text-sm text-content-secondary">Failed to load comments.</span>
+              <Button variant="ghost" onClick={() => setInitialLoadAttempt(attempt => attempt + 1)}>
+                Retry
+              </Button>
+            </div>
           ) : commentTree.length === 0 ? (
             <p className="text-sm text-content-secondary italic text-center py-4">No comments yet. Be the first to reply!</p>
           ) : (
@@ -669,6 +723,9 @@ export const PostCard = React.memo(function PostCard({ post, gameId, characters,
                 readOnly={readOnly}
                 allowReadTracking={allowReadTracking}
               />
+
+              {/* Sentinel for infinite scroll auto-load */}
+              <div ref={sentinelRef} data-testid="comments-sentinel" />
 
               {/* Load More Button */}
               {hasMore && (
