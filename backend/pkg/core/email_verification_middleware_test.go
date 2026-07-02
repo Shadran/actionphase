@@ -107,13 +107,3 @@ func TestRequireEmailVerificationMiddleware_Enabled_VerifiedPasses(t *testing.T)
 		"verified user must pass through the middleware")
 }
 
-// TestGetUserEmailVerificationStatus_NotFound verifies that querying for a non-existent user returns an error.
-// (The happy paths — unverified/verified — are covered in core_test.go.)
-func TestGetUserEmailVerificationStatus_NotFound(t *testing.T) {
-	testDB := NewTestDatabase(t)
-	defer testDB.Close()
-
-	ctx := context.Background()
-	_, err := GetUserEmailVerificationStatus(ctx, testDB.Pool, 999999)
-	assert.Error(t, err, "non-existent user should return an error")
-}

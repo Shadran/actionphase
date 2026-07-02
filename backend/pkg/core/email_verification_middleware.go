@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -91,13 +90,3 @@ func RequireEmailVerificationMiddleware(pool *pgxpool.Pool) func(http.Handler) h
 	}
 }
 
-// GetUserEmailVerificationStatus retrieves a user's email verification status
-// This is a helper function that can be used by handlers to check verification status
-func GetUserEmailVerificationStatus(ctx context.Context, pool *pgxpool.Pool, userID int32) (bool, error) {
-	queries := db.New(pool)
-	user, err := queries.GetUser(ctx, userID)
-	if err != nil {
-		return false, err
-	}
-	return user.EmailVerified, nil
-}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -111,10 +110,3 @@ func rowToDiscordAccount(row models.UserDiscordAccount) *core.DiscordAccount {
 	return acct
 }
 
-// toOptTime converts a *time.Time to pgtype.Timestamptz.
-func toOptTime(t *time.Time) pgtype.Timestamptz {
-	if t == nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
-}

@@ -2,10 +2,8 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
@@ -178,23 +176,6 @@ func GetAuthenticatedUser(ctx context.Context) *AuthenticatedUser {
 	return nil
 }
 
-// GetAuthenticatedUserID is a convenience function to get just the user ID from context.
-// Returns 0 if no authenticated user is found.
-func GetAuthenticatedUserID(ctx context.Context) int32 {
-	if userID, ok := ctx.Value(UserIDContextKey).(int32); ok {
-		return userID
-	}
-	return 0
-}
-
-// GetAuthenticatedUsername is a convenience function to get just the username from context.
-// Returns empty string if no authenticated user is found.
-func GetAuthenticatedUsername(ctx context.Context) string {
-	if username, ok := ctx.Value(UsernameContextKey).(string); ok {
-		return username
-	}
-	return ""
-}
 
 // GM Authorization Pattern
 //
@@ -222,121 +203,3 @@ func GetAuthenticatedUsername(ctx context.Context) string {
 //
 // See pkg/core/permissions.go for implementation details.
 
-// LoggingMiddleware creates middleware for request logging.
-// It logs request method, path, duration, and response status.
-//
-// Usage Example:
-//
-//	r.Use(LoggingMiddleware(logger))
-func LoggingMiddleware(logger Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Create a response writer that captures the status code
-			wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
-
-			// Log request start
-			logger.Info("HTTP request started",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.Header.Get("User-Agent"))
-
-			// Process request
-			next.ServeHTTP(wrapped, r)
-
-			// Log request completion
-			logger.Info("HTTP request completed",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", wrapped.statusCode,
-				"remote_addr", r.RemoteAddr)
-		})
-	}
-}
-
-// responseWriter wraps http.ResponseWriter to capture status code.
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-// CORSMiddleware creates middleware for Cross-Origin Resource Sharing.
-// It handles preflight requests and adds CORS headers based on configuration.
-//
-// Usage Example:
-//
-//	config := &Config{...}
-//	r.Use(CORSMiddleware(config))
-func CORSMiddleware(config *Config) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !config.App.CORSEnabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Set CORS headers
-			origin := r.Header.Get("Origin")
-			if isAllowedOrigin(origin, config.App.CORSOrigins) {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-			}
-
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-			// Handle preflight requests
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// isAllowedOrigin checks if the origin is in the allowed list.
-func isAllowedOrigin(origin string, allowedOrigins []string) bool {
-	for _, allowed := range allowedOrigins {
-		if allowed == "*" || allowed == origin {
-			return true
-		}
-		// Support wildcard subdomains (e.g., "*.example.com")
-		if strings.HasPrefix(allowed, "*.") {
-			domain := allowed[2:] // Remove "*."
-			if strings.HasSuffix(origin, domain) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// ContentTypeMiddleware ensures requests have the correct Content-Type header.
-// This is useful for API endpoints that only accept JSON.
-func ContentTypeMiddleware(requiredType string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip content type check for GET requests and OPTIONS
-			if r.Method == "GET" || r.Method == "OPTIONS" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			contentType := r.Header.Get("Content-Type")
-			if !strings.Contains(contentType, requiredType) {
-				render.Render(w, r, ErrInvalidRequest(
-					fmt.Errorf("invalid content type: expected %s, got %s", requiredType, contentType)))
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}

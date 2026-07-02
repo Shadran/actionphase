@@ -33,17 +33,6 @@ const (
 	GameStateCancelled = "cancelled"
 )
 
-// ValidGameStates contains all valid game states for validation.
-var ValidGameStates = []string{
-	GameStateSetup,
-	GameStateRecruitment,
-	GameStateCharacterCreation,
-	GameStateInProgress,
-	GameStatePaused,
-	GameStateCompleted,
-	GameStateCancelled,
-}
-
 // PhaseTypes defines all valid game phase types.
 const (
 	PhaseTypeCommonRoom = "common_room"
@@ -56,41 +45,6 @@ var ValidPhaseTypes = []string{
 	PhaseTypeCommonRoom,
 	PhaseTypeAction,
 	PhaseTypeInterlude,
-}
-
-// GameStateTransitions defines valid state transitions.
-// Maps current state -> allowed next states.
-//
-// State Machine Rules:
-//   - Games must progress through states sequentially (no skipping)
-//   - Only GM can change game state
-//   - Some transitions are bidirectional (in_progress ↔ paused)
-//   - Terminal states (completed, cancelled) cannot transition
-var GameStateTransitions = map[string][]string{
-	GameStateSetup: {
-		GameStateRecruitment, // GM opens recruitment
-		GameStateCancelled,   // GM cancels during setup
-	},
-	GameStateRecruitment: {
-		GameStateCharacterCreation, // Proceed when players ready
-		GameStateCancelled,         // GM cancels during recruitment
-	},
-	GameStateCharacterCreation: {
-		GameStateInProgress, // Start the game
-		GameStateCancelled,  // GM cancels during character creation
-	},
-	GameStateInProgress: {
-		GameStatePaused,    // Temporary pause
-		GameStateCompleted, // Normal completion
-		GameStateCancelled, // Emergency cancellation
-	},
-	GameStatePaused: {
-		GameStateInProgress, // Resume game
-		GameStateCancelled,  // Cancel from pause
-	},
-	// Terminal states - no transitions allowed
-	GameStateCompleted: {},
-	GameStateCancelled: {},
 }
 
 // ParticipantRoles defines all valid participant roles in games.
@@ -123,13 +77,6 @@ const (
 	// StatusBanned - Participant has been banned from the game
 	StatusBanned = "banned"
 )
-
-// ValidParticipantStatuses contains all valid participant statuses.
-var ValidParticipantStatuses = []string{
-	StatusActive,
-	StatusInactive,
-	StatusBanned,
-}
 
 // ErrorCodes define application-specific error codes for client handling.
 // These supplement HTTP status codes with more specific error categorization.
@@ -330,45 +277,10 @@ var CommonTableCleanupOrder = []string{
 	TableUsers,
 }
 
-// IsValidGameState checks if the given state is a valid game state.
-func IsValidGameState(state string) bool {
-	for _, validState := range ValidGameStates {
-		if state == validState {
-			return true
-		}
-	}
-	return false
-}
-
-// IsValidStateTransition checks if transitioning from currentState to newState is allowed.
-func IsValidStateTransition(currentState, newState string) bool {
-	allowedStates, exists := GameStateTransitions[currentState]
-	if !exists {
-		return false
-	}
-
-	for _, allowedState := range allowedStates {
-		if newState == allowedState {
-			return true
-		}
-	}
-	return false
-}
-
 // IsValidParticipantRole checks if the given role is a valid participant role.
 func IsValidParticipantRole(role string) bool {
 	for _, validRole := range ValidParticipantRoles {
 		if role == validRole {
-			return true
-		}
-	}
-	return false
-}
-
-// IsValidParticipantStatus checks if the given status is a valid participant status.
-func IsValidParticipantStatus(status string) bool {
-	for _, validStatus := range ValidParticipantStatuses {
-		if status == validStatus {
 			return true
 		}
 	}
@@ -385,52 +297,3 @@ func IsValidApplicationStatus(status string) bool {
 	return false
 }
 
-// GetGameStateDescription returns a human-readable description of a game state.
-func GetGameStateDescription(state string) string {
-	descriptions := map[string]string{
-		GameStateSetup:             "Game is being set up by the GM",
-		GameStateRecruitment:       "Game is accepting new players",
-		GameStateCharacterCreation: "Players are creating their characters",
-		GameStateInProgress:        "Game is actively being played",
-		GameStatePaused:            "Game is temporarily paused",
-		GameStateCompleted:         "Game has finished successfully",
-		GameStateCancelled:         "Game has been cancelled",
-	}
-
-	if desc, exists := descriptions[state]; exists {
-		return desc
-	}
-	return "Unknown game state"
-}
-
-// GetGameStateDescription returns a brief human-readable description of a game state.
-func GetGameStateDescriptionBrief(state string) string {
-	descriptions := map[string]string{
-		GameStateSetup:             "SETUP",
-		GameStateRecruitment:       "RECRUITMENT",
-		GameStateCharacterCreation: "CHARACTER CREATION",
-		GameStateInProgress:        "IN PROGRESS",
-		GameStatePaused:            "PAUSED",
-		GameStateCompleted:         "COMPLETED",
-		GameStateCancelled:         "CANCELLED",
-	}
-
-	if desc, exists := descriptions[state]; exists {
-		return desc
-	}
-	return "Unknown game state"
-}
-
-// GetParticipantRoleDescription returns a human-readable description of a participant role.
-func GetParticipantRoleDescription(role string) string {
-	descriptions := map[string]string{
-		RoleGM:       "Game Master - controls the game and narrative",
-		RolePlayer:   "Player - actively participates with a character",
-		RoleAudience: "Audience - observes the game without active participation",
-	}
-
-	if desc, exists := descriptions[role]; exists {
-		return desc
-	}
-	return "Unknown participant role"
-}

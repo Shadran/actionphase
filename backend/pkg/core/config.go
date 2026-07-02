@@ -325,21 +325,6 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// GetTestDatabaseURL returns the test database URL, falling back to a test variant of the main URL.
-func (c *Config) GetTestDatabaseURL() string {
-	if c.Database.TestURL != "" {
-		return c.Database.TestURL
-	}
-
-	// Default: append _test to database name in main URL
-	if c.Database.URL != "" {
-		// This is a simple implementation - could be enhanced with proper URL parsing
-		return c.Database.URL + "_test"
-	}
-
-	return "postgres://postgres:example@localhost:5432/actionphase_test?sslmode=disable"
-}
-
 // GetServerAddress returns the full server bind address (host:port).
 func (c *Config) GetServerAddress() string {
 	return fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)

@@ -148,24 +148,6 @@ func (s *AvatarService) DeleteCharacterAvatar(ctx context.Context, characterID i
 	return nil
 }
 
-// GetCharacterAvatarURL retrieves the avatar URL for a character.
-// Returns nil if the character has no avatar.
-func (s *AvatarService) GetCharacterAvatarURL(ctx context.Context, characterID int32) (*string, error) {
-	queries := db.New(s.DB)
-
-	character, err := queries.GetCharacter(ctx, characterID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get character: %w", err)
-	}
-
-	if !character.AvatarUrl.Valid || character.AvatarUrl.String == "" {
-		return nil, nil
-	}
-
-	url := character.AvatarUrl.String
-	return &url, nil
-}
-
 // Helper functions
 
 // readAndValidateSize reads the entire file into memory and validates size.

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -37,135 +36,6 @@ func TestGetAuthenticatedUser_Present(t *testing.T) {
 func TestGetAuthenticatedUser_Absent(t *testing.T) {
 	result := GetAuthenticatedUser(context.Background())
 	assert.Nil(t, result)
-}
-
-func TestGetAuthenticatedUserID_Present(t *testing.T) {
-	ctx := context.WithValue(context.Background(), UserIDContextKey, int32(7))
-	assert.Equal(t, int32(7), GetAuthenticatedUserID(ctx))
-}
-
-func TestGetAuthenticatedUserID_Absent(t *testing.T) {
-	assert.Equal(t, int32(0), GetAuthenticatedUserID(context.Background()))
-}
-
-func TestGetAuthenticatedUsername_Present(t *testing.T) {
-	ctx := context.WithValue(context.Background(), UsernameContextKey, "bob")
-	assert.Equal(t, "bob", GetAuthenticatedUsername(ctx))
-}
-
-func TestGetAuthenticatedUsername_Absent(t *testing.T) {
-	assert.Equal(t, "", GetAuthenticatedUsername(context.Background()))
-}
-
-func TestCORSMiddleware_Disabled(t *testing.T) {
-	cfg := &Config{App: AppConfig{CORSEnabled: false}}
-	reached := false
-	handler := CORSMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reached = true
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Origin", "http://evil.com")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.True(t, reached)
-	assert.Empty(t, rec.Header().Get("Access-Control-Allow-Origin"))
-}
-
-func TestCORSMiddleware_AllowedOrigin(t *testing.T) {
-	cfg := &Config{App: AppConfig{
-		CORSEnabled: true,
-		CORSOrigins: []string{"http://localhost:5173"},
-	}}
-	handler := CORSMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Origin", "http://localhost:5173")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, "http://localhost:5173", rec.Header().Get("Access-Control-Allow-Origin"))
-}
-
-func TestCORSMiddleware_Preflight(t *testing.T) {
-	cfg := &Config{App: AppConfig{
-		CORSEnabled: true,
-		CORSOrigins: []string{"*"},
-	}}
-	handler := CORSMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("next handler should not be called for OPTIONS")
-	}))
-
-	req := httptest.NewRequest("OPTIONS", "/", nil)
-	req.Header.Set("Origin", "http://example.com")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-}
-
-func TestCORSMiddleware_WildcardSubdomain(t *testing.T) {
-	cfg := &Config{App: AppConfig{
-		CORSEnabled: true,
-		CORSOrigins: []string{"*.example.com"},
-	}}
-	handler := CORSMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Origin", "https://app.example.com")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, "https://app.example.com", rec.Header().Get("Access-Control-Allow-Origin"))
-}
-
-func TestContentTypeMiddleware_SkipsGET(t *testing.T) {
-	reached := false
-	handler := ContentTypeMiddleware("application/json")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reached = true
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/", nil)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.True(t, reached)
-}
-
-func TestContentTypeMiddleware_RejectsWrongType(t *testing.T) {
-	handler := ContentTypeMiddleware("application/json")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("POST", "/", strings.NewReader("data"))
-	req.Header.Set("Content-Type", "text/plain")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestContentTypeMiddleware_AcceptsCorrectType(t *testing.T) {
-	reached := false
-	handler := ContentTypeMiddleware("application/json")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reached = true
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("POST", "/", strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.True(t, reached)
-	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 // --- dashboard.go ---
@@ -315,36 +185,6 @@ func TestMockUserService_ReturnsError(t *testing.T) {
 
 // --- constants.go ---
 
-func TestIsValidGameState(t *testing.T) {
-	for _, s := range ValidGameStates {
-		assert.True(t, IsValidGameState(s), "expected %q to be valid", s)
-	}
-	assert.False(t, IsValidGameState(""), "empty string should be invalid")
-	assert.False(t, IsValidGameState("draft"), "unknown state should be invalid")
-	assert.False(t, IsValidGameState("IN_PROGRESS"), "case-sensitive: uppercase should be invalid")
-}
-
-func TestIsValidStateTransition(t *testing.T) {
-	// Valid forward transitions
-	assert.True(t, IsValidStateTransition(GameStateSetup, GameStateRecruitment))
-	assert.True(t, IsValidStateTransition(GameStateRecruitment, GameStateCharacterCreation))
-	assert.True(t, IsValidStateTransition(GameStateCharacterCreation, GameStateInProgress))
-	assert.True(t, IsValidStateTransition(GameStateInProgress, GameStatePaused))
-	assert.True(t, IsValidStateTransition(GameStatePaused, GameStateInProgress))
-	assert.True(t, IsValidStateTransition(GameStateInProgress, GameStateCompleted))
-
-	// Terminal states cannot transition
-	assert.False(t, IsValidStateTransition(GameStateCompleted, GameStateInProgress))
-	assert.False(t, IsValidStateTransition(GameStateCancelled, GameStateSetup))
-
-	// Skipping states is forbidden
-	assert.False(t, IsValidStateTransition(GameStateSetup, GameStateInProgress))
-	assert.False(t, IsValidStateTransition(GameStateRecruitment, GameStateCompleted))
-
-	// Unknown current state
-	assert.False(t, IsValidStateTransition("nonexistent", GameStateSetup))
-}
-
 func TestIsValidParticipantRole(t *testing.T) {
 	for _, r := range ValidParticipantRoles {
 		assert.True(t, IsValidParticipantRole(r), "expected %q to be valid", r)
@@ -352,14 +192,6 @@ func TestIsValidParticipantRole(t *testing.T) {
 	assert.False(t, IsValidParticipantRole(""), "empty string should be invalid")
 	assert.False(t, IsValidParticipantRole("admin"), "unknown role should be invalid")
 	assert.False(t, IsValidParticipantRole("GM"), "case-sensitive: uppercase should be invalid")
-}
-
-func TestIsValidParticipantStatus(t *testing.T) {
-	for _, s := range ValidParticipantStatuses {
-		assert.True(t, IsValidParticipantStatus(s), "expected %q to be valid", s)
-	}
-	assert.False(t, IsValidParticipantStatus(""), "empty string should be invalid")
-	assert.False(t, IsValidParticipantStatus("suspended"), "unknown status should be invalid")
 }
 
 func TestIsValidApplicationStatus(t *testing.T) {
@@ -451,29 +283,3 @@ func TestRequireEmailVerificationMiddleware_Disabled(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestGetUserEmailVerificationStatus(t *testing.T) {
-	if os.Getenv("SKIP_DB_TESTS") == "true" {
-		t.Skip("skipping DB test: SKIP_DB_TESTS=true")
-	}
-
-	testDB := NewTestDatabase(t)
-	defer testDB.Close()
-	defer testDB.CleanupTables(t, "users")
-
-	user := testDB.CreateTestUser(t, "verifytest", "verifytest@example.com")
-
-	ctx := context.Background()
-
-	// Newly created users are unverified by default
-	verified, err := GetUserEmailVerificationStatus(ctx, testDB.Pool, int32(user.ID))
-	require.NoError(t, err)
-	assert.False(t, verified, "new user should not be email-verified")
-
-	// Mark the user as verified directly
-	_, err = testDB.Pool.Exec(ctx, "UPDATE users SET email_verified = true WHERE id = $1", user.ID)
-	require.NoError(t, err)
-
-	verified, err = GetUserEmailVerificationStatus(ctx, testDB.Pool, int32(user.ID))
-	require.NoError(t, err)
-	assert.True(t, verified, "user should be verified after update")
-}

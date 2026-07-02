@@ -163,24 +163,6 @@ func (s *UserAvatarService) DeleteUserAvatar(ctx context.Context, userID int32) 
 	return nil
 }
 
-// GetUserAvatarURL retrieves the avatar URL for a user.
-// Returns nil if the user has no avatar.
-func (s *UserAvatarService) GetUserAvatarURL(ctx context.Context, userID int32) (*string, error) {
-	queries := db.New(s.DB)
-
-	user, err := queries.GetUserProfile(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	if !user.AvatarUrl.Valid || user.AvatarUrl.String == "" {
-		return nil, nil
-	}
-
-	url := user.AvatarUrl.String
-	return &url, nil
-}
-
 // Helper functions
 
 // readAndValidateSize reads the entire file into memory and validates size.

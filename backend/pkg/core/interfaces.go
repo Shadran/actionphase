@@ -1179,9 +1179,6 @@ type AvatarServiceInterface interface {
 	// Deletes the file from storage and updates database
 	DeleteCharacterAvatar(ctx context.Context, characterID int32) error
 
-	// GetCharacterAvatarURL retrieves the avatar URL for a character
-	// Returns nil if character has no avatar
-	GetCharacterAvatarURL(ctx context.Context, characterID int32) (*string, error)
 }
 
 // DashboardServiceInterface defines the contract for dashboard data operations.
@@ -1659,9 +1656,6 @@ type UserAvatarServiceInterface interface {
 	// DeleteUserAvatar removes a user's avatar.
 	DeleteUserAvatar(ctx context.Context, userID int32) error
 
-	// GetUserAvatarURL retrieves the avatar URL for a user.
-	// Returns nil if the user has no avatar.
-	GetUserAvatarURL(ctx context.Context, userID int32) (*string, error)
 }
 
 // CharacterServiceInterface defines the contract for character management operations.

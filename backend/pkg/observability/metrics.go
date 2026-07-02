@@ -80,36 +80,6 @@ func (m *Metrics) IncrementCounter(name string) {
 	m.counters[name]++
 }
 
-// IncrementCounterBy increments a counter by a specific amount
-func (m *Metrics) IncrementCounterBy(name string, value int64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.counters[name] += value
-}
-
-// SetGauge sets a gauge value
-func (m *Metrics) SetGauge(name string, value float64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.gauges[name] = value
-}
-
-// RecordHistogram records a duration measurement
-func (m *Metrics) RecordHistogram(name string, duration time.Duration) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	durationMs := float64(duration.Nanoseconds()) / 1e6
-	m.histograms[name] = append(m.histograms[name], durationMs)
-
-	// Keep bounded
-	if len(m.histograms[name]) > 1000 {
-		m.histograms[name] = m.histograms[name][100:]
-	}
-}
-
 // GetMetrics returns a snapshot of current metrics for reporting
 func (m *Metrics) GetMetrics() MetricsSnapshot {
 	m.mu.RLock()

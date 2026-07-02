@@ -470,42 +470,6 @@ func (s *AccountService) PermanentlyDeleteOldAccounts(ctx context.Context) error
 	return queries.PermanentlyDeleteUser(ctx, 0) // Uses WHERE clause to filter by date
 }
 
-// ListUserSessions returns all active sessions for a user
-func (s *AccountService) ListUserSessions(ctx context.Context, userID int) ([]db.Session, error) {
-	queries := db.New(s.DB)
-	return queries.GetSessionsByUser(ctx, int32(userID))
-}
-
-// RevokeSession revokes a specific session by ID
-func (s *AccountService) RevokeSession(ctx context.Context, userID int, sessionID int32) error {
-	queries := db.New(s.DB)
-
-	// Get session to verify it belongs to the user
-	session, err := queries.GetSession(ctx, sessionID)
-	if err != nil {
-		return &PasswordValidationError{
-			Field:  "session",
-			Reason: "session not found",
-		}
-	}
-
-	// Verify session belongs to the user
-	if session.UserID != int32(userID) {
-		return &PasswordValidationError{
-			Field:  "session",
-			Reason: "session does not belong to this user",
-		}
-	}
-
-	// Delete the session
-	err = queries.DeleteSession(ctx, sessionID)
-	if err != nil {
-		return fmt.Errorf("failed to revoke session: %w", err)
-	}
-
-	return nil
-}
-
 // RevokeAllSessions revokes all sessions for a user (except current session)
 func (s *AccountService) RevokeAllSessions(ctx context.Context, userID int, currentSessionID int32) error {
 	queries := db.New(s.DB)
