@@ -634,7 +634,8 @@ func setupAuthTestRouter(app *core.App) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {
-			authHandler := Handler{App: app}
+			authHandler := newTestHandler(app.Pool)
+			authHandler.App = app
 			// Public routes (no authentication required)
 			r.Post("/register", authHandler.V1Register)
 			r.Post("/login", authHandler.V1Login)

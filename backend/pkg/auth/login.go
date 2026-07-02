@@ -2,7 +2,6 @@ package auth
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"net/http"
 	"strings"
 
@@ -13,8 +12,7 @@ import (
 func (h *Handler) ipBanCheck(w http.ResponseWriter, r *http.Request) bool {
 	ctx := r.Context()
 	clientIP := core.GetClientIP(r)
-	svc := db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	banned, _ := svc.IsIPBanned(ctx, clientIP)
+	banned, _ := h.IPBanService.IsIPBanned(ctx, clientIP)
 	if banned {
 		h.renderError(ctx, w, r, core.ErrForbidden("Access from this location is not allowed."), "Blocked request from banned IP", "ip", clientIP)
 		return true
@@ -28,8 +26,7 @@ func (h *Handler) fingerprintBanCheck(w http.ResponseWriter, r *http.Request, fi
 		return false
 	}
 	ctx := r.Context()
-	svc := db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	banned, _ := svc.IsFingerprintBanned(ctx, fingerprint)
+	banned, _ := h.FingerprintBanService.IsFingerprintBanned(ctx, fingerprint)
 	if banned {
 		h.renderError(ctx, w, r, core.ErrForbidden("Access from this device is not allowed."), "Blocked request from banned device fingerprint")
 		return true
@@ -57,7 +54,7 @@ func (h *Handler) V1Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	UserService := db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	UserService := h.UserService
 
 	// Support login with either username or email
 	// The username field may contain either a username or an email address

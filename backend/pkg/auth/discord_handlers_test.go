@@ -23,7 +23,9 @@ func setupDiscordTestRouter(app *core.App) *chi.Mux {
 	userService := &dbsvc.UserService{DB: app.Pool, Logger: app.ObsLogger}
 
 	r := chi.NewRouter()
-	handler := &Handler{App: app}
+	h := newTestHandler(app.Pool)
+	h.App = app
+	handler := &h
 
 	// Public callback
 	r.Get("/api/v1/auth/discord/callback", handler.V1DiscordCallback)
@@ -226,8 +228,8 @@ func TestDiscordState_RoundTrip(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
 
-	app := core.NewTestApp(testDB.Pool)
-	handler := &Handler{App: app}
+	h := newTestHandler(testDB.Pool)
+	handler := &h
 
 	userID := int32(42)
 	state := handler.buildDiscordState(userID)
@@ -242,8 +244,8 @@ func TestDiscordState_TamperedSignatureFails(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	defer testDB.Close()
 
-	app := core.NewTestApp(testDB.Pool)
-	handler := &Handler{App: app}
+	h := newTestHandler(testDB.Pool)
+	handler := &h
 
 	// Build state then tamper with it
 	state := handler.buildDiscordState(99)
@@ -291,8 +293,8 @@ func TestDiscordCallback_TokenExchangeFails(t *testing.T) {
 	router := setupDiscordTestRouter(app)
 
 	user := testDB.CreateTestUser(t, "cbfail", "cbfail@example.com")
-	handler := &Handler{App: app}
-	state := handler.buildDiscordState(int32(user.ID))
+	h := newTestHandler(testDB.Pool)
+	state := h.buildDiscordState(int32(user.ID))
 
 	req := httptest.NewRequest("GET",
 		fmt.Sprintf("/api/v1/auth/discord/callback?code=badcode&state=%s", state), nil)
@@ -329,8 +331,8 @@ func TestDiscordCallback_FetchUserFails(t *testing.T) {
 	router := setupDiscordTestRouter(app)
 
 	user := testDB.CreateTestUser(t, "userfail", "userfail@example.com")
-	handler := &Handler{App: app}
-	state := handler.buildDiscordState(int32(user.ID))
+	h := newTestHandler(testDB.Pool)
+	state := h.buildDiscordState(int32(user.ID))
 
 	req := httptest.NewRequest("GET",
 		fmt.Sprintf("/api/v1/auth/discord/callback?code=validcode&state=%s", state), nil)
@@ -366,8 +368,8 @@ func TestDiscordCallback_Success(t *testing.T) {
 	router := setupDiscordTestRouter(app)
 
 	user := testDB.CreateTestUser(t, "cbsuccess", "cbsuccess@example.com")
-	handler := &Handler{App: app}
-	state := handler.buildDiscordState(int32(user.ID))
+	h := newTestHandler(testDB.Pool)
+	state := h.buildDiscordState(int32(user.ID))
 
 	req := httptest.NewRequest("GET",
 		fmt.Sprintf("/api/v1/auth/discord/callback?code=goodcode&state=%s", state), nil)

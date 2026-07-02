@@ -2,7 +2,6 @@ package handouts
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -34,7 +33,7 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -42,7 +41,7 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get handout to verify it exists and user has access
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get handout", "error", err)
@@ -50,7 +49,7 @@ func (h *Handler) CreateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM of the game (only GMs can comment on handouts)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, handout.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get game", "error", err)
@@ -105,7 +104,7 @@ func (h *Handler) ListHandoutComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -113,7 +112,7 @@ func (h *Handler) ListHandoutComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get handout to verify it exists and user has access
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout or comment not found"), "Failed to get handout", "error", err)
@@ -173,7 +172,7 @@ func (h *Handler) UpdateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -181,7 +180,7 @@ func (h *Handler) UpdateHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update comment
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	comment, err := handoutService.UpdateHandoutComment(ctx, int32(commentID), userID, data.Content)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update comment", "error", err)
@@ -223,7 +222,7 @@ func (h *Handler) DeleteHandoutComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -232,7 +231,7 @@ func (h *Handler) DeleteHandoutComment(w http.ResponseWriter, r *http.Request) {
 
 	// Note: We could check if user is GM here, but the service layer should handle that
 	// For now, we'll just pass isGM as true since only GMs can comment anyway
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	err = handoutService.DeleteHandoutComment(ctx, int32(commentID), userID, true)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete comment", "error", err)

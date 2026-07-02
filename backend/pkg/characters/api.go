@@ -2,20 +2,22 @@ package characters
 
 import (
 	"actionphase/pkg/core"
-	services "actionphase/pkg/db/services"
 	"fmt"
 	"net/http"
 )
 
 // Handler handles character-related HTTP requests
 type Handler struct {
-	App *core.App
+	App                 *core.App
+	UserService         core.UserServiceInterface
+	CharacterService    core.CharacterServiceInterface
+	GameService         core.GameServiceInterface
+	NotificationService core.NotificationServiceInterface
 }
 
 // getUserIDFromToken extracts user ID from JWT token
 func (h *Handler) getUserIDFromToken(r *http.Request) (int32, error) {
-	userService := &services.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(r.Context(), userService)
+	userID, errResp := core.GetUserIDFromJWT(r.Context(), h.UserService)
 	if errResp != nil {
 		return 0, fmt.Errorf("authentication failed")
 	}

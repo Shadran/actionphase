@@ -3,7 +3,6 @@ package deadlines
 import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	db "actionphase/pkg/db/services"
 	"context"
 	"fmt"
 	"net/http"
@@ -38,8 +37,7 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
@@ -53,7 +51,6 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create deadline
-	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	req := core.CreateDeadlineRequest{
 		GameID:      int32(gameID),
 		Title:       data.Title,
@@ -61,7 +58,7 @@ func (h *Handler) CreateDeadline(w http.ResponseWriter, r *http.Request) {
 		Deadline:    data.Deadline,
 		CreatedBy:   userID,
 	}
-	deadline, err := deadlineService.CreateDeadline(ctx, req)
+	deadline, err := h.DeadlineService.CreateDeadline(ctx, req)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create deadline", "error", err)
 		return
@@ -94,16 +91,14 @@ func (h *Handler) GetGameDeadlines(w http.ResponseWriter, r *http.Request) {
 	includeExpired := r.URL.Query().Get("includeExpired") == "true"
 
 	// Verify the game exists
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	_, err = gameService.GetGame(ctx, int32(gameID))
+	_, err = h.GameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Failed to get game", "error", err)
 		return
 	}
 
 	// Get all deadlines (unified view of arbitrary, phase, and poll deadlines)
-	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	deadlines, err := deadlineService.GetAllGameDeadlines(ctx, int32(gameID), includeExpired)
+	deadlines, err := h.DeadlineService.GetAllGameDeadlines(ctx, int32(gameID), includeExpired)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get all game deadlines", "error", err)
 		return
@@ -141,16 +136,14 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Get existing deadline to check ownership
-	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	existingDeadline, err := deadlineService.GetDeadline(ctx, int32(deadlineID))
+	existingDeadline, err := h.DeadlineService.GetDeadline(ctx, int32(deadlineID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Deadline not found"), "Failed to get deadline", "error", err)
 		return
@@ -169,7 +162,7 @@ func (h *Handler) UpdateDeadline(w http.ResponseWriter, r *http.Request) {
 		Description: data.Description,
 		Deadline:    data.Deadline,
 	}
-	deadline, err := deadlineService.UpdateDeadline(ctx, int32(deadlineID), updateReq)
+	deadline, err := h.DeadlineService.UpdateDeadline(ctx, int32(deadlineID), updateReq)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update deadline", "error", err)
 		return
@@ -198,16 +191,14 @@ func (h *Handler) DeleteDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Get existing deadline to check ownership
-	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	existingDeadline, err := deadlineService.GetDeadline(ctx, int32(deadlineID))
+	existingDeadline, err := h.DeadlineService.GetDeadline(ctx, int32(deadlineID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Deadline not found"), "Failed to get deadline", "error", err)
 		return
@@ -221,7 +212,7 @@ func (h *Handler) DeleteDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete deadline
-	err = deadlineService.DeleteDeadline(ctx, int32(deadlineID), userID)
+	err = h.DeadlineService.DeleteDeadline(ctx, int32(deadlineID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete deadline", "error", err)
 		return
@@ -240,8 +231,7 @@ func (h *Handler) GetUpcomingDeadlines(w http.ResponseWriter, r *http.Request) {
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_upcoming_deadlines")()
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
@@ -258,8 +248,7 @@ func (h *Handler) GetUpcomingDeadlines(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get upcoming deadlines
-	deadlineService := &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	deadlines, err := deadlineService.GetUpcomingDeadlines(ctx, userID, int32(limit))
+	deadlines, err := h.DeadlineService.GetUpcomingDeadlines(ctx, userID, int32(limit))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get upcoming deadlines", "error", err)
 		return
@@ -327,16 +316,14 @@ func toDeadlineWithGameResponse(d *core.DeadlineWithGame) *DeadlineWithGameRespo
 // Returns the game if verification succeeds, or an error response if it fails
 // Uses the unified permission check for GM, Co-GM, and admin mode support
 func (h *Handler) verifyUserIsGM(ctx context.Context, gameID int32, userID int32) (*models.Game, render.Renderer) {
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	game, err := gameService.GetGame(ctx, gameID)
+	game, err := h.GameService.GetGame(ctx, gameID)
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get game")
 		return nil, core.ErrNotFound("Game not found")
 	}
 
 	// Get user to check admin status
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.GetUserByID(int(userID))
+	user, err := h.UserService.GetUserByID(int(userID))
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get user")
 		return nil, core.ErrUnauthorized("User not found")

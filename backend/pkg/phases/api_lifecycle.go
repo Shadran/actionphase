@@ -7,10 +7,6 @@ import (
 	"strconv"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
-	gamesvc "actionphase/pkg/db/services"
-	actionsvc "actionphase/pkg/db/services/actions"
-	phasesvc "actionphase/pkg/db/services/phases"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -35,7 +31,7 @@ func (h *Handler) ActivatePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
@@ -45,7 +41,7 @@ func (h *Handler) ActivatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -101,7 +97,7 @@ func (h *Handler) PublishAllPhaseResults(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -114,7 +110,7 @@ func (h *Handler) PublishAllPhaseResults(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Publish all unpublished results for the phase
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
+	actionService := h.ActionSubmissionService
 	err = actionService.PublishAllPhaseResults(ctx, int32(phaseID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to publish all phase results", "error", err)
@@ -154,7 +150,7 @@ func (h *Handler) GetUnpublishedResultsCount(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -167,7 +163,7 @@ func (h *Handler) GetUnpublishedResultsCount(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get count of unpublished results
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
+	actionService := h.ActionSubmissionService
 	count, err := actionService.GetUnpublishedResultsCount(ctx, int32(phaseID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get unpublished results count", "error", err)

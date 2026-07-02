@@ -8,8 +8,6 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	db "actionphase/pkg/db/services"
-	"actionphase/pkg/db/services/phases"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -17,7 +15,11 @@ import (
 
 // Handler handles HTTP requests for conversations
 type Handler struct {
-	App *core.App
+	App                 *core.App
+	GameService         core.GameServiceInterface
+	CharacterService    core.CharacterServiceInterface
+	ConversationService core.ConversationServiceInterface
+	PhaseService        core.PhaseServiceInterface
 }
 
 // RegisterRoutes registers all conversation routes
@@ -82,8 +84,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	game, err := gameService.GetGame(ctx, int32(gameID))
+	game, err := h.GameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get game for conversation validation", "error", err, "game_id", gameID)
 		h.renderError(ctx, w, r, core.HandleDBErrorWithID(err, "game", gameID), "Error in create conversation")
@@ -94,8 +95,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
-	conv, err := conversationService.CreateConversation(ctx, db.CreateConversationRequest{
+	conv, err := h.ConversationService.CreateConversation(ctx, core.CreateConversationRequest{
 		GameID:          int32(gameID),
 		Title:           data.Title,
 		CreatedByUserID: userID,
@@ -134,7 +134,7 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	unreadOnly := r.URL.Query().Get("unread_only") == "true"
 
@@ -197,7 +197,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Verify user has valid access (checks current character ownership, not just participant records)
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
@@ -212,7 +212,7 @@ func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get conversation details
-	conv, err := conversationService.Queries.GetConversation(ctx, int32(conversationID))
+	conv, err := h.ConversationService.GetConversation(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation", "error", err, "conversation_id", conversationID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation", "error", err)
@@ -254,7 +254,7 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Verify user has valid access (checks current character ownership, not just participant records)
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
@@ -327,7 +327,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Verify the character is a participant in this conversation
 	participants, err := conversationService.GetConversationParticipants(ctx, int32(conversationID))
@@ -363,8 +363,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get character to access game_id for phase validation
-	characterService := &db.CharacterService{DB: h.App.Pool}
-	character, err := characterService.GetCharacter(ctx, data.CharacterID)
+	character, err := h.CharacterService.GetCharacter(ctx, data.CharacterID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get character", "error", err, "character_id", data.CharacterID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
@@ -372,8 +371,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate that the game is in a common room phase
-	phaseService := &phases.PhaseService{DB: h.App.Pool}
-	activePhase, err := phaseService.GetActivePhase(ctx, character.GameID)
+	activePhase, err := h.PhaseService.GetActivePhase(ctx, character.GameID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get active phase", "error", err, "game_id", character.GameID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to send message", "error", err)
@@ -386,7 +384,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := conversationService.SendMessage(ctx, db.SendMessageRequest{
+	message, err := h.ConversationService.SendMessage(ctx, core.SendConversationMessageRequest{
 		ConversationID:    int32(conversationID),
 		SenderUserID:      userID,
 		SenderCharacterID: data.CharacterID,
@@ -425,7 +423,7 @@ func (h *Handler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 	if err := conversationService.MarkConversationAsRead(ctx, int32(conversationID), userID); err != nil {
 		h.App.Logger.Error("Failed to mark conversation as read", "error", err, "conversation_id", conversationID, "user_id", userID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to mark as read", "error", err)
@@ -467,7 +465,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Verify user has valid access (checks current character ownership, not just participant records)
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
@@ -547,7 +545,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Verify user has valid access to the conversation
 	canAccess, err := conversationService.CanUserAccessConversation(ctx, int32(conversationID), userID, authUser.IsAdmin)
@@ -562,22 +560,21 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the message to find the character/game for phase validation
-	msg, err := conversationService.Queries.GetPrivateMessage(ctx, int32(messageID))
+	msg, err := h.ConversationService.GetPrivateMessage(ctx, int32(messageID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("message not found"), "Update message not found")
 		return
 	}
 
 	// Validate that the game is in a common room phase (same gate as sending)
-	conv, err := conversationService.Queries.GetConversation(ctx, int32(conversationID))
+	conv, err := h.ConversationService.GetConversation(ctx, int32(conversationID))
 	if err != nil {
 		h.App.Logger.Error("Failed to get conversation", "error", err, "conversation_id", conversationID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
 		return
 	}
 
-	phaseService := &phases.PhaseService{DB: h.App.Pool}
-	activePhase, err := phaseService.GetActivePhase(ctx, conv.GameID)
+	activePhase, err := h.PhaseService.GetActivePhase(ctx, conv.GameID)
 	if err != nil {
 		h.App.Logger.Error("Failed to get active phase", "error", err, "game_id", conv.GameID)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update message", "error", err)
@@ -642,7 +639,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationService := db.NewConversationService(h.App.Pool)
+	conversationService := h.ConversationService
 
 	// Delete the message (service handles authorization check)
 	err = conversationService.DeletePrivateMessage(ctx, int32(messageID), userID)

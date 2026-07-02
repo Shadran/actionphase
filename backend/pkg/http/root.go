@@ -9,6 +9,9 @@ import (
 	"actionphase/pkg/core"
 	"actionphase/pkg/dashboard"
 	db "actionphase/pkg/db/services"
+	dbactions "actionphase/pkg/db/services/actions"
+	dbmessages "actionphase/pkg/db/services/messages"
+	dbphases "actionphase/pkg/db/services/phases"
 	"actionphase/pkg/deadlines"
 	"actionphase/pkg/docs"
 	"actionphase/pkg/games"
@@ -84,7 +87,15 @@ func (h *Handler) Start() {
 
 	authRouter := chi.NewRouter()
 	authRouter.Route("/", func(r chi.Router) {
-		authHandler := auth.Handler{App: h.App}
+		authHandler := auth.Handler{
+			App:                    h.App,
+			UserService:            &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			SessionService:         &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			UserPreferencesService: db.NewUserPreferencesService(h.App.Pool),
+			IPBanService:           &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			FingerprintBanService:  &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			DiscordService:         &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+		}
 
 		// Public routes (no authentication required)
 		// Apply strict rate limiting to sensitive endpoints
@@ -137,7 +148,16 @@ func (h *Handler) Start() {
 	// Games API - All routes require authentication
 	gamesRouter := chi.NewRouter()
 	gamesRouter.Route("/", func(r chi.Router) {
-		gameHandler := games.Handler{App: h.App}
+		gameHandler := games.Handler{
+			App:                     h.App,
+			UserService:             &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			GameService:             &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			GameApplicationService:  &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			CharacterService:        &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			NotificationService:     db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+			MessageService:          &dbmessages.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics},
+			ActionSubmissionService: &dbactions.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger)},
+		}
 		userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 		// Public routes (authentication optional - will enrich if present)
@@ -199,7 +219,13 @@ func (h *Handler) Start() {
 			r.Get("/{id}/action-submissions/all", gameHandler.ListAllActionSubmissions)
 
 			// Character management within games
-			characterHandler := characters.Handler{App: h.App}
+			characterHandler := characters.Handler{
+				App:                 h.App,
+				UserService:         &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				CharacterService:    &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+			}
 			// Create character requires email verification
 			r.With(core.RequireEmailVerificationMiddleware(h.App.Pool)).Post("/{gameId}/characters", characterHandler.CreateCharacter)
 			r.Get("/{gameId}/characters", characterHandler.GetGameCharacters)
@@ -207,7 +233,13 @@ func (h *Handler) Start() {
 			r.Get("/{gameId}/characters/inactive", characterHandler.ListInactiveCharacters) // GM views inactive characters
 
 			// Phase management within games
-			phaseHandler := phases.Handler{App: h.App}
+			phaseHandler := phases.Handler{
+				App:                     h.App,
+				PhaseService:            &dbphases.PhaseService{DB: h.App.Pool},
+				ActionSubmissionService: &dbactions.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger)},
+				GameService:             &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				NotificationService:     db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+			}
 			r.Post("/{gameId}/phases", phaseHandler.CreatePhase)
 			r.Get("/{gameId}/current-phase", phaseHandler.GetCurrentPhase)
 			r.Get("/{gameId}/phases", phaseHandler.GetGamePhases)
@@ -232,7 +264,11 @@ func (h *Handler) Start() {
 			r.Delete("/{gameId}/results/{resultId}/character-updates/{draftId}", phaseHandler.DeleteDraftCharacterUpdate)
 
 			// Common Room messages (posts and comments)
-			messageHandler := messages.Handler{App: h.App}
+			messageHandler := messages.Handler{
+				App:            h.App,
+				UserService:    &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				MessageService: &dbmessages.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics},
+			}
 			// Create post requires email verification
 			r.With(core.RequireEmailVerificationMiddleware(h.App.Pool)).Post("/{gameId}/posts", messageHandler.CreatePost)
 			r.Get("/{gameId}/posts", messageHandler.GetGamePosts)
@@ -257,11 +293,23 @@ func (h *Handler) Start() {
 			r.Get("/{gameId}/manual-read-comment-ids", messageHandler.GetManualReadCommentIDs)
 
 			// Private messages (conversations)
-			conversationHandler := &conversations.Handler{App: h.App}
+			conversationHandler := &conversations.Handler{
+				App:                 h.App,
+				GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				CharacterService:    &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				ConversationService: db.NewConversationService(h.App.Pool),
+				PhaseService:        &dbphases.PhaseService{DB: h.App.Pool},
+			}
 			conversationHandler.RegisterRoutes(r)
 
 			// Handouts
-			handoutHandler := &handouts.Handler{App: h.App}
+			handoutHandler := &handouts.Handler{
+				App:                 h.App,
+				UserService:         &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				HandoutService:      db.NewHandoutService(h.App.Pool),
+				NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+			}
 			r.Post("/{gameId}/handouts", handoutHandler.CreateHandout)
 			r.Get("/{gameId}/handouts", handoutHandler.ListHandouts)
 			r.Get("/{gameId}/handouts/{handoutId}", handoutHandler.GetHandout)
@@ -277,12 +325,24 @@ func (h *Handler) Start() {
 			r.Delete("/{gameId}/handouts/{handoutId}/comments/{commentId}", handoutHandler.DeleteHandoutComment)
 
 			// Deadlines
-			deadlineHandler := &deadlines.Handler{App: h.App}
+			deadlineHandler := &deadlines.Handler{
+				App:             h.App,
+				UserService:     &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				GameService:     &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				DeadlineService: &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			}
 			r.Post("/{gameId}/deadlines", deadlineHandler.CreateDeadline)
 			r.Get("/{gameId}/deadlines", deadlineHandler.GetGameDeadlines)
 
 			// Polls
-			pollHandler := &polls.Handler{App: h.App}
+			pollHandler := &polls.Handler{
+				App:                 h.App,
+				UserService:         &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				PollService:         &db.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				CharacterService:    &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+			}
 			r.Post("/{gameId}/polls", pollHandler.CreatePoll)
 			r.Get("/{gameId}/polls", pollHandler.ListGamePolls)
 			r.Get("/{gameId}/phases/{phaseId}/polls", pollHandler.ListPollsByPhase)
@@ -296,8 +356,17 @@ func (h *Handler) Start() {
 	// Characters API (for character-specific operations)
 	charactersRouter := chi.NewRouter()
 	charactersRouter.Route("/", func(r chi.Router) {
-		characterHandler := characters.Handler{App: h.App}
-		avatarHandler := avatars.Handler{App: h.App}
+		characterHandler := characters.Handler{
+			App:                 h.App,
+			UserService:         &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			CharacterService:    &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+		}
+		avatarHandler := avatars.Handler{
+			App:              h.App,
+			CharacterService: &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+		}
 		userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
 		// All character routes require authentication
@@ -322,7 +391,11 @@ func (h *Handler) Start() {
 			r.Get("/{id}/stats", characterHandler.GetCharacterStats)
 
 			// Character page - public activity feed
-			messageHandler := messages.Handler{App: h.App}
+			messageHandler := messages.Handler{
+				App:            h.App,
+				UserService:    &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				MessageService: &dbmessages.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics},
+			}
 			r.Get("/{id}/comments", messageHandler.GetCharacterComments)
 
 			// Avatar management
@@ -335,7 +408,13 @@ func (h *Handler) Start() {
 	// Phases API (for phase-specific operations)
 	phasesRouter := chi.NewRouter()
 	phasesRouter.Route("/", func(r chi.Router) {
-		phaseHandler := phases.Handler{App: h.App}
+		phaseHandler := phases.Handler{
+			App:                     h.App,
+			PhaseService:            &dbphases.PhaseService{DB: h.App.Pool},
+			ActionSubmissionService: &dbactions.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger)},
+			GameService:             &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			NotificationService:     db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+		}
 
 		// All phase routes require authentication
 		r.Group(func(r chi.Router) {
@@ -353,7 +432,11 @@ func (h *Handler) Start() {
 			r.Delete("/{id}", phaseHandler.DeletePhase)
 
 			// Draft post management (GM only)
-			messageHandler := messages.Handler{App: h.App}
+			messageHandler := messages.Handler{
+				App:            h.App,
+				UserService:    &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+				MessageService: &dbmessages.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics},
+			}
 			r.Get("/{id}/draft-post", messageHandler.GetDraftPost)
 			r.Post("/{id}/draft-post", messageHandler.CreateDraftPost)
 			r.Put("/{id}/draft-post", messageHandler.UpdateDraftPost)
@@ -365,7 +448,12 @@ func (h *Handler) Start() {
 	// Deadlines API (for deadline-specific operations)
 	deadlinesRouter := chi.NewRouter()
 	deadlinesRouter.Route("/", func(r chi.Router) {
-		deadlineHandler := deadlines.Handler{App: h.App}
+		deadlineHandler := deadlines.Handler{
+			App:             h.App,
+			UserService:     &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			GameService:     &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			DeadlineService: &db.DeadlineService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+		}
 
 		// All deadline routes require authentication
 		r.Group(func(r chi.Router) {
@@ -387,7 +475,14 @@ func (h *Handler) Start() {
 	// Polls API (for poll-specific operations)
 	pollsRouter := chi.NewRouter()
 	pollsRouter.Route("/", func(r chi.Router) {
-		pollHandler := polls.Handler{App: h.App}
+		pollHandler := polls.Handler{
+			App:                 h.App,
+			UserService:         &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			GameService:         &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			PollService:         &db.PollService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			CharacterService:    &db.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+		}
 
 		// All poll routes require authentication
 		r.Group(func(r chi.Router) {
@@ -411,7 +506,10 @@ func (h *Handler) Start() {
 	// Notifications API
 	notificationsRouter := chi.NewRouter()
 	notificationsRouter.Route("/", func(r chi.Router) {
-		notificationHandler := notifications.Handler{App: h.App}
+		notificationHandler := notifications.Handler{
+			App:                 h.App,
+			NotificationService: db.NewNotificationService(h.App.Pool, h.App.ObsLogger),
+		}
 
 		// All notification routes require authentication
 		r.Group(func(r chi.Router) {
@@ -437,7 +535,11 @@ func (h *Handler) Start() {
 	// Dashboard API
 	dashboardRouter := chi.NewRouter()
 	dashboardRouter.Route("/", func(r chi.Router) {
-		dashboardHandler := dashboard.Handler{App: h.App}
+		dashboardHandler := dashboard.Handler{
+			App:              h.App,
+			UserService:      &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			DashboardService: &db.DashboardService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+		}
 
 		// Dashboard route requires authentication
 		r.Group(func(r chi.Router) {
@@ -457,7 +559,10 @@ func (h *Handler) Start() {
 	// Users API - User profiles and avatars
 	usersRouter := chi.NewRouter()
 	usersRouter.Route("/", func(r chi.Router) {
-		userHandler := users.Handler{App: h.App}
+		userHandler := users.Handler{
+			App:         h.App,
+			UserService: &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+		}
 
 		// All user profile routes require authentication
 		r.Group(func(r chi.Router) {
@@ -485,7 +590,14 @@ func (h *Handler) Start() {
 	// Admin API - All routes require authentication AND admin privileges
 	adminRouter := chi.NewRouter()
 	adminRouter.Route("/", func(r chi.Router) {
-		adminHandler := admin.Handler{App: h.App}
+		adminHandler := admin.Handler{
+			App:                   h.App,
+			UserService:           &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			SessionService:        &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			IPBanService:          &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			FingerprintBanService: &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger},
+			MessageService:        &dbmessages.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics},
+		}
 
 		// All admin routes require authentication and admin privileges
 		r.Group(func(r chi.Router) {

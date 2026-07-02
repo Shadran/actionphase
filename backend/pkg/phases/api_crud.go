@@ -7,8 +7,6 @@ import (
 	"strconv"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
-	phasesvc "actionphase/pkg/db/services/phases"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -53,8 +51,8 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -105,7 +103,7 @@ func (h *Handler) GetCurrentPhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 	phase, err := phaseService.GetActivePhase(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get active phase", "error", err, "game_id", gameID)
@@ -137,7 +135,7 @@ func (h *Handler) GetGamePhases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 	phases, err := phaseService.GetGamePhases(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game phases", "error", err, "game_id", gameID)
@@ -183,7 +181,7 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
@@ -193,7 +191,7 @@ func (h *Handler) UpdatePhaseDeadline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -240,7 +238,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
@@ -250,7 +248,7 @@ func (h *Handler) UpdatePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -305,7 +303,7 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 
 	// Get phase to check game ID
 	phase, err := phaseService.GetPhase(ctx, int32(phaseID))
@@ -315,7 +313,7 @@ func (h *Handler) DeletePhase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game and check GM permissions (considers admin mode)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, phase.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)

@@ -53,6 +53,21 @@ type SessionServiceInterface interface {
 
 	// UpdateSessionLastSeen updates the last_seen_at timestamp for a session
 	UpdateSessionLastSeen(ctx context.Context, sessionID int32) error
+
+	// GetSessionByID retrieves a session by its numeric ID
+	GetSessionByID(ctx context.Context, id int32) (*Session, error)
+
+	// GetUserSessions retrieves all sessions for a user
+	GetUserSessions(ctx context.Context, userID int32) ([]models.Session, error)
+
+	// DeleteSession deletes a session by numeric ID
+	DeleteSession(ctx context.Context, sessionID int32) error
+
+	// InvalidateSessionsByIP invalidates all sessions from a given IP address
+	InvalidateSessionsByIP(ctx context.Context, ipAddress string) error
+
+	// InvalidateSessionsByFingerprint invalidates all sessions with a given device fingerprint
+	InvalidateSessionsByFingerprint(ctx context.Context, fingerprint string) error
 }
 
 // UserServiceInterface defines the contract for user management operations.
@@ -114,6 +129,12 @@ type UserServiceInterface interface {
 	ApproveUser(ctx context.Context, userID int32) error
 	RejectUser(ctx context.Context, userID int32) error
 	SetPendingApproval(ctx context.Context, userID int32) error
+
+	// UserByEmail retrieves a user by email address
+	UserByEmail(email string) (*User, error)
+
+	// SearchUsers searches for users matching a query string
+	SearchUsers(ctx context.Context, query string) ([]models.SearchUsersRow, error)
 }
 
 // IPBanServiceInterface defines the contract for IP address banning.
@@ -249,6 +270,18 @@ type GameServiceInterface interface {
 	// - User is GM, participant, or audience member (for active games)
 	// Note: Cancelled games are NOT public and follow normal permission rules
 	CanUserViewGame(ctx context.Context, gameID, userID int32) (bool, error)
+
+	// UpdateGameBannerURL sets or clears the banner image URL for a game
+	UpdateGameBannerURL(ctx context.Context, gameID int32, bannerURL *string) error
+
+	// PromoteToCoGM promotes a participant to co-GM role
+	PromoteToCoGM(ctx context.Context, gameID, userID, requestingUserID int32) error
+
+	// DemoteFromCoGM removes co-GM role from a participant
+	DemoteFromCoGM(ctx context.Context, gameID, userID, requestingUserID int32) error
+
+	// TransitionPlayerToAudience moves a player to audience role
+	TransitionPlayerToAudience(ctx context.Context, gameID, userID, requestingUserID int32) error
 }
 
 // GameApplicationServiceInterface defines the contract for game application operations.
@@ -296,10 +329,7 @@ type GameApplicationServiceInterface interface {
 	// RejectGameApplication rejects an application
 	RejectGameApplication(ctx context.Context, applicationID, reviewerID int32) error
 
-	// WithdrawGameApplication allows applicant to withdraw their application
-	WithdrawGameApplication(ctx context.Context, applicationID, userID int32) error
-
-	// DeleteGameApplication removes an application (for cleanup)
+	// DeleteGameApplication removes an application (for cleanup or withdrawal)
 	DeleteGameApplication(ctx context.Context, applicationID, userID int32) error
 
 	// CanUserApplyToGame checks if a user is eligible to apply to a game
@@ -316,6 +346,24 @@ type GameApplicationServiceInterface interface {
 
 	// GetApprovedApplicationsForGame retrieves approved applications for participant creation
 	GetApprovedApplicationsForGame(ctx context.Context, gameID int32) ([]models.GetApprovedApplicationsForGameRow, error)
+
+	// GetGameApplicationByUserAndGame retrieves a user's application for a specific game
+	GetGameApplicationByUserAndGame(ctx context.Context, gameID, userID int32) (*models.GameApplication, error)
+
+	// BulkRejectApplications rejects all pending applications for a game
+	BulkRejectApplications(ctx context.Context, gameID, reviewerID int32) error
+
+	// ConvertApprovedApplicationsToParticipants converts approved applications to participants
+	ConvertApprovedApplicationsToParticipants(ctx context.Context, gameID int32) error
+
+	// PublishApplicationStatuses makes application decisions visible to applicants
+	PublishApplicationStatuses(ctx context.Context, gameID int32) error
+
+	// DeleteRejectedApplications removes rejected application records
+	DeleteRejectedApplications(ctx context.Context, gameID int32) error
+
+	// GetPublicGameApplicants retrieves public-facing applicant information for a game
+	GetPublicGameApplicants(ctx context.Context, gameID int32) ([]models.GetPublicGameApplicantsRow, error)
 }
 
 // CreateGameRequest represents the parameters needed to create a new game
@@ -425,6 +473,18 @@ type PhaseServiceInterface interface {
 	// RunScheduledActivations activates any phases whose start_time has arrived.
 	// Returns the number of phases examined and activated.
 	RunScheduledActivations(ctx context.Context) (examined int, activated int, err error)
+
+	// CanUserManagePhases checks if a user has GM permissions for a game's phases
+	CanUserManagePhases(ctx context.Context, gameID, userID int32) (bool, error)
+
+	// CanUserSubmitActions checks if a user can submit actions in a game
+	CanUserSubmitActions(ctx context.Context, gameID, userID int32) (bool, error)
+
+	// DeletePhase removes a phase (only allowed when safe)
+	DeletePhase(ctx context.Context, phaseID int32) error
+
+	// CanDeletePhase checks if a phase can be safely deleted
+	CanDeletePhase(ctx context.Context, phaseID int32) error
 }
 
 // ActionSubmissionServiceInterface defines the contract for action submission operations.
@@ -522,6 +582,18 @@ type ActionSubmissionServiceInterface interface {
 
 	// GetDraftUpdateCount returns the count of draft updates for an action result
 	GetDraftUpdateCount(ctx context.Context, actionResultID int32) (int64, error)
+
+	// GetUserActions retrieves all action submissions by a user in a game
+	GetUserActions(ctx context.Context, gameID, userID int32) ([]models.GetUserActionsRow, error)
+
+	// GetGameActions retrieves all action submissions for a game (GM view)
+	GetGameActions(ctx context.Context, gameID int32) ([]models.GetGameActionsRow, error)
+
+	// GetUserResults retrieves all action results for a user in a game
+	GetUserResults(ctx context.Context, gameID, userID int32) ([]models.GetUserResultsRow, error)
+
+	// GetGameResults retrieves all action results for a game (GM view)
+	GetGameResults(ctx context.Context, gameID int32) ([]models.GetGameResultsRow, error)
 }
 
 // MessageServiceInterface defines the contract for message and comment operations.
@@ -696,6 +768,24 @@ type MessageServiceInterface interface {
 
 	// DeleteDraftPostsForPhase hard-deletes all draft posts for a phase (called when phase is deleted)
 	DeleteDraftPostsForPhase(ctx context.Context, phaseID int32) error
+
+	// GetMessage retrieves a specific message (post or comment) by ID with metadata
+	GetMessage(ctx context.Context, messageID int32) (*MessageWithDetails, error)
+
+	// CanUserEditPost checks if a user can edit a post (must be author)
+	CanUserEditPost(ctx context.Context, postID int32, userID int32) (bool, error)
+
+	// MarkPostAsRead marks a post as read by a user, recording the last read comment
+	MarkPostAsRead(ctx context.Context, userID, gameID, postID int32, lastReadCommentID *int32) (*ReadMarker, error)
+
+	// GetUserReadMarkersForGame retrieves all read markers for a user in a game
+	GetUserReadMarkersForGame(ctx context.Context, userID, gameID int32) ([]*ReadMarker, error)
+
+	// GetPostsWithUnreadInfo retrieves posts with unread status for the authenticated user
+	GetPostsWithUnreadInfo(ctx context.Context, gameID int32) ([]*PostUnreadInfo, error)
+
+	// GetUnreadCommentIDsForPosts retrieves unread comment IDs for posts a user has read markers for
+	GetUnreadCommentIDsForPosts(ctx context.Context, userID, gameID int32) ([]*PostUnreadComments, error)
 }
 
 // CreatePhaseRequest represents the parameters needed to create a new game phase
@@ -1572,4 +1662,53 @@ type UserAvatarServiceInterface interface {
 	// GetUserAvatarURL retrieves the avatar URL for a user.
 	// Returns nil if the user has no avatar.
 	GetUserAvatarURL(ctx context.Context, userID int32) (*string, error)
+}
+
+// CharacterServiceInterface defines the contract for character management operations.
+type CharacterServiceInterface interface {
+	CreateCharacter(ctx context.Context, req CreateCharacterRequest) (*models.Character, error)
+	CreateGamemasterNPC(ctx context.Context, gameID int32) error
+	RenameCharacter(ctx context.Context, characterID int32, newName string) (*models.Character, error)
+	GetCharacter(ctx context.Context, characterID int32) (*models.Character, error)
+	GetCharactersByGame(ctx context.Context, gameID int32) ([]models.GetCharactersByGameRow, error)
+	GetPlayerCharacters(ctx context.Context, gameID int32) ([]models.GetPlayerCharactersByGameRow, error)
+	GetNPCs(ctx context.Context, gameID int32) ([]models.GetNPCsByGameRow, error)
+	GetUserControllableCharacters(ctx context.Context, gameID, userID int32) ([]models.GetUserControllableCharactersRow, error)
+	ApproveCharacter(ctx context.Context, characterID int32) (*models.Character, error)
+	AssignNPCToUser(ctx context.Context, characterID, assignedUserID, assignedByUserID int32) error
+	SetCharacterData(ctx context.Context, req CharacterDataRequest) error
+	GetCharacterData(ctx context.Context, characterID int32) ([]models.CharacterDatum, error)
+	GetCharacterDataByModule(ctx context.Context, characterID int32, moduleType string) ([]models.CharacterDatum, error)
+	GetPublicCharacterData(ctx context.Context, characterID int32) ([]models.CharacterDatum, error)
+	CanUserEditCharacter(ctx context.Context, characterID, userID int32) (bool, error)
+	ReassignCharacter(ctx context.Context, characterID, newOwnerUserID int32) (*models.Character, error)
+	ListInactiveCharacters(ctx context.Context, gameID int32) ([]models.ListInactiveCharactersRow, error)
+	DeactivatePlayerCharacters(ctx context.Context, gameID, userID int32) error
+	DeleteCharacter(ctx context.Context, characterID int32) error
+	ListAudienceNPCs(ctx context.Context, gameID int32) ([]models.ListAudienceNPCsRow, error)
+	GetCharacterActivityStats(ctx context.Context, characterID int32) (*CharacterActivityStats, error)
+	AssignNPCToAudience(ctx context.Context, characterID, assignedUserID, assignedByUserID int32) (*models.NpcAssignment, error)
+}
+
+// UserPreferencesServiceInterface defines the contract for user preferences operations.
+type UserPreferencesServiceInterface interface {
+	GetUserPreferences(ctx context.Context, userID int32) (*PreferencesData, error)
+	UpdateUserPreferences(ctx context.Context, userID int32, prefs PreferencesData) (*PreferencesData, error)
+}
+
+// ConversationServiceInterface defines the contract for private conversation operations.
+type ConversationServiceInterface interface {
+	CreateConversation(ctx context.Context, req CreateConversationRequest) (*models.Conversation, error)
+	GetUserConversations(ctx context.Context, gameID int32, userID int32) ([]models.GetUserConversationsRow, error)
+	GetUserUnreadConversations(ctx context.Context, gameID int32, userID int32, limit int32) ([]models.GetUserUnreadConversationsRow, error)
+	GetConversationParticipants(ctx context.Context, conversationID int32) ([]models.GetConversationParticipantsRow, error)
+	SendMessage(ctx context.Context, req SendConversationMessageRequest) (*models.PrivateMessage, error)
+	GetConversationMessages(ctx context.Context, conversationID int32, userID int32) ([]models.GetConversationMessagesRow, error)
+	MarkConversationAsRead(ctx context.Context, conversationID int32, userID int32) error
+	AddParticipant(ctx context.Context, conversationID int32, characterID int32) error
+	UpdatePrivateMessage(ctx context.Context, messageID int32, userID int32, content string) (*models.PrivateMessage, error)
+	DeletePrivateMessage(ctx context.Context, messageID int32, userID int32) error
+	CanUserAccessConversation(ctx context.Context, conversationID int32, userID int32, isAdmin bool) (bool, error)
+	GetConversation(ctx context.Context, conversationID int32) (*models.Conversation, error)
+	GetPrivateMessage(ctx context.Context, messageID int32) (*models.PrivateMessage, error)
 }

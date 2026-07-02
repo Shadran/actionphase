@@ -2,7 +2,6 @@ package admin
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"errors"
 	"net/http"
 	"strconv"
@@ -33,7 +32,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	search := r.URL.Query().Get("search")
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	users, total, err := userService.ListAllUsersAdmin(ctx, page, pageSize, search)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list users", "error", err)
@@ -52,7 +51,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // GET /admin/users/pending
 func (h *Handler) ListPendingApprovalUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	users, err := userService.ListPendingApprovalUsers(ctx)
 	if err != nil {
@@ -75,7 +74,7 @@ func (h *Handler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	user, err := userService.GetUserByID(int(id))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("user not found"), "Approve user not found")
@@ -107,7 +106,7 @@ func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	user, err := userService.GetUserByID(int(id))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("user not found"), "Reject user not found")
@@ -139,7 +138,7 @@ func (h *Handler) GetUserSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	sessionService := h.SessionService
 	sessions, err := sessionService.GetUserSessionsWithDetails(ctx, int32(id))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err)

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,7 +16,7 @@ import (
 // GET /admin/fingerprint-bans
 func (h *Handler) ListFingerprintBans(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	svc := &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.FingerprintBanService
 
 	bans, err := svc.ListFingerprintBans(ctx)
 	if err != nil {
@@ -60,7 +59,7 @@ func (h *Handler) CreateFingerprintBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.FingerprintBanService
 	ban, err := svc.CreateFingerprintBan(ctx, req.Fingerprint, req.Reason, adminID, req.BannedUserID)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -72,7 +71,7 @@ func (h *Handler) CreateFingerprintBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	sessionSvc := h.SessionService
 	if err := sessionSvc.InvalidateSessionsByFingerprint(ctx, req.Fingerprint); err != nil {
 		h.App.ObsLogger.Warn(ctx, "Failed to invalidate sessions for banned fingerprint", "fingerprint", req.Fingerprint, "error", err)
 	}
@@ -93,7 +92,7 @@ func (h *Handler) DeleteFingerprintBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := &db.FingerprintBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.FingerprintBanService
 	if err := svc.DeleteFingerprintBan(ctx, int32(id)); err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete fingerprint ban", "error", err)
 		return

@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+// PreferencesData represents the structured user preferences object.
+type PreferencesData struct {
+	Theme                string          `json:"theme"`                           // "light" | "dark" | "auto"
+	CommentReadMode      string          `json:"comment_read_mode"`               // "auto" | "manual"
+	DiscordNotifications map[string]bool `json:"discord_notifications,omitempty"` // per-type Discord DM toggles
+}
+
 // User represents a user account in the ActionPhase system.
 // It includes authentication credentials, contact information, and metadata.
 // The struct supports JSON serialization and validation tags for API usage.

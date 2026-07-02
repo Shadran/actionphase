@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"actionphase/pkg/core"
-	dbservices "actionphase/pkg/db/services"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -16,7 +15,8 @@ import (
 
 // Handler holds dependencies for user profile API handlers
 type Handler struct {
-	App *core.App
+	App         *core.App
+	UserService core.UserServiceInterface
 }
 
 // Request and Response Types
@@ -64,8 +64,7 @@ func (h *Handler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate request user (viewer must be authenticated)
-	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	_, errResp := core.GetUserIDFromJWT(ctx, userService)
+	_, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
@@ -112,15 +111,14 @@ func (h *Handler) GetUserProfileByUsername(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Authenticate request user (viewer must be authenticated)
-	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	_, errResp := core.GetUserIDFromJWT(ctx, userService)
+	_, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
 	// Look up user by username
-	user, err := userService.UserByUsername(username)
+	user, err := h.UserService.UserByUsername(username)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("user"), "Failed to find user", "error", err, "username", username)
 		return
@@ -162,8 +160,7 @@ func (h *Handler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	defer h.App.ObsLogger.LogOperation(ctx, "UpdateUserProfile")()
 
 	// Authenticate user
-	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
@@ -203,8 +200,7 @@ func (h *Handler) UploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	defer h.App.ObsLogger.LogOperation(ctx, "UploadUserAvatar")()
 
 	// Authenticate user
-	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
@@ -273,8 +269,7 @@ func (h *Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request) {
 	defer h.App.ObsLogger.LogOperation(ctx, "DeleteUserAvatar")()
 
 	// Authenticate user
-	userService := &dbservices.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return

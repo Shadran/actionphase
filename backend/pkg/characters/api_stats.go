@@ -2,7 +2,6 @@ package characters
 
 import (
 	"actionphase/pkg/core"
-	services "actionphase/pkg/db/services"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -40,14 +39,14 @@ func (h *Handler) GetCharacterStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character for stats", "error", err, "character_id", characterID)
 		return
 	}
 
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for stats", "error", err, "game_id", character.GameID)

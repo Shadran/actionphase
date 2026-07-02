@@ -3,7 +3,6 @@ package handouts
 import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	db "actionphase/pkg/db/services"
 	"context"
 	"fmt"
 	"net/http"
@@ -17,7 +16,7 @@ import (
 // Returns the game if verification succeeds, or an error response if it fails
 func (h *Handler) verifyUserIsGM(ctx context.Context, game *models.Game, userID int32) render.Renderer {
 	// Get user to check admin status
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	user, err := userService.GetUserByID(int(userID))
 	if err != nil {
 		h.App.ObsLogger.LogError(ctx, err, "Failed to get user")
@@ -56,7 +55,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -64,7 +63,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM or Co-GM of the game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
@@ -77,7 +76,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create handout
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	handout, err := handoutService.CreateHandout(ctx, int32(gameID), data.Title, data.Content, data.Status, userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create handout", "error", err)
@@ -90,7 +89,7 @@ func (h *Handler) CreateHandout(w http.ResponseWriter, r *http.Request) {
 	if handout.Status == "published" {
 		go func() {
 			notifCtx := context.Background()
-			notifService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+			notifService := h.NotificationService
 			if err := notifService.NotifyHandoutPublished(notifCtx, handout.GameID, handout.ID, handout.Title, userID); err != nil {
 				h.App.ObsLogger.Warn(notifCtx, "Failed to send handout published notifications", "error", err, "handout_id", handout.ID)
 			}
@@ -127,7 +126,7 @@ func (h *Handler) GetHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -135,7 +134,7 @@ func (h *Handler) GetHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get handout (service will check permissions)
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	handout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
@@ -171,7 +170,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -179,7 +178,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
@@ -190,7 +189,7 @@ func (h *Handler) ListHandouts(w http.ResponseWriter, r *http.Request) {
 	isGM := game.GmUserID == userID || core.IsUserCoGM(ctx, h.App.Pool, int32(gameID), userID)
 
 	// List handouts
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	handouts, err := handoutService.ListHandouts(ctx, int32(gameID), userID, isGM)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list handouts", "error", err)
@@ -237,7 +236,7 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -245,7 +244,7 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get existing handout to check ownership
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
@@ -253,7 +252,7 @@ func (h *Handler) UpdateHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM of the game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
@@ -303,7 +302,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -311,7 +310,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get existing handout to check ownership
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
@@ -319,7 +318,7 @@ func (h *Handler) DeleteHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM of the game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
@@ -359,7 +358,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -367,7 +366,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get existing handout to check ownership
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
@@ -375,7 +374,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM of the game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)
@@ -399,7 +398,7 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	// Notify players about the published handout
 	go func() {
 		notifCtx := context.Background()
-		notifService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+		notifService := h.NotificationService
 		if err := notifService.NotifyHandoutPublished(notifCtx, handout.GameID, handout.ID, handout.Title, userID); err != nil {
 			h.App.ObsLogger.Warn(notifCtx, "Failed to send handout published notifications", "error", err, "handout_id", handout.ID)
 		}
@@ -439,7 +438,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -447,7 +446,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get existing handout to check ownership
-	handoutService := &db.HandoutService{DB: h.App.Pool}
+	handoutService := h.HandoutService
 	existingHandout, err := handoutService.GetHandout(ctx, int32(handoutID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get handout", "error", err)
@@ -455,7 +454,7 @@ func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM of the game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, existingHandout.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Handout not found"), "Failed to get game", "error", err)

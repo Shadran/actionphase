@@ -2,14 +2,15 @@ package dashboard
 
 import (
 	"actionphase/pkg/core"
-	services "actionphase/pkg/db/services"
 	"encoding/json"
 	"net/http"
 )
 
 // Handler handles HTTP requests for dashboard endpoints
 type Handler struct {
-	App *core.App
+	App              *core.App
+	UserService      core.UserServiceInterface
+	DashboardService core.DashboardServiceInterface
 }
 
 // GetUserDashboard handles GET /api/v1/dashboard
@@ -21,19 +22,15 @@ func (h *Handler) GetUserDashboard(w http.ResponseWriter, r *http.Request) {
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_user_dashboard")()
 
 	// Get user ID from JWT token
-	userService := &services.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
+	userID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 	h.App.ObsLogger.Info(ctx, "Authenticated user for dashboard retrieval", "user_id", userID)
 
-	// Create dashboard service
-	dashboardService := &services.DashboardService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-
 	// Get dashboard data from service
-	dashboard, err := dashboardService.GetUserDashboard(ctx, userID)
+	dashboard, err := h.DashboardService.GetUserDashboard(ctx, userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get dashboard data", "error", err, "user_id", userID)
 		return

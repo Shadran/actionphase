@@ -2,8 +2,6 @@ package admin
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
-	messagesvc "actionphase/pkg/db/services/messages"
 	"context"
 	"errors"
 	"net/http"
@@ -14,7 +12,12 @@ import (
 )
 
 type Handler struct {
-	App *core.App
+	App                   *core.App
+	UserService           core.UserServiceInterface
+	SessionService        core.SessionServiceInterface
+	IPBanService          core.IPBanServiceInterface
+	FingerprintBanService core.FingerprintBanServiceInterface
+	MessageService        core.MessageServiceInterface
 }
 
 // getUserIDFromContext extracts user ID from authenticated context
@@ -30,7 +33,7 @@ func (h *Handler) getUserIDFromContext(r *http.Request) (int32, error) {
 // GET /admin/admins
 func (h *Handler) ListAdmins(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	admins, err := userService.ListAdmins(ctx)
 	if err != nil {
@@ -62,7 +65,7 @@ func (h *Handler) GrantAdminStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	err = userService.SetAdminStatus(ctx, int32(userID), true, requesterID)
 	if err != nil {
@@ -100,7 +103,7 @@ func (h *Handler) RevokeAdminStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	err = userService.SetAdminStatus(ctx, int32(userID), false, requesterID)
 	if err != nil {
@@ -138,8 +141,8 @@ func (h *Handler) BanUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
+	sessionService := h.SessionService
 
 	// Ban the user
 	err = userService.BanUser(ctx, int32(userID), adminID)
@@ -187,7 +190,7 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	err = userService.UnbanUser(ctx, int32(userID))
 	if err != nil {
@@ -210,7 +213,7 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 // GET /admin/users/banned
 func (h *Handler) ListBannedUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 
 	bannedUsers, err := userService.ListBannedUsers(ctx)
 	if err != nil {
@@ -242,7 +245,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 
 	// Check if user can delete this message (admins always can via admin mode)
 	canDelete, err := messageService.CanUserDeleteComment(ctx, int32(messageID), adminID, true)

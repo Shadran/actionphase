@@ -10,7 +10,6 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	messagesvc "actionphase/pkg/db/services/messages"
 )
 
 // ListRecentCommentsWithParents lists recent comments with their parent messages for the "New Comments" view
@@ -59,10 +58,10 @@ func (h *Handler) ListRecentCommentsWithParents(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	userID, _ := getUserIDFromToken(r, h.App)
+	userID, _ := h.getUserIDFromToken(r)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	comments, err := messageService.ListRecentCommentsWithParents(ctx, int32(gameID), int32(limit), int32(offset))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list recent comments", "error", err, "game_id", gameID)
@@ -147,10 +146,10 @@ func (h *Handler) GetCharacterComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, _ := getUserIDFromToken(r, h.App)
+	userID, _ := h.getUserIDFromToken(r)
 	showUsernames := core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID)
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 
 	messages, err := messageService.ListCharacterPostsAndComments(ctx, int32(characterID), int32(limit), int32(offset))
 	if err != nil {

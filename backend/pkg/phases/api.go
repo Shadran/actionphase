@@ -6,7 +6,11 @@ import (
 
 // Handler handles phase-related HTTP requests
 type Handler struct {
-	App *core.App
+	App                    *core.App
+	PhaseService           core.PhaseServiceInterface
+	ActionSubmissionService core.ActionSubmissionServiceInterface
+	GameService            core.GameServiceInterface
+	NotificationService    core.NotificationServiceInterface
 }
 
 // All handler methods are organized into separate files:

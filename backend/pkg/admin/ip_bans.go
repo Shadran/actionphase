@@ -2,7 +2,6 @@ package admin
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"encoding/json"
 	"errors"
 	"net"
@@ -20,7 +19,7 @@ import (
 // GET /admin/ip-bans
 func (h *Handler) ListIPBans(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	svc := &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.IPBanService
 
 	bans, err := svc.ListIPBans(ctx)
 	if err != nil {
@@ -64,7 +63,7 @@ func (h *Handler) CreateIPBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.IPBanService
 	ban, err := svc.CreateIPBan(ctx, req.IPAddress, req.Reason, adminID, req.ExpiresAt, req.BannedUserID)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -76,7 +75,7 @@ func (h *Handler) CreateIPBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	sessionSvc := h.SessionService
 	if err := sessionSvc.InvalidateSessionsByIP(ctx, req.IPAddress); err != nil {
 		h.App.ObsLogger.Warn(ctx, "Failed to invalidate sessions for banned IP", "ip_address", req.IPAddress, "error", err)
 	}
@@ -97,7 +96,7 @@ func (h *Handler) DeleteIPBan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := &db.IPBanService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	svc := h.IPBanService
 	if err := svc.DeleteIPBan(ctx, int32(id)); err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete i p ban", "error", err)
 		return

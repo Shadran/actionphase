@@ -18,26 +18,18 @@ const (
 	MaxCharacterNameLength = 255
 )
 
+var _ core.CharacterServiceInterface = (*CharacterService)(nil)
+
 type CharacterService struct {
 	DB     *pgxpool.Pool
 	Logger *observability.Logger
 }
 
-type CreateCharacterRequest struct {
-	GameID        int32
-	UserID        *int32 // nil for GM-controlled NPCs
-	Name          string
-	CharacterType string // "player_character", "npc"
-}
+// CreateCharacterRequest is an alias kept for callers that used the old db-package type.
+type CreateCharacterRequest = core.CreateCharacterRequest
 
-type CharacterDataRequest struct {
-	CharacterID int32
-	ModuleType  string
-	FieldName   string
-	FieldValue  string
-	FieldType   string
-	IsPublic    bool
-}
+// CharacterDataRequest is an alias kept for callers that used the old db-package type.
+type CharacterDataRequest = core.CharacterDataRequest
 
 func (cs *CharacterService) CreateCharacter(ctx context.Context, req CreateCharacterRequest) (*models.Character, error) {
 	defer cs.Logger.LogOperation(ctx, "create_character",

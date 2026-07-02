@@ -2,7 +2,6 @@ package auth
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"errors"
 	"net/http"
 	"strconv"
@@ -45,7 +44,7 @@ func (h *Handler) V1ListSessions(w http.ResponseWriter, r *http.Request) {
 	currentTokenString := jwtauth.TokenFromHeader(r)
 
 	// Get all sessions for the user
-	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	sessionService := h.SessionService
 	sessions, err := sessionService.GetUserSessions(ctx, authUser.ID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err, "user_id", authUser.ID)
@@ -93,7 +92,7 @@ func (h *Handler) V1RevokeSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the session belongs to the user
-	sessionService := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	sessionService := h.SessionService
 	sessions, err := sessionService.GetUserSessions(ctx, authUser.ID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user sessions", "error", err, "user_id", authUser.ID)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -34,14 +33,14 @@ func (h *Handler) UploadGameBanner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Request rejected in upload game banner")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, gameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Upload game banner not found")
@@ -118,14 +117,14 @@ func (h *Handler) DeleteGameBanner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Request rejected in delete game banner")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, gameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("Game not found"), "Delete game banner not found")

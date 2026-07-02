@@ -7,13 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	db "actionphase/pkg/db/models"
+	dbsvc "actionphase/pkg/db/services"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,6 +49,20 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	}
 
 	return pool
+}
+
+// newTestHandler creates a fully-wired Handler for use in tests.
+func newTestHandler(pool *pgxpool.Pool) Handler {
+	app := core.NewTestApp(pool)
+	return Handler{
+		App:                    app,
+		UserService:            &dbsvc.UserService{DB: pool, Logger: app.ObsLogger},
+		SessionService:         &dbsvc.SessionService{DB: pool, Logger: app.ObsLogger},
+		UserPreferencesService: dbsvc.NewUserPreferencesService(pool),
+		IPBanService:           &dbsvc.IPBanService{DB: pool, Logger: app.ObsLogger},
+		FingerprintBanService:  &dbsvc.FingerprintBanService{DB: pool, Logger: app.ObsLogger},
+		DiscordService:         &dbsvc.DiscordAccountService{DB: pool, Logger: app.ObsLogger},
+	}
 }
 
 // createTestUser creates a test user and returns the user ID
@@ -103,12 +117,7 @@ func TestV1ChangePassword(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := &core.App{
-		Pool:   pool,
-		Logger: *slog.Default(),
-	}
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 
 	tests := []struct {
 		name           string
@@ -223,12 +232,7 @@ func TestV1RequestPasswordReset(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := &core.App{
-		Pool:   pool,
-		Logger: *slog.Default(),
-	}
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 
 	tests := []struct {
 		name           string
@@ -315,12 +319,7 @@ func TestV1ResetPassword(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := &core.App{
-		Pool:   pool,
-		Logger: *slog.Default(),
-	}
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -452,12 +451,7 @@ func TestV1ValidateResetToken(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := &core.App{
-		Pool:   pool,
-		Logger: *slog.Default(),
-	}
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"fmt"
 	"net/http"
 
@@ -28,7 +27,13 @@ func (r *Request) Bind(req *http.Request) error {
 }
 
 type Handler struct {
-	App *core.App
+	App                    *core.App
+	UserService            core.UserServiceInterface
+	SessionService         core.SessionServiceInterface
+	UserPreferencesService core.UserPreferencesServiceInterface
+	IPBanService           core.IPBanServiceInterface
+	FingerprintBanService  core.FingerprintBanServiceInterface
+	DiscordService         core.DiscordAccountServiceInterface
 }
 
 type Response struct {
@@ -70,8 +75,7 @@ func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 			sessionID = int32(v)
 		}
 		if sessionID > 0 {
-			sessionSvc := &db.SessionService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-			session, err := sessionSvc.GetSessionByID(ctx, sessionID)
+			session, err := h.SessionService.GetSessionByID(ctx, sessionID)
 			if err != nil || session == nil {
 				render.JSON(w, r, map[string]interface{}{"user": nil})
 				return
@@ -91,8 +95,7 @@ func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.GetUserByID(uid)
+	user, err := h.UserService.GetUserByID(uid)
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to find user", "error", err, "user_id", uid)
 		render.JSON(w, r, map[string]interface{}{"user": nil})
@@ -110,7 +113,7 @@ func (h *Handler) V1Me(w http.ResponseWriter, r *http.Request) {
 
 // PreferencesRequest represents a request to update user preferences
 type PreferencesRequest struct {
-	Preferences *db.PreferencesData `json:"preferences"`
+	Preferences *core.PreferencesData `json:"preferences"`
 }
 
 func (r *PreferencesRequest) Bind(req *http.Request) error {
@@ -122,7 +125,7 @@ func (r *PreferencesRequest) Bind(req *http.Request) error {
 
 // PreferencesResponse represents the preferences response
 type PreferencesResponse struct {
-	Preferences *db.PreferencesData `json:"preferences"`
+	Preferences *core.PreferencesData `json:"preferences"`
 }
 
 func (rd *PreferencesResponse) Render(w http.ResponseWriter, r *http.Request) error {
@@ -152,16 +155,14 @@ func (h *Handler) V1GetPreferences(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userIDStr.(string), "%d", &userID)
 
 	// Look up current user
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.GetUserByID(userID)
+	user, err := h.UserService.GetUserByID(userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized("user not found"), "Failed to find user", "error", err, "user_id", userID)
 		return
 	}
 
 	// Get preferences
-	prefsService := db.NewUserPreferencesService(h.App.Pool)
-	prefs, err := prefsService.GetUserPreferences(ctx, int32(user.ID))
+	prefs, err := h.UserPreferencesService.GetUserPreferences(ctx, int32(user.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user preferences", "error", err, "user_id", user.ID)
 		return
@@ -199,8 +200,7 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userIDStr.(string), "%d", &userID)
 
 	// Look up current user
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := userService.GetUserByID(userID)
+	user, err := h.UserService.GetUserByID(userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized("user not found"), "Failed to find user", "error", err, "user_id", userID)
 		return
@@ -214,8 +214,7 @@ func (h *Handler) V1UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update preferences
-	prefsService := db.NewUserPreferencesService(h.App.Pool)
-	prefs, err := prefsService.UpdateUserPreferences(ctx, int32(user.ID), *data.Preferences)
+	prefs, err := h.UserPreferencesService.UpdateUserPreferences(ctx, int32(user.ID), *data.Preferences)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to update user preferences", "error", err, "user_id", user.ID)
 		return
@@ -260,8 +259,7 @@ func (h *Handler) V1SearchUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search users
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	users, err := userService.SearchUsers(ctx, query)
+	users, err := h.UserService.SearchUsers(ctx, query)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to search users", "error", err, "query", query)
 		return

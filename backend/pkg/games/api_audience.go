@@ -2,9 +2,6 @@ package games
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
-	actionsvc "actionphase/pkg/db/services/actions"
-	messagesvc "actionphase/pkg/db/services/messages"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -104,7 +101,7 @@ func (h *Handler) ListAudienceMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Get audience members
 	members, err := gameService.ListAudienceMembers(ctx, int32(gameID))
@@ -160,7 +157,7 @@ func (h *Handler) UpdateAutoAcceptAudience(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Check if user is GM
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("game not found"), "Failed to get game", "error", err, "game_id", gameID)
@@ -197,10 +194,8 @@ func (h *Handler) ListAudienceNPCs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	characterService := &db.CharacterService{DB: h.App.Pool}
-
 	// Get audience NPCs
-	npcs, err := characterService.ListAudienceNPCs(ctx, int32(gameID))
+	npcs, err := h.CharacterService.ListAudienceNPCs(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list audience NPCs", "error", err, "game_id", gameID)
 		return
@@ -232,7 +227,7 @@ func (h *Handler) ListAllPrivateConversations(w http.ResponseWriter, r *http.Req
 	}
 
 	// Check if user can view game (includes public archive access for completed games)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	canView, err := gameService.CanUserViewGame(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check game view access", "error", err, "game_id", gameID, "user_id", authUser.ID)
@@ -276,7 +271,7 @@ func (h *Handler) ListAllPrivateConversations(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get all private conversations with filters
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	conversations, err := messageService.ListAllPrivateConversations(ctx, core.ListAllPrivateConversationsParams{
 		GameID:           int32(gameID),
 		ParticipantNames: participantNames,
@@ -369,7 +364,7 @@ func (h *Handler) GetAudienceConversationMessages(w http.ResponseWriter, r *http
 	}
 
 	// Check if user can view game (includes public archive access for completed games)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	canView, err := gameService.CanUserViewGame(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check game view access", "error", err, "game_id", gameID, "user_id", authUser.ID)
@@ -382,7 +377,7 @@ func (h *Handler) GetAudienceConversationMessages(w http.ResponseWriter, r *http
 	}
 
 	// Get conversation messages
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	messages, err := messageService.GetAudienceConversationMessages(ctx, int32(conversationID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation messages", "error", err, "conversation_id", conversationID)
@@ -441,7 +436,7 @@ func (h *Handler) GetConversationParticipants(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	canView, err := gameService.CanUserViewGame(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check game view access", "error", err, "game_id", gameID, "user_id", authUser.ID)
@@ -454,7 +449,7 @@ func (h *Handler) GetConversationParticipants(w http.ResponseWriter, r *http.Req
 
 	selectedNames := r.URL.Query()["selected[]"]
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	names, err := messageService.GetConversationParticipantNames(ctx, int32(gameID), selectedNames)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get conversation participants", "error", err, "game_id", gameID)
@@ -485,7 +480,7 @@ func (h *Handler) ListAllActionSubmissions(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Check if user can view game (includes public archive access for completed games)
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	canView, err := gameService.CanUserViewGame(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check game view access", "error", err, "game_id", gameID, "user_id", authUser.ID)
@@ -526,15 +521,14 @@ func (h *Handler) ListAllActionSubmissions(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get action submissions
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool}
-	submissions, err := actionService.ListAllActionSubmissions(ctx, int32(gameID), phaseID, limit, offset)
+	submissions, err := h.ActionSubmissionService.ListAllActionSubmissions(ctx, int32(gameID), phaseID, limit, offset)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list action submissions", "error", err, "game_id", gameID)
 		return
 	}
 
 	// Get total count
-	total, err := actionService.CountAllActionSubmissions(ctx, int32(gameID), phaseID)
+	total, err := h.ActionSubmissionService.CountAllActionSubmissions(ctx, int32(gameID), phaseID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to count action submissions", "error", err, "game_id", gameID)
 		return

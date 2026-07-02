@@ -2,7 +2,6 @@ package games
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,15 +23,15 @@ func (h *Handler) LeaveGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
+	applicationService := h.GameApplicationService
 
 	// First, try to remove user from game participants (if they are a participant)
 	// Use RemovePlayer which handles both participant removal and character deactivation
@@ -81,7 +80,7 @@ func (h *Handler) GetGameParticipants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	participants, err := gameService.GetGameParticipants(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game participants", "error", err, "game_id", gameID)
@@ -139,14 +138,14 @@ func (h *Handler) RemovePlayer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get requesting user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Verify requesting user is the GM
 	game, err := gameService.GetGame(ctx, int32(gameID))
@@ -208,14 +207,14 @@ func (h *Handler) AddParticipantDirectly(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
@@ -267,14 +266,14 @@ func (h *Handler) PromoteToCoGM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get requesting user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Call service method to promote user
 	err = gameService.PromoteToCoGM(ctx, int32(gameID), int32(targetUserID), requestingUserID)
@@ -313,14 +312,14 @@ func (h *Handler) DemoteFromCoGM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get requesting user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Call service method to demote user
 	err = gameService.DemoteFromCoGM(ctx, int32(gameID), int32(targetUserID), requestingUserID)
@@ -358,14 +357,14 @@ func (h *Handler) TransitionPlayerToAudience(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	err = gameService.TransitionPlayerToAudience(ctx, int32(gameID), int32(targetUserID), requestingUserID)
 	if err != nil {

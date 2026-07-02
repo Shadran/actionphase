@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var _ core.ConversationServiceInterface = (*ConversationService)(nil)
+
 // ConversationService handles private messaging operations
 type ConversationService struct {
 	DB      *pgxpool.Pool
@@ -29,12 +31,8 @@ func NewConversationService(db *pgxpool.Pool) *ConversationService {
 }
 
 // CreateConversationRequest represents a request to create a new conversation
-type CreateConversationRequest struct {
-	GameID          int32
-	Title           string
-	CreatedByUserID int32
-	ParticipantIDs  []int32 // Character IDs
-}
+// CreateConversationRequest is an alias kept for callers that used the old db-package type.
+type CreateConversationRequest = core.CreateConversationRequest
 
 // ConversationWithDetails includes conversation metadata
 type ConversationWithDetails struct {
@@ -222,13 +220,8 @@ func (s *ConversationService) GetConversationParticipants(ctx context.Context, c
 	return participants, nil
 }
 
-// SendMessageRequest represents a request to send a message
-type SendMessageRequest struct {
-	ConversationID    int32
-	SenderUserID      int32
-	SenderCharacterID int32
-	Content           string
-}
+// SendMessageRequest is an alias kept for callers that used the old db-package type.
+type SendMessageRequest = core.SendConversationMessageRequest
 
 // SendMessage sends a message in a conversation
 func (s *ConversationService) SendMessage(ctx context.Context, req SendMessageRequest) (*models.PrivateMessage, error) {
@@ -639,4 +632,22 @@ func (s *ConversationService) CanUserAccessConversation(ctx context.Context, con
 
 	// User doesn't have valid access
 	return false, nil
+}
+
+// GetConversation retrieves a single conversation by ID.
+func (s *ConversationService) GetConversation(ctx context.Context, conversationID int32) (*models.Conversation, error) {
+	conv, err := s.Queries.GetConversation(ctx, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	return &conv, nil
+}
+
+// GetPrivateMessage retrieves a single private message by ID.
+func (s *ConversationService) GetPrivateMessage(ctx context.Context, messageID int32) (*models.PrivateMessage, error) {
+	msg, err := s.Queries.GetPrivateMessage(ctx, messageID)
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
 }

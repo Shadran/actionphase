@@ -6,7 +6,14 @@ import (
 
 // Handler handles HTTP requests for game-related endpoints
 type Handler struct {
-	App *core.App
+	App                     *core.App
+	UserService             core.UserServiceInterface
+	GameService             core.GameServiceInterface
+	GameApplicationService  core.GameApplicationServiceInterface
+	CharacterService        core.CharacterServiceInterface
+	NotificationService     core.NotificationServiceInterface
+	MessageService          core.MessageServiceInterface
+	ActionSubmissionService core.ActionSubmissionServiceInterface
 }
 
 // All handler methods are organized into separate files:

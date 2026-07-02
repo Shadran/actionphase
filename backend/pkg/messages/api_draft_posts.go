@@ -13,7 +13,6 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	messagesvc "actionphase/pkg/db/services/messages"
 	"actionphase/pkg/validation"
 )
 
@@ -30,7 +29,7 @@ func (h *Handler) GetDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getUserIDFromToken(r, h.App)
+	userID, err := h.getUserIDFromToken(r)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
@@ -41,7 +40,7 @@ func (h *Handler) GetDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	draft, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get draft post", "error", err, "phase_id", phaseID)
@@ -75,7 +74,7 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getUserIDFromToken(r, h.App)
+	userID, err := h.getUserIDFromToken(r)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
@@ -98,7 +97,7 @@ func (h *Handler) CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 	draft, err := messageService.CreateDraftPost(ctx, core.CreatePostRequest{
 		GameID:      gameID,
 		PhaseID:     &phaseID,
@@ -149,7 +148,7 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getUserIDFromToken(r, h.App)
+	userID, err := h.getUserIDFromToken(r)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
@@ -160,7 +159,7 @@ func (h *Handler) UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 
 	// Find existing draft to get its ID
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
@@ -196,7 +195,7 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := getUserIDFromToken(r, h.App)
+	userID, err := h.getUserIDFromToken(r)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized(err.Error()), "Unauthorized", "error", err.Error())
 		return
@@ -207,7 +206,7 @@ func (h *Handler) DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageService := &messagesvc.MessageService{DB: h.App.Pool, Logger: h.App.ObsLogger, Metrics: h.App.Observability.OTELMetrics}
+	messageService := h.MessageService
 
 	existing, err := messageService.GetDraftPostForPhase(ctx, phaseID)
 	if err != nil {

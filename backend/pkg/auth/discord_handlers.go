@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
@@ -143,7 +142,7 @@ func (h *Handler) V1DiscordStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	discordSvc := h.DiscordService
 	acct, err := discordSvc.GetDiscordAccount(ctx, userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get Discord account", "error", err, "user_id", userID)
@@ -171,7 +170,7 @@ func (h *Handler) V1DiscordDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	discordSvc := h.DiscordService
 	if err := discordSvc.DeleteDiscordAccount(ctx, userID); err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete Discord account", "error", err, "user_id", userID)
 		return
@@ -258,7 +257,7 @@ func (h *Handler) V1DiscordCallback(w http.ResponseWriter, r *http.Request) {
 		expiresAt = &t
 	}
 
-	discordSvc := &db.DiscordAccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	discordSvc := h.DiscordService
 	_, err = discordSvc.UpsertDiscordAccount(ctx, &core.UpsertDiscordAccountRequest{
 		UserID:          userID,
 		DiscordUserID:   discordUser.ID,

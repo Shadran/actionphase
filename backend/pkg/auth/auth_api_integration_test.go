@@ -500,7 +500,8 @@ func setupAuthAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {
-			authHandler := Handler{App: app}
+			authHandler := newTestHandler(app.Pool)
+			authHandler.App = app
 			r.Post("/register", authHandler.V1Register)
 			r.Post("/login", authHandler.V1Login)
 			r.Group(func(r chi.Router) {
@@ -529,7 +530,8 @@ func setupAuthAPITestRouterWithRateLimitProduction(app *core.App, testDB *core.T
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
-			authHandler := Handler{App: app}
+			authHandler := newTestHandler(app.Pool)
+			authHandler.App = app
 			r.With(ratelimitmw.StrictRateLimit(false)).Post("/register", authHandler.V1Register)
 			r.With(ratelimitmw.StrictRateLimit(false)).Post("/login", authHandler.V1Login)
 			r.Group(func(r chi.Router) {
@@ -554,7 +556,8 @@ func setupAuthAPITestRouterWithRateLimit(app *core.App, testDB *core.TestDatabas
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
-			authHandler := Handler{App: app}
+			authHandler := newTestHandler(app.Pool)
+			authHandler.App = app
 			r.With(ratelimitmw.StrictRateLimit(true)).Post("/register", authHandler.V1Register)
 			r.With(ratelimitmw.StrictRateLimit(true)).Post("/login", authHandler.V1Login)
 			r.Group(func(r chi.Router) {

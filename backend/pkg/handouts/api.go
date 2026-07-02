@@ -6,7 +6,11 @@ import (
 
 // Handler handles HTTP requests for handout-related endpoints
 type Handler struct {
-	App *core.App
+	App                 *core.App
+	UserService         core.UserServiceInterface
+	GameService         core.GameServiceInterface
+	HandoutService      core.HandoutServiceInterface
+	NotificationService core.NotificationServiceInterface
 }
 
 // All handler methods are organized into separate files:

@@ -2,7 +2,6 @@ package characters
 
 import (
 	"actionphase/pkg/core"
-	services "actionphase/pkg/db/services"
 	"context"
 	"fmt"
 	"net/http"
@@ -44,14 +43,14 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user is GM of this game
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character", "error", err)
 		return
 	}
 
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -74,9 +73,9 @@ func (h *Handler) ApproveCharacter(w http.ResponseWriter, r *http.Request) {
 
 	// Notify the character owner (if there is one)
 	if updatedCharacter.UserID.Valid {
+		notifSvc := h.NotificationService
 		go func() {
 			notifCtx := context.Background()
-			notifSvc := services.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 			if err := notifSvc.NotifyCharacterApproved(notifCtx, updatedCharacter.UserID.Int32, updatedCharacter.GameID, updatedCharacter.ID, updatedCharacter.Name); err != nil {
 				h.App.ObsLogger.Warn(notifCtx, "Failed to send character approved notification", "error", err, "character_id", updatedCharacter.ID)
 			}
@@ -129,14 +128,14 @@ func (h *Handler) AssignNPC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user is GM
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character", "error", err)
 		return
 	}
 
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -209,7 +208,7 @@ func (h *Handler) ReassignCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get character and verify it exists
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character", "error", err)
@@ -217,7 +216,7 @@ func (h *Handler) ReassignCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user is GM of this game
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err)
@@ -284,7 +283,7 @@ func (h *Handler) ListInactiveCharacters(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Verify user is GM of this game
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("game not found"), "Failed to get game", "error", err)
@@ -298,7 +297,7 @@ func (h *Handler) ListInactiveCharacters(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get inactive characters
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	characters, err := characterService.ListInactiveCharacters(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to list inactive characters", "error", err)
@@ -361,7 +360,7 @@ func (h *Handler) RenameCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user can edit this character (owner or GM)
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	canEdit, err := characterService.CanUserEditCharacter(ctx, int32(characterID), authUser.ID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check character edit permission", "error", err)

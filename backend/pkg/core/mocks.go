@@ -143,6 +143,14 @@ func (m *MockUserService) SetPendingApproval(ctx context.Context, userID int32) 
 	return nil
 }
 
+func (m *MockUserService) UserByEmail(email string) (*User, error) {
+	return nil, nil
+}
+
+func (m *MockUserService) SearchUsers(ctx context.Context, query string) ([]models.SearchUsersRow, error) {
+	return nil, nil
+}
+
 // MockGameService provides a mock implementation of GameServiceInterface for testing
 type MockGameService struct {
 	CreateGameFunc            func(ctx context.Context, req CreateGameRequest) (*models.Game, error)

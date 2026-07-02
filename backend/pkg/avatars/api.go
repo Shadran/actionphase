@@ -2,7 +2,6 @@ package avatars
 
 import (
 	"actionphase/pkg/core"
-	services "actionphase/pkg/db/services"
 	"net/http"
 	"strconv"
 
@@ -12,7 +11,8 @@ import (
 )
 
 type Handler struct {
-	App *core.App
+	App              *core.App
+	CharacterService core.CharacterServiceInterface
 }
 
 // Response types
@@ -72,8 +72,7 @@ func (h *Handler) UploadCharacterAvatar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Check if user can edit this character
-	characterService := &services.CharacterService{DB: h.App.DB, Logger: h.App.ObsLogger}
-	canEdit, err := characterService.CanUserEditCharacter(ctx, int32(characterID), int32(userID))
+	canEdit, err := h.CharacterService.CanUserEditCharacter(ctx, int32(characterID), int32(userID))
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.Render(w, r, &ErrorResponse{Error: "Failed to check permissions"})
@@ -202,8 +201,7 @@ func (h *Handler) DeleteCharacterAvatar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Check if user can edit this character
-	characterService := &services.CharacterService{DB: h.App.DB, Logger: h.App.ObsLogger}
-	canEdit, err := characterService.CanUserEditCharacter(ctx, int32(characterID), int32(userID))
+	canEdit, err := h.CharacterService.CanUserEditCharacter(ctx, int32(characterID), int32(userID))
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.Render(w, r, &ErrorResponse{Error: "Failed to check permissions"})

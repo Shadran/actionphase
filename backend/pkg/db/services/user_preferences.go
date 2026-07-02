@@ -11,6 +11,8 @@ import (
 	models "actionphase/pkg/db/models"
 )
 
+var _ core.UserPreferencesServiceInterface = (*UserPreferencesService)(nil)
+
 // UserPreferencesService handles user preferences operations
 type UserPreferencesService struct {
 	DB      *pgxpool.Pool
@@ -25,12 +27,8 @@ func NewUserPreferencesService(db *pgxpool.Pool) *UserPreferencesService {
 	}
 }
 
-// PreferencesData represents the structured preferences object
-type PreferencesData struct {
-	Theme                string          `json:"theme"`                           // "light" | "dark" | "auto"
-	CommentReadMode      string          `json:"comment_read_mode"`               // "auto" | "manual"
-	DiscordNotifications map[string]bool `json:"discord_notifications,omitempty"` // per-type Discord DM toggles
-}
+// PreferencesData is an alias kept for callers that used the old db-package type.
+type PreferencesData = core.PreferencesData
 
 // GetUserPreferences gets user preferences, returning defaults if not found
 func (s *UserPreferencesService) GetUserPreferences(ctx context.Context, userID int32) (*PreferencesData, error) {

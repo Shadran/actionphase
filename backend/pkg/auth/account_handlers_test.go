@@ -58,8 +58,7 @@ func TestV1VerifyEmail(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -163,9 +162,7 @@ func TestV1ChangeUsername(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -260,9 +257,7 @@ func TestV1RequestEmailChange(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -415,9 +410,7 @@ func TestV1DeleteAccount(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -473,9 +466,7 @@ func TestV1ListSessions(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -518,8 +509,7 @@ func TestV1ListSessions_ExcludesExpired(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -576,9 +566,7 @@ func TestV1RevokeSession(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 
@@ -668,8 +656,7 @@ func TestV1RevokeSession_CrossUserAttack(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	app := core.NewTestApp(pool)
-	handler := Handler{App: app}
+	handler := newTestHandler(pool)
 	queries := db.New(pool)
 	ctx := context.Background()
 

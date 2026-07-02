@@ -3,7 +3,6 @@ package characters
 import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	services "actionphase/pkg/db/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -39,7 +38,7 @@ func (h *Handler) SetCharacterData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user can edit this character
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	canEdit, err := characterService.CanUserEditCharacter(ctx, int32(characterID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check character edit permission", "error", err)
@@ -80,7 +79,7 @@ func (h *Handler) SetCharacterData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set character data
-	err = characterService.SetCharacterData(ctx, services.CharacterDataRequest{
+	err = characterService.SetCharacterData(ctx, core.CharacterDataRequest{
 		CharacterID: int32(characterID),
 		ModuleType:  data.ModuleType,
 		FieldName:   data.FieldName,
@@ -116,8 +115,8 @@ func (h *Handler) GetCharacterData(w http.ResponseWriter, r *http.Request) {
 		userID = &id
 	}
 
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
+	gameService := h.GameService
 
 	// Check if user can view private data (editors or audience members)
 	var characterData []models.CharacterDatum

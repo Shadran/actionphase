@@ -2,7 +2,6 @@ package auth
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"actionphase/pkg/email"
 	"fmt"
 	"github.com/go-chi/render"
@@ -95,9 +94,8 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	UserService := db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	h.App.ObsLogger.Info(ctx, "Creating user", "username", data.User.Username)
-	returnUser, err := UserService.CreateUser(data.User)
+	returnUser, err := h.UserService.CreateUser(data.User)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid v1 register request", "error", err)
 		return
@@ -105,7 +103,7 @@ func (h *Handler) V1Register(w http.ResponseWriter, r *http.Request) {
 
 	// If registration approval mode is enabled, place user in pending state
 	if h.App.Config.App.RequireRegistrationApproval {
-		if err := UserService.SetPendingApproval(ctx, int32(returnUser.ID)); err != nil {
+		if err := h.UserService.SetPendingApproval(ctx, int32(returnUser.ID)); err != nil {
 			h.App.ObsLogger.Error(ctx, "Failed to set pending approval", "error", err, "user_id", returnUser.ID)
 		} else {
 			h.App.ObsLogger.Info(ctx, "New account pending admin approval", "user_id", returnUser.ID, "username", returnUser.Username)

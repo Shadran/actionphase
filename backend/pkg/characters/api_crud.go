@@ -3,7 +3,6 @@ package characters
 import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
-	services "actionphase/pkg/db/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -59,7 +58,7 @@ func (h *Handler) CreateCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user can create characters for this game
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", gameID)
@@ -107,7 +106,7 @@ func (h *Handler) CreateCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create character
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 
 	var reqUserID *int32
 	if data.CharacterType == "player_character" {
@@ -121,7 +120,7 @@ func (h *Handler) CreateCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 	// For NPCs, UserID can be nil (GM-controlled) or assigned later
 
-	character, err := characterService.CreateCharacter(ctx, services.CreateCharacterRequest{
+	character, err := characterService.CreateCharacter(ctx, core.CreateCharacterRequest{
 		GameID:        int32(gameID),
 		UserID:        reqUserID,
 		Name:          data.Name,
@@ -165,7 +164,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get character", "error", err, "character_id", characterID)
@@ -173,7 +172,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game to check state for filtering
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", character.GameID)
@@ -270,7 +269,7 @@ func (h *Handler) GetGameCharacters(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game to check state for filtering
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", gameID)
@@ -306,7 +305,7 @@ func (h *Handler) GetGameCharacters(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	characters, err := characterService.GetCharactersByGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game characters", "error", err, "game_id", gameID)
@@ -405,7 +404,7 @@ func (h *Handler) GetUserControllableCharacters(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	characters, err := characterService.GetUserControllableCharacters(ctx, int32(gameID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user controllable characters", "error", err, "game_id", gameID, "user_id", userID)
@@ -462,7 +461,7 @@ func (h *Handler) DeleteCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get character to check game ownership
-	characterService := &services.CharacterService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	characterService := h.CharacterService
 	character, err := characterService.GetCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character", "error", err, "character_id", characterID)
@@ -470,7 +469,7 @@ func (h *Handler) DeleteCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game to check GM permissions
-	gameService := &services.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, character.GameID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", character.GameID)

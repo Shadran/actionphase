@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 )
 
 type Handler struct {
-	App *core.App
+	App            *core.App
+	UserService    core.UserServiceInterface
+	MessageService core.MessageServiceInterface
 }
 
 // Request Types
@@ -110,9 +111,8 @@ func (rd *MessageResponse) Render(w http.ResponseWriter, r *http.Request) error 
 }
 
 // getUserIDFromToken extracts the authenticated user ID from the request JWT.
-func getUserIDFromToken(r *http.Request, app *core.App) (int32, error) {
-	userService := &db.UserService{DB: app.Pool, Logger: app.ObsLogger}
-	userID, errResp := core.GetUserIDFromJWT(r.Context(), userService)
+func (h *Handler) getUserIDFromToken(r *http.Request) (int32, error) {
+	userID, errResp := core.GetUserIDFromJWT(r.Context(), h.UserService)
 	if errResp != nil {
 		return 0, fmt.Errorf("authentication failed")
 	}

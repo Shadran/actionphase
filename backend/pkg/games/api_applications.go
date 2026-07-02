@@ -2,7 +2,6 @@ package games
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -44,7 +43,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := int32(authUser.ID)
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 
 	// Create the application
 	application, err := applicationService.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
@@ -75,7 +74,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the game to find the GM
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err == nil {
 		// Auto-accept audience applications if setting is enabled
@@ -97,7 +96,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Send approval notification to the applicant
-				notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+				notificationService := h.NotificationService
 				title := fmt.Sprintf("Joined %s", game.Title)
 				content := fmt.Sprintf("You have joined %s as an audience member!", game.Title)
 				linkURL := fmt.Sprintf("/games/%d", gameID)
@@ -120,7 +119,7 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+		notificationService := h.NotificationService
 		roleLabel := "player"
 		if data.Role == "audience" {
 			roleLabel = "audience member"
@@ -193,7 +192,7 @@ func (h *Handler) GetGameApplications(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user is GM of this game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
@@ -207,7 +206,7 @@ func (h *Handler) GetGameApplications(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get applications for the game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 	applications, err := applicationService.GetGameApplications(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game applications", "error", err, "game_id", gameID)
@@ -288,7 +287,7 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify user is GM of this game
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
@@ -302,7 +301,7 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify application belongs to this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 	application, err := applicationService.GetGameApplication(ctx, int32(applicationID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game application", "error", err, "application_id", applicationID)
@@ -379,7 +378,7 @@ func (h *Handler) GetMyGameApplication(w http.ResponseWriter, r *http.Request) {
 	userID := int32(authUser.ID)
 
 	// Find user's application for this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 	application, err := applicationService.GetGameApplicationByUserAndGame(ctx, int32(gameID), userID)
 	if err != nil {
 		// User has no application - return 200 null (expected, not an error)
@@ -437,7 +436,7 @@ func (h *Handler) GetPublicGameApplicants(w http.ResponseWriter, r *http.Request
 	}
 
 	// Verify game is in recruiting state
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for public applicants", "error", err, "game_id", gameID)
@@ -451,7 +450,7 @@ func (h *Handler) GetPublicGameApplicants(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get public applicants list
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 	applicants, err := applicationService.GetPublicGameApplicants(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get public game applicants", "error", err, "game_id", gameID)
@@ -500,7 +499,7 @@ func (h *Handler) WithdrawGameApplication(w http.ResponseWriter, r *http.Request
 	userID := int32(authUser.ID)
 
 	// Find user's application for this game
-	applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	applicationService := h.GameApplicationService
 	application, err := applicationService.GetGameApplicationByUserAndGame(ctx, int32(gameID), userID)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("no application found for this game"), "Failed to get user's application", "error", err, "game_id", gameID, "user_id", userID)

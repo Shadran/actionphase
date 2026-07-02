@@ -8,9 +8,6 @@ import (
 	"strconv"
 
 	"actionphase/pkg/core"
-	gamesvc "actionphase/pkg/db/services"
-	actionsvc "actionphase/pkg/db/services/actions"
-	phasesvc "actionphase/pkg/db/services/phases"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -41,8 +38,8 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
+	phaseService := h.PhaseService
+	actionService := h.ActionSubmissionService
 
 	// Check if user can submit actions
 	canSubmit, err := phaseService.CanUserSubmitActions(ctx, int32(gameID), int32(authUser.ID))
@@ -106,9 +103,9 @@ func (h *Handler) SubmitAction(w http.ResponseWriter, r *http.Request) {
 				characterName = charName
 			}
 		}
+		notifSvc := h.NotificationService
 		go func() {
 			notifCtx := context.Background()
-			notifSvc := gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 			if err := notifSvc.NotifyActionSubmitted(notifCtx, action.ID, action.GameID, int32(authUser.ID), characterName); err != nil {
 				h.App.ObsLogger.LogError(notifCtx, err, "Failed to notify GM of action submission", "action_id", action.ID)
 			}
@@ -153,7 +150,7 @@ func (h *Handler) GetUserActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
+	actionService := h.ActionSubmissionService
 	actions, err := actionService.GetUserActions(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user actions", "error", err)
@@ -210,7 +207,7 @@ func (h *Handler) GetGameActions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check permissions
-	phaseService := &phasesvc.PhaseService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	phaseService := h.PhaseService
 	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
@@ -222,7 +219,7 @@ func (h *Handler) GetGameActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionService := &actionsvc.ActionSubmissionService{DB: h.App.Pool, Logger: h.App.ObsLogger, NotificationService: gamesvc.NewNotificationService(h.App.Pool, h.App.ObsLogger)}
+	actionService := h.ActionSubmissionService
 	actions, err := actionService.GetGameActions(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game actions", "error", err)

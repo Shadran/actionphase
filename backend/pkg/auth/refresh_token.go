@@ -2,7 +2,6 @@ package auth
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"strconv"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -37,8 +36,7 @@ func (h *Handler) V1Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up user from database by ID
-	UserService := db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-	user, err := UserService.GetUserByID(userID)
+	user, err := h.UserService.GetUserByID(userID)
 	if err != nil {
 		h.App.Logger.Error("Error getting user", "error", err, "user_id", userID)
 		h.renderError(r.Context(), w, r, core.ErrInternalError(err), "Failed to v1 refresh", "error", err)

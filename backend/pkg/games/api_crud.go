@@ -2,7 +2,6 @@ package games
 
 import (
 	"actionphase/pkg/core"
-	db "actionphase/pkg/db/services"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,7 +35,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from JWT token
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
 		h.renderError(ctx, w, r, errResp, "Failed to authenticate user from JWT")
@@ -44,7 +43,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	h.App.ObsLogger.Info(ctx, "Authenticated user for game creation", "user_id", userID)
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	game, err := gameService.CreateGame(ctx, core.CreateGameRequest{
 		Title:                   data.Title,
@@ -153,7 +152,7 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.HandleDBErrorWithID(err, "game", gameID), "Failed to get game", "error", err, "game_id", gameID)
@@ -241,7 +240,7 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
@@ -266,8 +265,8 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 	if game.State.String == core.GameStateRecruitment && data.State != core.GameStateRecruitment {
 		h.App.ObsLogger.Info(ctx, "Transitioning out of recruitment, converting approved applications", "game_id", gameID)
 
-		applicationService := &db.GameApplicationService{DB: h.App.Pool, Logger: h.App.ObsLogger}
-		notificationService := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
+		applicationService := h.GameApplicationService
+		notificationService := h.NotificationService
 
 		// Get approved applications before conversion (for notifications)
 		approvedApps, err := applicationService.GetApprovedApplicationsForGame(ctx, int32(gameID))
@@ -332,9 +331,9 @@ func (h *Handler) UpdateGameState(w http.ResponseWriter, r *http.Request) {
 	isPauseResume := data.State == core.GameStatePaused || (data.State == core.GameStateInProgress && game.State.String == core.GameStatePaused)
 	isTerminal := data.State == core.GameStateCompleted || data.State == core.GameStateCancelled
 	if isPauseResume || isTerminal {
+		notifSvc := h.NotificationService
 		go func() {
 			notifCtx := context.Background()
-			notifSvc := db.NewNotificationService(h.App.Pool, h.App.ObsLogger)
 			if err := notifSvc.NotifyGameStateChanged(notifCtx, int32(gameID), data.State, updatedGame.Title, user.ID); err != nil {
 				h.App.ObsLogger.Warn(notifCtx, "Failed to send game state changed notifications", "error", err, "game_id", gameID)
 			}
@@ -380,7 +379,7 @@ func (h *Handler) UpdateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
@@ -498,7 +497,7 @@ func (h *Handler) DeleteGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 
 	// Verify user is GM of this game
 	game, err := gameService.GetGame(ctx, int32(gameID))
@@ -548,7 +547,7 @@ func (h *Handler) GetGameWithDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	game, err := gameService.GetGameWithDetails(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game with details", "error", err, "game_id", gameID)
@@ -620,7 +619,7 @@ func (h *Handler) GetRecruitingGames(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_recruiting_games")()
 
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	games, err := gameService.GetRecruitingGames(ctx)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get recruiting games", "error", err)
@@ -734,7 +733,7 @@ func (h *Handler) GetFilteredGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try to get user ID from JWT (optional - unauthenticated users can browse)
-	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	userService := h.UserService
 	userID, _ := core.GetUserIDFromJWT(ctx, userService)
 	if userID != 0 {
 		filters.UserID = &userID
@@ -747,7 +746,7 @@ func (h *Handler) GetFilteredGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service
-	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+	gameService := h.GameService
 	result, err := gameService.GetFilteredGames(ctx, filters)
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get filtered games", "error", err)
