@@ -1,6 +1,6 @@
 import { AddParticipantModal } from './AddParticipantModal';
 
-interface AddPlayerModalProps {
+interface AddAudienceMemberModalProps {
   gameId: number;
   isOpen: boolean;
   onClose: () => void;
@@ -8,11 +8,11 @@ interface AddPlayerModalProps {
   excludeUserIds?: number[];
 }
 
-export function AddPlayerModal({ gameId, isOpen, onClose, onSuccess, excludeUserIds }: AddPlayerModalProps) {
+export function AddAudienceMemberModal({ gameId, isOpen, onClose, onSuccess, excludeUserIds }: AddAudienceMemberModalProps) {
   return (
     <AddParticipantModal
       gameId={gameId}
-      role="player"
+      role="audience"
       isOpen={isOpen}
       onClose={onClose}
       onSuccess={onSuccess}

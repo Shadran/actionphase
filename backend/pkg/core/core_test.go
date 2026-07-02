@@ -171,33 +171,45 @@ func TestContentTypeMiddleware_AcceptsCorrectType(t *testing.T) {
 // --- dashboard.go ---
 
 func TestCalculateDeadlineStatus_Critical(t *testing.T) {
-	assert.Equal(t, "critical", CalculateDeadlineStatus(time.Now().Add(3*time.Hour)))
+	assert.Equal(t, "critical", CalculateDeadlineStatus(time.Now().Add(30*time.Minute)))
 }
 
 func TestCalculateDeadlineStatus_Warning(t *testing.T) {
-	assert.Equal(t, "warning", CalculateDeadlineStatus(time.Now().Add(12*time.Hour)))
+	assert.Equal(t, "warning", CalculateDeadlineStatus(time.Now().Add(2*time.Hour)))
 }
 
 func TestCalculateDeadlineStatus_Normal(t *testing.T) {
-	assert.Equal(t, "normal", CalculateDeadlineStatus(time.Now().Add(48*time.Hour)))
+	assert.Equal(t, "normal", CalculateDeadlineStatus(time.Now().Add(4*time.Hour)))
 }
 
 func TestCalculateDeadlineStatus_Overdue(t *testing.T) {
-	// Past deadline: hours remaining is negative, < 6 → critical
+	// Past deadline: hours remaining is negative, < 1 → critical
 	assert.Equal(t, "critical", CalculateDeadlineStatus(time.Now().Add(-1*time.Hour)))
+}
+
+func TestCalculateDeadlineStatus_BoundaryWarningToNormal(t *testing.T) {
+	// Just under 3h → warning; just over 3h → normal
+	assert.Equal(t, "warning", CalculateDeadlineStatus(time.Now().Add(179*time.Minute)))
+	assert.Equal(t, "normal", CalculateDeadlineStatus(time.Now().Add(181*time.Minute)))
 }
 
 func TestIsGameUrgent_NilDeadline(t *testing.T) {
 	assert.False(t, IsGameUrgent(true, nil))
 }
 
-func TestIsGameUrgent_PendingActionNearDeadline(t *testing.T) {
-	deadline := time.Now().Add(3 * time.Hour)
+func TestIsGameUrgent_PendingActionUnder3h(t *testing.T) {
+	deadline := time.Now().Add(2 * time.Hour)
 	assert.True(t, IsGameUrgent(true, &deadline))
 }
 
+func TestIsGameUrgent_PendingActionOver3h(t *testing.T) {
+	// 19h should NOT be urgent with new thresholds
+	deadline := time.Now().Add(19 * time.Hour)
+	assert.False(t, IsGameUrgent(true, &deadline))
+}
+
 func TestIsGameUrgent_NoPendingAction(t *testing.T) {
-	deadline := time.Now().Add(3 * time.Hour)
+	deadline := time.Now().Add(2 * time.Hour)
 	assert.False(t, IsGameUrgent(false, &deadline))
 }
 

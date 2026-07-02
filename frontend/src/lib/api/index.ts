@@ -91,4 +91,3 @@ class ApiClient extends BaseApiClient {
 }
 
 export const apiClient = new ApiClient();
-export { BaseApiClient } from './client';

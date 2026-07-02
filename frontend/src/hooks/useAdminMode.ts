@@ -12,4 +12,3 @@
  * Import from '../contexts/AdminModeContext' for the actual implementation.
  */
 export { useAdminMode } from '../contexts/AdminModeContext';
-export type { UseAdminModeReturn } from '../contexts/AdminModeContext';

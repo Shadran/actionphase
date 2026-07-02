@@ -292,4 +292,3 @@ export const themes = {
 } as const;
 
 export type ThemeName = keyof typeof themes;
-export type ThemeVariables = typeof themes[ThemeName];

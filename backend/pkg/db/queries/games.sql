@@ -159,13 +159,14 @@ SET removed_at = NOW(),
     status = 'removed'
 WHERE game_id = $1 AND user_id = $2 AND removed_at IS NULL;
 
--- name: AddParticipantDirectly :one
+-- name: AddParticipantWithRole :one
 INSERT INTO game_participants (game_id, user_id, role, status)
-VALUES ($1, $2, 'player', 'active')
+VALUES ($1, $2, $3, 'active')
 ON CONFLICT (game_id, user_id) DO UPDATE
 SET removed_at = NULL,
     removed_by_user_id = NULL,
     status = 'active',
+    role = EXCLUDED.role,
     joined_at = NOW()
 WHERE game_participants.removed_at IS NOT NULL
 RETURNING *;

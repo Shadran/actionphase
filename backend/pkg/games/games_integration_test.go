@@ -656,7 +656,7 @@ func setupGameTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 				// Participant management
 				// NOTE: join endpoint removed - use application system instead
 				r.Delete("/{id}/leave", gameHandler.LeaveGame)
-				r.Post("/{id}/participants", gameHandler.AddPlayerDirectly)
+				r.Post("/{id}/participants/direct-add", gameHandler.AddParticipantDirectly)
 				r.Delete("/{id}/participants/{userId}", gameHandler.RemovePlayer)
 				r.Post("/{id}/participants/{userId}/promote-to-co-gm", gameHandler.PromoteToCoGM)
 				r.Post("/{id}/participants/{userId}/demote-from-co-gm", gameHandler.DemoteFromCoGM)
@@ -1412,11 +1412,11 @@ func TestGetGameParticipants_IncludesAvatarUrl(t *testing.T) {
 	})
 	core.AssertNoError(t, err, "Game creation should succeed")
 
-	// Add both users as participants using AddPlayerDirectly
-	_, err = gameService.AddPlayerDirectly(context.Background(), game.ID, int32(userWithAvatar.ID))
+	// Add both users as participants
+	_, err = gameService.AddParticipantWithRole(context.Background(), game.ID, int32(userWithAvatar.ID), "player")
 	core.AssertNoError(t, err, "Adding user with avatar should succeed")
 
-	_, err = gameService.AddPlayerDirectly(context.Background(), game.ID, int32(userWithoutAvatar.ID))
+	_, err = gameService.AddParticipantWithRole(context.Background(), game.ID, int32(userWithoutAvatar.ID), "player")
 	core.AssertNoError(t, err, "Adding user without avatar should succeed")
 
 	// Create auth token for GM

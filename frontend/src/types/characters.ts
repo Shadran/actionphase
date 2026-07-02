@@ -112,7 +112,7 @@ export interface CharacterModule {
   fields: CharacterModuleField[];
 }
 
-export interface CharacterModuleField {
+interface CharacterModuleField {
   name: string;
   type: 'text' | 'number' | 'boolean' | 'json';
   label: string;

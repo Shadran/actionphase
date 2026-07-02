@@ -5,6 +5,7 @@ import { CharactersList } from './CharactersList';
 import CharacterAvatar from './CharacterAvatar';
 import { ParticipantActionsMenu } from './ParticipantActionsMenu';
 import { AddPlayerModal } from './AddPlayerModal';
+import { AddAudienceMemberModal } from './AddAudienceMemberModal';
 import { InactiveCharactersList } from './InactiveCharactersList';
 import { AudienceMemberBadge } from './AudienceMemberBadge';
 import { Button } from './ui';
@@ -64,6 +65,7 @@ export function PeopleView({
   );
 
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [showAddAudienceModal, setShowAddAudienceModal] = useState(false);
   const [pendingAudienceApplications, setPendingAudienceApplications] = useState<GameApplication[]>([]);
 
   // Fetch pending audience applications for GMs
@@ -137,12 +139,20 @@ export function PeopleView({
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-content-primary">Game Participants</h2>
             {isGM && gameState !== 'completed' && gameState !== 'cancelled' && (
-              <Button
-                variant="primary"
-                onClick={() => setShowAddPlayerModal(true)}
-              >
-                Add Player
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddAudienceModal(true)}
+                >
+                  Add Audience Member
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowAddPlayerModal(true)}
+                >
+                  Add Player
+                </Button>
+              </div>
             )}
           </div>
 
@@ -395,6 +405,13 @@ export function PeopleView({
             gameId={gameId}
             isOpen={showAddPlayerModal}
             onClose={() => setShowAddPlayerModal(false)}
+            excludeUserIds={participants.map(p => p.user_id)}
+          />
+          <AddAudienceMemberModal
+            gameId={gameId}
+            isOpen={showAddAudienceModal}
+            onClose={() => setShowAddAudienceModal(false)}
+            excludeUserIds={participants.map(p => p.user_id)}
           />
         </>
       )}

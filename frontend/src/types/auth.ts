@@ -47,7 +47,7 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
-export interface Session {
+interface Session {
   id: number;
   created_at: string;
   expires: string;

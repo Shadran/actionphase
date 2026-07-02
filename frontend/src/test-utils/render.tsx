@@ -141,29 +141,6 @@ export function renderWithProviders(
   }
 }
 
-/**
- * Renders a component with providers but without AuthProvider
- * Useful for testing auth-related components in isolation
- */
-export function renderWithQueryClient(
-  ui: React.ReactElement,
-  options: Omit<RenderWithProvidersOptions, 'initialRoute'> = {}
-) {
-  const { queryClient = createTestQueryClient(), ...renderOptions } = options
-
-  function Wrapper({ children }: { children: React.ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    )
-  }
-
-  return {
-    ...render(ui, { wrapper: Wrapper, ...renderOptions }),
-    queryClient,
-  }
-}
 
 // Re-export everything from @testing-library/react
 // eslint-disable-next-line react-refresh/only-export-components

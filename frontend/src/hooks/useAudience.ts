@@ -1,49 +1,5 @@
-import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
-
-/**
- * Hook to fetch all audience members for a game
- */
-export function useAudienceMembers(gameId: number) {
-  return useQuery({
-    queryKey: ['audience-members', gameId],
-    queryFn: async () => {
-      const response = await apiClient.games.listAudienceMembers(gameId);
-      return response.data.audience_members;
-    },
-    enabled: !!gameId,
-  });
-}
-
-/**
- * Hook to update auto-accept audience setting (GM only)
- */
-export function useSetAutoAcceptAudience(gameId: number) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (autoAccept: boolean) =>
-      apiClient.games.setAutoAcceptAudience(gameId, autoAccept),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['game', gameId] });
-      queryClient.invalidateQueries({ queryKey: ['game-details', gameId] });
-    },
-  });
-}
-
-/**
- * Hook to fetch audience-controlled NPCs
- */
-export function useAudienceNPCs(gameId: number) {
-  return useQuery({
-    queryKey: ['audience-npcs', gameId],
-    queryFn: async () => {
-      const response = await apiClient.characters.listAudienceNPCs(gameId);
-      return response.data.npcs;
-    },
-    enabled: !!gameId,
-  });
-}
 
 /**
  * Hook to fetch valid participant names for the conversation filter UI.

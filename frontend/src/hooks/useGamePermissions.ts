@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import type { UserGameRole } from '../contexts/GameContext';
 import type { GameWithDetails, GameParticipant } from '../types/games';
-
-export type UserGameRole = 'gm' | 'player' | 'co_gm' | 'audience' | 'none';
 
 export interface GamePermissions {
   // Game data

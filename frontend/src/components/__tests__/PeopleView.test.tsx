@@ -31,6 +31,10 @@ vi.mock('../AddPlayerModal', () => ({
   AddPlayerModal: () => <div>Add Player Modal</div>,
 }));
 
+vi.mock('../AddAudienceMemberModal', () => ({
+  AddAudienceMemberModal: () => <div>Add Audience Member Modal</div>,
+}));
+
 vi.mock('../InactiveCharactersList', () => ({
   InactiveCharactersList: () => <div>Inactive Characters</div>,
 }));

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { logger } from '@/services/LoggingService';
 
-export interface UseAdminModeReturn {
+interface UseAdminModeReturn {
   isAdmin: boolean;
   adminModeEnabled: boolean;
   toggleAdminMode: () => void;

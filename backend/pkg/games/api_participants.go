@@ -177,33 +177,37 @@ func (h *Handler) RemovePlayer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// AddPlayerDirectly adds a player to the game without application process (GM only)
-func (h *Handler) AddPlayerDirectly(w http.ResponseWriter, r *http.Request) {
+// AddParticipantDirectly adds a user to the game without application process (GM only).
+// Request body: {"user_id": N, "role": "player"|"audience"}
+func (h *Handler) AddParticipantDirectly(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	defer h.App.ObsLogger.LogOperation(ctx, "api_add_player_directly")()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_add_participant_directly")()
 
 	gameIDStr := chi.URLParam(r, "id")
 	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
 	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid add player directly request")
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid add participant directly request")
 		return
 	}
 
-	// Parse request body
 	var req struct {
-		UserID int32 `json:"user_id"`
+		UserID int32  `json:"user_id"`
+		Role   string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")), "Invalid add player directly request")
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid request body")), "Invalid add participant directly request")
 		return
 	}
 
 	if req.UserID == 0 {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("user_id is required")), "Invalid add player directly request")
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("user_id is required")), "Invalid add participant directly request")
+		return
+	}
+	if req.Role != "player" && req.Role != "audience" {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("role must be 'player' or 'audience'")), "Invalid add participant directly request")
 		return
 	}
 
-	// Get requesting user ID from JWT token
 	userService := &db.UserService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 	requestingUserID, errResp := core.GetUserIDFromJWT(ctx, userService)
 	if errResp != nil {
@@ -213,7 +217,6 @@ func (h *Handler) AddPlayerDirectly(w http.ResponseWriter, r *http.Request) {
 
 	gameService := &db.GameService{DB: h.App.Pool, Logger: h.App.ObsLogger}
 
-	// Verify requesting user is the GM
 	game, err := gameService.GetGame(ctx, int32(gameID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("game not found"), "Failed to get game", "error", err, "game_id", gameID)
@@ -221,25 +224,23 @@ func (h *Handler) AddPlayerDirectly(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if game.GmUserID != requestingUserID {
-		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can add players directly"), "Non-GM attempted to add player directly", "requesting_user_id", requestingUserID, "game_id", gameID)
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can add participants directly"), "Non-GM attempted to add participant directly", "requesting_user_id", requestingUserID, "game_id", gameID)
 		return
 	}
 
-	// Verify target user exists
 	_, err = userService.GetUserByID(int(req.UserID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrNotFound("user not found"), "Target user not found", "error", err, "user_id", req.UserID)
 		return
 	}
 
-	// Add player directly
-	participant, err := gameService.AddPlayerDirectly(ctx, int32(gameID), req.UserID)
+	participant, err := gameService.AddParticipantWithRole(ctx, int32(gameID), req.UserID, req.Role)
 	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to add player directly", "error", err, "game_id", gameID, "user_id", req.UserID)
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to add participant directly", "error", err, "game_id", gameID, "user_id", req.UserID, "role", req.Role)
 		return
 	}
 
-	h.App.ObsLogger.Info(ctx, "Player added directly to game", "game_id", gameID, "added_user_id", req.UserID, "added_by", requestingUserID)
+	h.App.ObsLogger.Info(ctx, "Participant added directly to game", "game_id", gameID, "added_user_id", req.UserID, "role", req.Role, "added_by", requestingUserID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

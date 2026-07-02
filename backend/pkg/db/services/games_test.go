@@ -1439,7 +1439,7 @@ func TestGameService_PromoteToCoGM_OnlyAudienceCanBePromoted(t *testing.T) {
 
 	// Add a player (not audience)
 	player := testDB.CreateTestUser(t, "player@example.com", "Test Player")
-	_, err = gameService.AddPlayerDirectly(context.Background(), game.ID, int32(player.ID))
+	_, err = gameService.AddParticipantWithRole(context.Background(), game.ID, int32(player.ID), "player")
 	core.AssertNoError(t, err, "Failed to add player")
 
 	// Try to promote player to co-GM (should fail - must be audience first)

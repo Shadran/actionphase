@@ -60,7 +60,7 @@ const mockUserProfile: UserProfileResponse = {
 };
 
 // Request handlers
-export const handlers = [
+const handlers = [
   // Auth endpoints
   http.get('/api/v1/auth/me', () => {
     return HttpResponse.json({

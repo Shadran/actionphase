@@ -153,8 +153,8 @@ func TestDashboardService_GetUserDashboard_UrgentGame(t *testing.T) {
 		WithRole("player").
 		Create()
 
-	// Create action phase with near deadline (5 hours from now)
-	deadlineNear := time.Now().Add(5 * time.Hour)
+	// Create action phase with near deadline (30 minutes from now)
+	deadlineNear := time.Now().Add(30 * time.Minute)
 	phase := factory.NewPhase().
 		InGame(game).
 		ActionPhase().
@@ -178,8 +178,8 @@ func TestDashboardService_GetUserDashboard_UrgentGame(t *testing.T) {
 	core.AssertEqual(t, 1, len(dashboard.PlayerGames), "Should have 1 player game")
 	urgentGame := dashboard.PlayerGames[0]
 
-	core.AssertEqual(t, true, urgentGame.IsUrgent, "Game should be urgent (<24h with pending action)")
-	core.AssertEqual(t, "critical", urgentGame.DeadlineStatus, "Deadline status should be critical (<6h)")
+	core.AssertEqual(t, true, urgentGame.IsUrgent, "Game should be urgent (<3h with pending action)")
+	core.AssertEqual(t, "critical", urgentGame.DeadlineStatus, "Deadline status should be critical (<1h)")
 	core.AssertEqual(t, true, urgentGame.HasPendingAction, "Should have pending action")
 	core.AssertTrue(t, urgentGame.CurrentPhaseDeadline != nil, "Should have deadline")
 }
@@ -204,8 +204,8 @@ func TestDashboardService_GetUserDashboard_WarningDeadline(t *testing.T) {
 		WithRole("player").
 		Create()
 
-	// Create phase with warning deadline (10 hours from now)
-	deadlineWarning := time.Now().Add(10 * time.Hour)
+	// Create phase with warning deadline (2 hours from now)
+	deadlineWarning := time.Now().Add(2 * time.Hour)
 	phase := factory.NewPhase().
 		InGame(game).
 		ActionPhase().
@@ -227,8 +227,8 @@ func TestDashboardService_GetUserDashboard_WarningDeadline(t *testing.T) {
 
 	// Verify warning status
 	game1 := dashboard.PlayerGames[0]
-	core.AssertEqual(t, "warning", game1.DeadlineStatus, "Deadline status should be warning (6-24h)")
-	core.AssertEqual(t, true, game1.IsUrgent, "Game should be urgent (pending action <24h)")
+	core.AssertEqual(t, "warning", game1.DeadlineStatus, "Deadline status should be warning (1-3h)")
+	core.AssertEqual(t, true, game1.IsUrgent, "Game should be urgent (pending action <3h)")
 }
 
 func TestDashboardService_GetUserDashboard_NormalDeadline(t *testing.T) {
@@ -268,6 +268,43 @@ func TestDashboardService_GetUserDashboard_NormalDeadline(t *testing.T) {
 	game1 := dashboard.PlayerGames[0]
 	core.AssertEqual(t, "normal", game1.DeadlineStatus, "Deadline status should be normal (>24h)")
 	core.AssertEqual(t, false, game1.IsUrgent, "Game should not be urgent (no pending action)")
+}
+
+func TestDashboardService_GetUserDashboard_GMDoesNotGetPendingAction(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_phases", "game_participants", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &DashboardService{DB: testDB.Pool}
+
+	// Create GM user (no participant record — pure GM)
+	gm := factory.NewUser().WithUsername("gamemaster").Create()
+
+	// Create game in action phase
+	game := factory.NewGame().
+		WithTitle("GM Action Game").
+		WithGM(gm.ID).
+		WithState("in_progress").
+		Create()
+
+	// Create active action phase
+	factory.NewPhase().
+		InGame(game).
+		ActionPhase().
+		Active().
+		Create()
+
+	// Get dashboard for GM
+	dashboard, err := service.GetUserDashboard(context.Background(), gm.ID)
+	core.AssertNoError(t, err, "Failed to get dashboard")
+
+	core.AssertEqual(t, 1, len(dashboard.GMGames), "Should have 1 GM game")
+	gmGame := dashboard.GMGames[0]
+
+	// GMs cannot submit actions, so has_pending_action must be false
+	core.AssertEqual(t, false, gmGame.HasPendingAction, "GM should not have pending action")
+	core.AssertEqual(t, false, gmGame.IsUrgent, "GM game should not be urgent due to action phase")
 }
 
 func TestDashboardService_GetUserDashboard_RecentMessages(t *testing.T) {
@@ -386,6 +423,44 @@ func TestDashboardService_GetUserDashboard_UpcomingDeadlines(t *testing.T) {
 	core.AssertEqual(t, phase1.ID, firstDeadline.PhaseID, "First deadline should be from phase1")
 	core.AssertEqual(t, true, firstDeadline.HasPendingSubmission, "Should have pending submission")
 	core.AssertTrue(t, firstDeadline.HoursRemaining < 3, "Should be less than 3 hours remaining")
+}
+
+func TestDashboardService_GetUserDashboard_GMDoesNotGetPendingSubmissionInDeadlines(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_phases", "games", "users")
+
+	factory := core.NewTestDataFactory(testDB, t)
+	service := &DashboardService{DB: testDB.Pool}
+
+	// Create GM user (no participant record — pure GM)
+	gm := factory.NewUser().WithUsername("gmuser").Create()
+
+	// Create game in action phase with deadline
+	game := factory.NewGame().
+		WithTitle("GM Deadline Game").
+		WithGM(gm.ID).
+		WithState("in_progress").
+		Create()
+
+	// Create active action phase with upcoming deadline
+	deadline := time.Now().Add(6 * time.Hour)
+	factory.NewPhase().
+		InGame(game).
+		ActionPhase().
+		Active().
+		WithDeadline(deadline).
+		Create()
+
+	// Get dashboard for GM
+	dashboard, err := service.GetUserDashboard(context.Background(), gm.ID)
+	core.AssertNoError(t, err, "Failed to get dashboard")
+
+	core.AssertTrue(t, len(dashboard.UpcomingDeadlines) >= 1, "GM should see the upcoming deadline")
+
+	// GMs cannot submit actions, so has_pending_submission must be false
+	dl := dashboard.UpcomingDeadlines[0]
+	core.AssertEqual(t, false, dl.HasPendingSubmission, "GM should not have pending submission in upcoming deadlines")
 }
 
 func TestDashboardService_GetUserDashboard_SortingOrder(t *testing.T) {

@@ -123,7 +123,7 @@ export const PHASE_TYPE_DESCRIPTIONS: Record<GamePhase['phase_type'], string> = 
   interlude: 'Private messaging only. No public post or action submissions.'
 };
 
-export const PHASE_TYPE_COLORS: Record<GamePhase['phase_type'], string> = {
+const PHASE_TYPE_COLORS: Record<GamePhase['phase_type'], string> = {
   common_room: 'bg-semantic-success-subtle text-content-primary border-semantic-success',
   action: 'bg-interactive-primary-subtle text-content-primary border-interactive-primary',
   interlude: 'bg-semantic-warning-subtle text-content-primary border-semantic-warning'

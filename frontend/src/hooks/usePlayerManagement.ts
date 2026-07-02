@@ -35,20 +35,29 @@ export function useRemovePlayer(gameId: number) {
 }
 
 /**
- * Hook to add a player directly to a game (GM only)
- * Bypasses the application process
+ * Hook to add a participant directly to a game (GM only)
+ * Bypasses the application process. Role must be 'player' or 'audience'.
  */
-export function useAddPlayer(gameId: number) {
+export function useAddParticipant(gameId: number, role: 'player' | 'audience') {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (userId: number) =>
-      apiClient.games.addPlayerDirectly(gameId, { user_id: userId }),
+      apiClient.games.addParticipantDirectly(gameId, { user_id: userId, role }),
     onSuccess: () => {
-      // Invalidate participants list to show new player (matches GameContext query key)
       queryClient.invalidateQueries({ queryKey: ['gameParticipants', gameId] });
     },
   });
+}
+
+/** Convenience wrapper for adding a player directly */
+export function useAddPlayer(gameId: number) {
+  return useAddParticipant(gameId, 'player');
+}
+
+/** Convenience wrapper for adding an audience member directly */
+export function useAddAudienceMember(gameId: number) {
+  return useAddParticipant(gameId, 'audience');
 }
 
 /**

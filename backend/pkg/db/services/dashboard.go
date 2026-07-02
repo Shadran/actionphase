@@ -214,6 +214,7 @@ func groupGamesByRole(dbGames []db.GetUserDashboardGamesRow) (
 
 // transformGameCard converts database row to domain model with business logic
 func transformGameCard(game db.GetUserDashboardGamesRow) *core.DashboardGameCard {
+	isGM := game.UserRole == "gm" || game.UserRole == "co_gm"
 	card := &core.DashboardGameCard{
 		GameID:              game.ID,
 		Title:               game.Title,
@@ -222,7 +223,7 @@ func transformGameCard(game db.GetUserDashboardGamesRow) *core.DashboardGameCard
 		GMUserID:            game.GmUserID,
 		GMUsername:          stringValue(game.GmUsername),
 		UserRole:            game.UserRole,
-		HasPendingAction:    game.HasPendingAction,
+		HasPendingAction:    game.HasPendingAction && !isGM,
 		PendingApplications: int(game.PendingApplicationsCount),
 		UnvotedPolls:        int(game.UnvotedPollsCount),
 		UpdatedAt:           game.UpdatedAt.Time,

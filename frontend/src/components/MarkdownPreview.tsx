@@ -576,4 +576,3 @@ function SyntaxHighlighterPortals({ containerRef, htmlContent }: SyntaxHighlight
   );
 }
 
-export default MarkdownPreview;

@@ -173,8 +173,8 @@ func (h *Handler) Start() {
 
 			// Participant management
 			r.Delete("/{id}/leave", gameHandler.LeaveGame)
-			r.Delete("/{id}/participants/{userId}", gameHandler.RemovePlayer)      // GM removes player
-			r.Post("/{id}/participants/direct-add", gameHandler.AddPlayerDirectly) // GM adds player directly
+			r.Delete("/{id}/participants/{userId}", gameHandler.RemovePlayer)           // GM removes player
+			r.Post("/{id}/participants/direct-add", gameHandler.AddParticipantDirectly) // GM adds player or audience member directly
 
 			// Co-GM management
 			r.Post("/{id}/participants/{userId}/promote-to-co-gm", gameHandler.PromoteToCoGM)         // GM promotes audience to co-GM

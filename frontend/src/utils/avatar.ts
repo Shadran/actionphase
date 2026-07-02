@@ -63,20 +63,3 @@ export function getAvatarColor(name: string): string {
   return AVATAR_COLORS[colorIndex];
 }
 
-/**
- * Generate a complete avatar fallback configuration.
- *
- * Returns both initials and color class for convenience.
- *
- * @param name - The name to generate avatar fallback for
- * @returns Object with initials and colorClass
- */
-export function getAvatarFallback(name: string): {
-  initials: string;
-  colorClass: string;
-} {
-  return {
-    initials: getInitials(name),
-    colorClass: getAvatarColor(name),
-  };
-}

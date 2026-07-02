@@ -8,7 +8,7 @@ export interface Conversation {
   updated_at: string;
 }
 
-export interface ConversationParticipant {
+interface ConversationParticipant {
   id: number;
   conversation_id: number;
   user_id: number;
