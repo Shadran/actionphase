@@ -35,7 +35,7 @@ export const GameLogsView = ({ gameId } : GameLogsViewProps) => {
       if (loading) {
         return (
           <Card variant="elevated" padding="lg">
-            <h2 className="text-2xl font-bold text-content-primary mb-6">Logs</h2>
+            <h2 className="text-2xl font-bold text-content-primary mb-6">Game Logs</h2>
             <div className="flex justify-center py-8">
               <Spinner size="lg" label="Loading logs..." />
             </div>
@@ -46,7 +46,7 @@ export const GameLogsView = ({ gameId } : GameLogsViewProps) => {
       if (error) {
         return (
           <Card variant="elevated" padding="lg">
-            <h2 className="text-2xl font-bold text-content-primary mb-6">Logs</h2>
+            <h2 className="text-2xl font-bold text-content-primary mb-6">Game Logs</h2>
             <Alert variant="danger">
               <div className="space-y-3">
                 <p>Failed to load logs: {error}</p>
@@ -61,13 +61,21 @@ export const GameLogsView = ({ gameId } : GameLogsViewProps) => {
 
     return (
         <>
+          <Card variant="elevated" padding="lg">
             <h2 className="text-2xl font-bold text-content-primary mb-6">Game Logs</h2>
             {
-                logs.map(l => {
-                    let date = new Date(l.created_at);
-                    return (<p className="text-content-primary">{date.toString()} - {l.message}</p>)
-                })
+                logs.map((log, index) => (
+                  <div key={index} className="border border-theme-default rounded-lg p-4 m-2">
+                    <div className="text-sm text-content-secondary mb-1">
+                      {new Date(log.created_at).toLocaleString()}
+                    </div>
+                    <p className="text-sm text-content-primary leading-7 break-words">
+                      {log.message}
+                    </p>
+                  </div>
+                ))
             }
+          </Card>
         </>
     );
 }

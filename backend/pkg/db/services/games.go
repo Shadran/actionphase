@@ -194,7 +194,7 @@ func (gs *GameService) UpdateGameState(ctx context.Context, gameID int32, newSta
 	queries.CreateLog(ctx, models.CreateLogParams{
 		GameID:  gameID,
 		Type:    "GAME_STATE_CHANGE",
-		Message: pgtype.Text{String: fmt.Sprintf("Game state changed to: %s", newState), Valid: true},
+		Message: pgtype.Text{String: fmt.Sprintf("Game state changed to: %s", core.GetGameStateDescriptionBrief(newState)), Valid: true},
 	})
 
 	// When a game is cancelled, automatically reject all pending applications
