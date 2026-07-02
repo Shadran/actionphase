@@ -2,6 +2,7 @@ package http
 
 import (
 	"actionphase/pkg/auth"
+	dbsvc "actionphase/pkg/db/services"
 	"os"
 	"testing"
 )
@@ -21,8 +22,15 @@ func TestHandlerTestContext_Example(t *testing.T) {
 	// Setup test user
 	testUser, plainPassword := ctx.CreateTestUserWithPassword("testuser", "test@example.com", "testpassword123")
 
-	// Setup auth handler
-	authHandler := &auth.Handler{App: ctx.App}
+	// Setup auth handler with all required services
+	pool := ctx.TestDB.Pool
+	authHandler := &auth.Handler{
+		App:                   ctx.App,
+		UserService:           &dbsvc.UserService{DB: pool, Logger: ctx.App.ObsLogger},
+		SessionService:        &dbsvc.SessionService{DB: pool, Logger: ctx.App.ObsLogger},
+		IPBanService:          &dbsvc.IPBanService{DB: pool, Logger: ctx.App.ObsLogger},
+		FingerprintBanService: &dbsvc.FingerprintBanService{DB: pool, Logger: ctx.App.ObsLogger},
+	}
 	ctx.Router.Post("/api/v1/auth/login", authHandler.V1Login)
 	ctx.Router.Get("/api/v1/auth/me", authHandler.V1Me)
 
@@ -92,8 +100,15 @@ func TestHandlerTestContext_ErrorResponses(t *testing.T) {
 	ctx := NewHandlerTestContext(t)
 	defer ctx.Cleanup()
 
-	// Setup auth handler
-	authHandler := &auth.Handler{App: ctx.App}
+	// Setup auth handler with all required services
+	pool := ctx.TestDB.Pool
+	authHandler := &auth.Handler{
+		App:                   ctx.App,
+		UserService:           &dbsvc.UserService{DB: pool, Logger: ctx.App.ObsLogger},
+		SessionService:        &dbsvc.SessionService{DB: pool, Logger: ctx.App.ObsLogger},
+		IPBanService:          &dbsvc.IPBanService{DB: pool, Logger: ctx.App.ObsLogger},
+		FingerprintBanService: &dbsvc.FingerprintBanService{DB: pool, Logger: ctx.App.ObsLogger},
+	}
 	ctx.Router.Post("/api/v1/auth/login", authHandler.V1Login)
 
 	t.Run("login with missing username", func(t *testing.T) {

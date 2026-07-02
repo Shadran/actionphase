@@ -4,6 +4,8 @@ import (
 	"actionphase/pkg/auth"
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	dbactions "actionphase/pkg/db/services/actions"
+	dbmessages "actionphase/pkg/db/services/messages"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -632,7 +634,16 @@ func setupGameTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Games API
 		r.Route("/games", func(r chi.Router) {
-			gameHandler := Handler{App: app}
+			gameHandler := Handler{
+				App:                     app,
+				UserService:             &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameApplicationService:  &db.GameApplicationService{DB: testDB.Pool, Logger: app.ObsLogger},
+				CharacterService:        &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+				MessageService:          &dbmessages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+				ActionSubmissionService: &dbactions.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+			}
 
 			// All routes require authentication
 			r.Group(func(r chi.Router) {
@@ -696,7 +707,15 @@ func setupAuthTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
-			authHandler := auth.Handler{App: app}
+			authHandler := auth.Handler{
+				App:                    app,
+				UserService:            &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				SessionService:         &db.SessionService{DB: testDB.Pool, Logger: app.ObsLogger},
+				UserPreferencesService: db.NewUserPreferencesService(testDB.Pool),
+				IPBanService:           &db.IPBanService{DB: testDB.Pool, Logger: app.ObsLogger},
+				FingerprintBanService:  &db.FingerprintBanService{DB: testDB.Pool, Logger: app.ObsLogger},
+				DiscordService:         &db.DiscordAccountService{DB: testDB.Pool, Logger: app.ObsLogger},
+			}
 			r.Post("/register", authHandler.V1Register)
 			r.Post("/login", authHandler.V1Login)
 			r.Group(func(r chi.Router) {

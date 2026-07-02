@@ -29,7 +29,10 @@ func setupUserAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// User profile routes
 		r.Route("/users", func(r chi.Router) {
-			userHandler := Handler{App: app}
+			userHandler := Handler{
+				App:         app,
+				UserService: &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
@@ -459,7 +462,10 @@ func setupUserAPITestRouterWithStorage(app *core.App, testDB *core.TestDatabase)
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/users", func(r chi.Router) {
-			userHandler := Handler{App: app}
+			userHandler := Handler{
+				App:         app,
+				UserService: &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			}
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
 				r.Use(jwtauth.Authenticator(tokenAuth))

@@ -59,7 +59,11 @@ func TestDashboardAPI_GetUserDashboard_Integration(t *testing.T) {
 	r.Use(jwtauth.Authenticator(tokenAuth))
 	r.Use(core.RequireAuthenticationMiddleware(userService))
 
-	handler := &Handler{App: app}
+	handler := &Handler{
+		App:              app,
+		UserService:      &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		DashboardService: &services.DashboardService{DB: testDB.Pool, Logger: app.ObsLogger},
+	}
 	r.Get("/", handler.GetUserDashboard)
 
 	t.Run("empty_dashboard_for_new_user", func(t *testing.T) {
@@ -171,7 +175,11 @@ func TestDashboardAPI_GetUserDashboard_WithUrgentGame(t *testing.T) {
 	r.Use(jwtauth.Authenticator(tokenAuth))
 	r.Use(core.RequireAuthenticationMiddleware(userService))
 
-	handler := &Handler{App: app}
+	handler := &Handler{
+		App:              app,
+		UserService:      &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		DashboardService: &services.DashboardService{DB: testDB.Pool, Logger: app.ObsLogger},
+	}
 	r.Get("/", handler.GetUserDashboard)
 
 	// Create game with urgent deadline
@@ -233,7 +241,11 @@ func makeDashboardRouter(app *core.App, testDB *core.TestDatabase) (*chi.Mux, *j
 	r.Use(jwtauth.Verifier(tokenAuth))
 	r.Use(jwtauth.Authenticator(tokenAuth))
 	r.Use(core.RequireAuthenticationMiddleware(userService))
-	r.Get("/", (&Handler{App: app}).GetUserDashboard)
+	r.Get("/", (&Handler{
+		App:              app,
+		UserService:      &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		DashboardService: &services.DashboardService{DB: testDB.Pool, Logger: app.ObsLogger},
+	}).GetUserDashboard)
 	return r, tokenAuth
 }
 

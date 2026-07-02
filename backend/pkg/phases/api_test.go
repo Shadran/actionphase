@@ -3,6 +3,7 @@ package phases
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	actionsvc "actionphase/pkg/db/services/actions"
 	phasesvc "actionphase/pkg/db/services/phases"
 	"bytes"
 	"context"
@@ -33,7 +34,13 @@ func setupPhaseAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/games", func(r chi.Router) {
-			phaseHandler := Handler{App: app}
+			phaseHandler := Handler{
+				App:                     app,
+				PhaseService:            &phasesvc.PhaseService{DB: testDB.Pool},
+				ActionSubmissionService: &actionsvc.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
@@ -49,7 +56,13 @@ func setupPhaseAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 
 		// Phases API (for phase-specific operations like update/delete)
 		r.Route("/phases", func(r chi.Router) {
-			phaseHandler := Handler{App: app}
+			phaseHandler := Handler{
+				App:                     app,
+				PhaseService:            &phasesvc.PhaseService{DB: testDB.Pool},
+				ActionSubmissionService: &actionsvc.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))

@@ -30,7 +30,13 @@ func setupHandoutTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                 app,
+			UserService:         &dbsvc.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			GameService:         &dbsvc.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+			HandoutService:      dbsvc.NewHandoutService(testDB.Pool),
+			NotificationService: dbsvc.NewNotificationService(testDB.Pool, app.ObsLogger),
+		}
 		r.Post("/{gameId}/handouts", handler.CreateHandout)
 		r.Get("/{gameId}/handouts", handler.ListHandouts)
 		r.Get("/{gameId}/handouts/{handoutId}", handler.GetHandout)

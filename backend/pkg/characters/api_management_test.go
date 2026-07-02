@@ -32,7 +32,13 @@ func setupCharacterManagementTestRouter(app *core.App, testDB *core.TestDatabase
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                 app,
+			UserService:         &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			CharacterService:    &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+			GameService:         &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+			NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger),
+		}
 		r.Put("/{id}/rename", handler.RenameCharacter)
 		r.Delete("/{id}", handler.DeleteCharacter)
 		r.Post("/{id}/approve", handler.ApproveCharacter)
@@ -45,7 +51,13 @@ func setupCharacterManagementTestRouter(app *core.App, testDB *core.TestDatabase
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                 app,
+			UserService:         &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			CharacterService:    &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+			GameService:         &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+			NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger),
+		}
 		r.Get("/inactive", handler.ListInactiveCharacters)
 	})
 	return router

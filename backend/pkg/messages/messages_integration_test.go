@@ -472,7 +472,11 @@ func setupMessageTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
-			messageHandler := &Handler{App: app}
+			messageHandler := &Handler{
+				App:            app,
+				UserService:    &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				MessageService: &messagesvc.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+			}
 
 			// Post routes
 			r.Post("/posts", messageHandler.CreatePost)

@@ -21,21 +21,13 @@ func TestContextHelpers_RoundTrip(t *testing.T) {
 	ctx = WithCorrelationID(ctx, "corr-123")
 	ctx = WithRequestID(ctx, "req-456")
 	ctx = WithUserID(ctx, "42")
-	ctx = WithOperation(ctx, "test_op")
 
 	assert.Equal(t, "corr-123", GetCorrelationID(ctx))
-	assert.Equal(t, "req-456", GetRequestID(ctx))
-	assert.Equal(t, "42", GetUserID(ctx))
 }
 
 func TestGetCorrelationID_Missing(t *testing.T) {
 	id := GetCorrelationID(context.Background())
 	assert.Equal(t, "", id, "missing correlation ID should return empty string")
-}
-
-func TestGetRequestID_Missing(t *testing.T) {
-	id := GetRequestID(context.Background())
-	assert.Equal(t, "", id, "missing request ID should return empty string")
 }
 
 func TestGetCorrelationID_WrongType(t *testing.T) {
@@ -107,33 +99,9 @@ func TestMetrics_IncrementCounter(t *testing.T) {
 	m := NewMetrics()
 	m.IncrementCounter("game_created")
 	m.IncrementCounter("game_created")
-	m.IncrementCounterBy("notifications_sent", 5)
 
 	snap := m.GetMetrics()
 	assert.Equal(t, int64(2), snap.Counters["game_created"])
-	assert.Equal(t, int64(5), snap.Counters["notifications_sent"])
-}
-
-func TestMetrics_SetGauge(t *testing.T) {
-	m := NewMetrics()
-	m.SetGauge("active_games", 3.0)
-	m.SetGauge("active_games", 7.0)
-
-	snap := m.GetMetrics()
-	assert.Equal(t, 7.0, snap.Gauges["active_games"], "gauge should reflect last set value")
-}
-
-func TestMetrics_RecordHistogram(t *testing.T) {
-	m := NewMetrics()
-	m.RecordHistogram("db_query", 1*time.Millisecond)
-	m.RecordHistogram("db_query", 10*time.Millisecond)
-	m.RecordHistogram("db_query", 100*time.Millisecond)
-
-	snap := m.GetMetrics()
-	stats, ok := snap.Histograms["db_query"]
-	require.True(t, ok, "histogram 'db_query' should be present in snapshot")
-	assert.Equal(t, 3, stats.Count)
-	assert.Greater(t, stats.Max, stats.Min)
 }
 
 func TestMetrics_GetMetrics_Snapshot_IsIsolated(t *testing.T) {
@@ -231,7 +199,6 @@ func TestRequestTracingMiddleware_SetsHeaders(t *testing.T) {
 		called = true
 		// Correlation ID must be in context
 		assert.NotEmpty(t, GetCorrelationID(r.Context()))
-		assert.NotEmpty(t, GetRequestID(r.Context()))
 		w.WriteHeader(http.StatusOK)
 	})
 

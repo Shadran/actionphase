@@ -195,7 +195,13 @@ func setupFullPhaseAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/games", func(r chi.Router) {
-			phaseHandler := Handler{App: app}
+			phaseHandler := Handler{
+				App:                     app,
+				PhaseService:            &phasesvc.PhaseService{DB: testDB.Pool},
+				ActionSubmissionService: &actionsvc.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
@@ -228,7 +234,13 @@ func setupFullPhaseAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.
 		})
 
 		r.Route("/phases", func(r chi.Router) {
-			phaseHandler := Handler{App: app}
+			phaseHandler := Handler{
+				App:                     app,
+				PhaseService:            &phasesvc.PhaseService{DB: testDB.Pool},
+				ActionSubmissionService: &actionsvc.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))

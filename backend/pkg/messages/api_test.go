@@ -39,7 +39,11 @@ func setupMessageAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mu
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/games", func(r chi.Router) {
-			messageHandler := Handler{App: app}
+			messageHandler := Handler{
+				App:            app,
+				UserService:    &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				MessageService: &messages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
@@ -60,7 +64,11 @@ func setupMessageAPITestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mu
 		})
 
 		r.Route("/characters", func(r chi.Router) {
-			messageHandler2 := Handler{App: app}
+			messageHandler2 := Handler{
+				App:            app,
+				UserService:    &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				MessageService: &messages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+			}
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
 				r.Use(jwtauth.Authenticator(tokenAuth))

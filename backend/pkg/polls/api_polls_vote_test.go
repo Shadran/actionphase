@@ -32,7 +32,14 @@ func setupVoteRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
-			handler := &Handler{App: app}
+			handler := &Handler{
+				App:                 app,
+				UserService:         &dbservices.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:         &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				PollService:         &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger},
+				CharacterService:    &dbservices.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService: dbservices.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 			r.Post("/games/{gameId}/polls", handler.CreatePoll)
 			r.Post("/polls/{pollId}/vote", handler.SubmitVote)
 			r.Get("/polls/{pollId}", handler.GetPoll)

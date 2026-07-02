@@ -30,7 +30,11 @@ func setupDraftPostRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		h := &Handler{App: app}
+		h := &Handler{
+			App:            app,
+			UserService:    &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			MessageService: &messagesvc.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+		}
 		r.Get("/", h.GetDraftPost)
 		r.Post("/", h.CreateDraftPost)
 		r.Put("/", h.UpdateDraftPost)

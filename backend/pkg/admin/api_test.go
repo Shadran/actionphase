@@ -37,7 +37,14 @@ func setupAdminTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 		r.Use(httpmiddleware.RequireAdmin(app))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                   app,
+			UserService:           &dbsvc.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			SessionService:        &dbsvc.SessionService{DB: testDB.Pool, Logger: app.ObsLogger},
+			IPBanService:          &dbsvc.IPBanService{DB: testDB.Pool, Logger: app.ObsLogger},
+			FingerprintBanService: &dbsvc.FingerprintBanService{DB: testDB.Pool, Logger: app.ObsLogger},
+			MessageService:        &messagesvc.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+		}
 		r.Get("/admins", handler.ListAdmins)
 		r.Put("/users/{id}/admin", handler.GrantAdminStatus)
 		r.Delete("/users/{id}/admin", handler.RevokeAdminStatus)

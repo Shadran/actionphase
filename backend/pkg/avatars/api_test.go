@@ -60,7 +60,10 @@ func setupAvatarTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:              app,
+			CharacterService: &dbsvc.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		}
 		r.Post("/avatar", handler.UploadCharacterAvatar)
 		r.Delete("/avatar", handler.DeleteCharacterAvatar)
 	})

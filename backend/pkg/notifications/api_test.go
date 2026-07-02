@@ -28,7 +28,10 @@ func setupNotificationTestRouter(app *core.App, testDB *core.TestDatabase) *chi.
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
 
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                 app,
+			NotificationService: dbsvc.NewNotificationService(testDB.Pool, app.ObsLogger),
+		}
 		r.Get("/", handler.GetNotifications)
 		r.Get("/unread-count", handler.GetUnreadCount)
 		r.Put("/mark-all-read", handler.MarkAllAsRead)

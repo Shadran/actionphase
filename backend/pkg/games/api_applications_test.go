@@ -3,6 +3,8 @@ package games
 import (
 	"actionphase/pkg/core"
 	db "actionphase/pkg/db/services"
+	dbactions "actionphase/pkg/db/services/actions"
+	dbmessages "actionphase/pkg/db/services/messages"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -25,7 +27,16 @@ func setupApplicationsTestRouter(app *core.App, testDB *core.TestDatabase) *chi.
 	r.Route("/api/v1", func(r chi.Router) {
 		// Games API
 		r.Route("/games", func(r chi.Router) {
-			gameHandler := Handler{App: app}
+			gameHandler := Handler{
+				App:                     app,
+				UserService:             &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:             &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameApplicationService:  &db.GameApplicationService{DB: testDB.Pool, Logger: app.ObsLogger},
+				CharacterService:        &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService:     db.NewNotificationService(testDB.Pool, app.ObsLogger),
+				MessageService:          &dbmessages.MessageService{DB: testDB.Pool, Logger: app.ObsLogger, Metrics: app.Observability.OTELMetrics},
+				ActionSubmissionService: &dbactions.ActionSubmissionService{DB: testDB.Pool, Logger: app.ObsLogger, NotificationService: db.NewNotificationService(testDB.Pool, app.ObsLogger)},
+			}
 
 			// Public routes (no authentication required)
 			r.Group(func(r chi.Router) {

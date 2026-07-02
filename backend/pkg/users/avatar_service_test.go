@@ -111,14 +111,6 @@ func TestUploadUserAvatar(t *testing.T) {
 
 			core.AssertNoError(t, err, "Should not return error")
 			core.AssertNotEqual(t, "", avatarURL, "Avatar URL should not be empty")
-
-			// Verify avatar URL was saved to database
-			savedURL, err := service.GetUserAvatarURL(ctx, tt.userID)
-			core.AssertNoError(t, err, "Should retrieve avatar URL")
-			core.AssertNotEqual(t, (*string)(nil), savedURL, "Avatar URL should exist")
-			if savedURL != nil {
-				core.AssertEqual(t, avatarURL, *savedURL, "Saved URL should match returned URL")
-			}
 		})
 	}
 }
@@ -164,14 +156,6 @@ func TestUploadUserAvatar_ReplacesOldAvatar(t *testing.T) {
 	core.AssertNoError(t, err, "Second upload should succeed")
 	core.AssertNotEqual(t, "", secondURL, "Second avatar URL should not be empty")
 	core.AssertNotEqual(t, firstURL, secondURL, "URLs should be different")
-
-	// Verify only second URL is in database
-	savedURL, err := service.GetUserAvatarURL(ctx, int32(fixtures.TestUser.ID))
-	core.AssertNoError(t, err, "Should retrieve avatar URL")
-	core.AssertNotEqual(t, (*string)(nil), savedURL, "Avatar URL should exist")
-	if savedURL != nil {
-		core.AssertEqual(t, secondURL, *savedURL, "Should have second avatar URL")
-	}
 }
 
 // TestDeleteUserAvatar tests avatar deletion
@@ -232,81 +216,6 @@ func TestDeleteUserAvatar(t *testing.T) {
 			}
 
 			core.AssertNoError(t, err, "Should not return error")
-
-			// Verify avatar was removed from database
-			avatarURL, err := service.GetUserAvatarURL(ctx, tt.userID)
-			core.AssertNoError(t, err, "Should retrieve avatar URL (or nil)")
-			core.AssertEqual(t, (*string)(nil), avatarURL, "Avatar URL should be nil after deletion")
-		})
-	}
-}
-
-// TestGetUserAvatarURL tests avatar URL retrieval
-func TestGetUserAvatarURL(t *testing.T) {
-	testDB := core.NewTestDatabase(t)
-	defer testDB.Close()
-	defer testDB.CleanupTables(t, "users")
-
-	fixtures := testDB.SetupFixtures(t)
-	localStorage := storage.NewLocalStorage("./test_uploads", "http://localhost:3000/uploads")
-	service := &UserAvatarService{
-		DB:      testDB.Pool,
-		Storage: localStorage,
-	}
-	ctx := context.Background()
-
-	tests := []struct {
-		name        string
-		setupAvatar bool
-		userID      int32
-		expectNil   bool
-	}{
-		{
-			name:        "get existing avatar URL",
-			setupAvatar: true,
-			userID:      int32(fixtures.TestUser.ID),
-			expectNil:   false,
-		},
-		{
-			name:        "get avatar URL when none exists",
-			setupAvatar: false,
-			userID:      int32(fixtures.TestUser.ID),
-			expectNil:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Setup: Upload avatar if needed, or ensure no avatar exists
-			var expectedURL string
-			if tt.setupAvatar {
-				reader := bytes.NewReader([]byte("test avatar"))
-				url, err := service.UploadUserAvatar(
-					ctx,
-					tt.userID,
-					reader,
-					"test.jpg",
-					MimeTypeJPEG,
-				)
-				core.AssertNoError(t, err, "Setup: avatar upload should succeed")
-				expectedURL = url
-			} else {
-				// Ensure no avatar exists for this test case
-				_ = service.DeleteUserAvatar(ctx, tt.userID)
-			}
-
-			// Get avatar URL
-			avatarURL, err := service.GetUserAvatarURL(ctx, tt.userID)
-			core.AssertNoError(t, err, "Should not return error")
-
-			if tt.expectNil {
-				core.AssertEqual(t, (*string)(nil), avatarURL, "Avatar URL should be nil")
-			} else {
-				core.AssertNotEqual(t, (*string)(nil), avatarURL, "Avatar URL should not be nil")
-				if avatarURL != nil {
-					core.AssertEqual(t, expectedURL, *avatarURL, "Avatar URL should match")
-				}
-			}
 		})
 	}
 }

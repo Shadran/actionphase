@@ -27,7 +27,13 @@ func setupStatsTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(jwtauth.Verifier(tokenAuth))
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
-		handler := &Handler{App: app}
+		handler := &Handler{
+			App:                 app,
+			UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+			CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+			GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+			NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+		}
 		r.Get("/stats", handler.GetCharacterStats)
 	})
 	return router

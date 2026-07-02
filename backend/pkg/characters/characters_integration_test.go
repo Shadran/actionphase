@@ -52,7 +52,13 @@ func TestCharacterAPI_CompleteCharacterLifecycle(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	// Character routes
 	r.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
@@ -280,7 +286,13 @@ func TestCharacterAPI_CompletedGamePlayersCanViewPrivateData(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	r.Route("/api/v1/characters/{id}", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))
@@ -365,7 +377,13 @@ func TestCharacterAPI_NPCManagement(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	r.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))
@@ -495,7 +513,13 @@ func TestCharacterAPI_Authorization(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	r.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))
@@ -726,7 +750,13 @@ func TestCharacterAPI_ErrorHandling(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	r.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))
@@ -845,7 +875,13 @@ func TestCharacterAPI_UnauthenticatedAccess(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 	r.Route("/api/v1/characters/{id}", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
@@ -925,7 +961,13 @@ func TestCharacterAPI_ControllableAndInactive(t *testing.T) {
 	tokenAuth := jwtauth.New("HS256", []byte(app.Config.JWT.Secret), nil)
 	userService := &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
 	r := chi.NewRouter()
-	handler := Handler{App: app}
+	handler := Handler{
+		App:                 app,
+		UserService:         &services.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+		CharacterService:    &services.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+		GameService:         &services.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+		NotificationService: services.NewNotificationService(testDB.Pool, app.ObsLogger),
+	}
 
 	r.Route("/api/v1/games/{gameId}/characters", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(tokenAuth))

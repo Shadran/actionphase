@@ -31,7 +31,14 @@ func setupPollCRUDTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(core.RequireAuthenticationMiddleware(userService))
 
-			handler := &Handler{App: app}
+			handler := &Handler{
+				App:                 app,
+				UserService:         &dbservices.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:         &dbservices.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				PollService:         &dbservices.PollService{DB: testDB.Pool, Logger: app.ObsLogger},
+				CharacterService:    &dbservices.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+				NotificationService: dbservices.NewNotificationService(testDB.Pool, app.ObsLogger),
+			}
 
 			// Game-scoped poll routes
 			r.Post("/games/{gameId}/polls", handler.CreatePoll)

@@ -33,7 +33,13 @@ func setupConversationAPITestRouter(app *core.App, testDB *core.TestDatabase) *c
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/games", func(r chi.Router) {
-			conversationHandler := Handler{App: app}
+			conversationHandler := Handler{
+				App:                 app,
+				GameService:         &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				CharacterService:    &db.CharacterService{DB: testDB.Pool, Logger: app.ObsLogger},
+				ConversationService: db.NewConversationService(testDB.Pool),
+				PhaseService:        &phasesvc.PhaseService{DB: testDB.Pool},
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))

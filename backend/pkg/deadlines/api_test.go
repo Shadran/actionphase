@@ -27,7 +27,12 @@ func setupDeadlineTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Games API - deadlines nested under games
 		r.Route("/games", func(r chi.Router) {
-			deadlineHandler := Handler{App: app}
+			deadlineHandler := Handler{
+				App:             app,
+				UserService:     &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:     &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				DeadlineService: &db.DeadlineService{DB: testDB.Pool, Logger: app.ObsLogger},
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
@@ -42,7 +47,12 @@ func setupDeadlineTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 
 		// Dedicated deadlines router
 		r.Route("/deadlines", func(r chi.Router) {
-			deadlineHandler := Handler{App: app}
+			deadlineHandler := Handler{
+				App:             app,
+				UserService:     &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger},
+				GameService:     &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger},
+				DeadlineService: &db.DeadlineService{DB: testDB.Pool, Logger: app.ObsLogger},
+			}
 
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
