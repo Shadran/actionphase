@@ -1,20 +1,7 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { context, trace, propagation, SpanStatusCode, type Span, type Context } from '@opentelemetry/api';
+import axios from 'axios';
 import { logger, setCorrelationId } from '@/services/LoggingService';
-import { getFaro } from '@/lib/faro';
-
-interface OtelAxiosRequestConfig extends InternalAxiosRequestConfig {
-  __otelSpan?: Span;
-  __otelCtx?: Context;
-}
 
 const API_BASE_URL = ''; // Use proxy in development
-
-// Replace numeric path segments with {id} so span names stay low-cardinality.
-// e.g. /api/v1/games/5/characters/12 → /api/v1/games/{id}/characters/{id}
-function normalizeUrl(url: string): string {
-  return url.replace(/\/\d+/g, '/{id}');
-}
 
 /**
  * Base API client with authentication and token refresh interceptors
@@ -60,23 +47,12 @@ export class BaseApiClient {
         config.headers['X-Admin-Mode'] = 'true';
       }
 
-      // Inject W3C trace context so backend spans are linked to the frontend trace.
-      // We create an explicit span for every request rather than relying on an
-      // active span already being open (which isn't the case for login, background
-      // refetches, etc.). Faro's TracingInstrumentation only patches fetch/XHR.
-      const faro = getFaro();
-      if (faro) {
-        const tracer = trace.getTracer('axios');
-        const spanName = `${config.method?.toUpperCase()} ${normalizeUrl(config.url ?? '')}`;
-        const span = tracer.startSpan(spanName);
-        const ctx = trace.setSpan(context.active(), span);
-        const carrier: Record<string, string> = {};
-        propagation.inject(ctx, carrier);
-        Object.assign(config.headers, carrier);
-        // Store span on config so the response interceptor can end it
-        (config as OtelAxiosRequestConfig).__otelSpan = span;
-        (config as OtelAxiosRequestConfig).__otelCtx = ctx;
-      }
+      // Trace context propagation is handled by Faro's TracingInstrumentation,
+      // which patches XHR/fetch (axios uses XHR) and injects a single W3C
+      // `traceparent` on each request. We intentionally do NOT inject here:
+      // a second manual injection produced a malformed comma-joined `traceparent`
+      // with two trace IDs, which the backend's W3C propagator rejected — so every
+      // backend span became a disconnected root. Faro is the sole injector.
 
       // Log API request
       logger.debug('API Request', {
@@ -92,13 +68,6 @@ export class BaseApiClient {
     // Add response interceptor to handle token refresh
     this.client.interceptors.response.use(
       (response) => {
-        // End the OTEL span started in the request interceptor
-        const span = (response.config as OtelAxiosRequestConfig).__otelSpan;
-        if (span) {
-          span.setAttribute('http.status_code', response.status);
-          span.end();
-        }
-
         // Extract and store correlation ID from response headers
         const correlationId =
           response.headers['x-correlation-id'] ||
@@ -120,14 +89,6 @@ export class BaseApiClient {
         return response;
       },
       async (error) => {
-        // End the OTEL span started in the request interceptor, marking it as failed
-        const span = (error.config as OtelAxiosRequestConfig | undefined)?.__otelSpan;
-        if (span) {
-          span.setAttribute('http.status_code', error.response?.status ?? 0);
-          span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-          span.end();
-        }
-
         const originalRequest = error.config;
 
         // Downgrade expected non-errors to debug:
