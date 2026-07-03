@@ -297,3 +297,21 @@ func IsValidApplicationStatus(status string) bool {
 	return false
 }
 
+// GetGameStateDescriptionBrief returns a brief human-readable description of a game state.
+func GetGameStateDescriptionBrief(state string) string {
+	descriptions := map[string]string{
+		GameStateSetup:             "SETUP",
+		GameStateRecruitment:       "RECRUITMENT",
+		GameStateCharacterCreation: "CHARACTER CREATION",
+		GameStateInProgress:        "IN PROGRESS",
+		GameStatePaused:            "PAUSED",
+		GameStateCompleted:         "COMPLETED",
+		GameStateCancelled:         "CANCELLED",
+	}
+
+	if desc, exists := descriptions[state]; exists {
+		return desc
+	}
+	return "Unknown game state"
+}
+
