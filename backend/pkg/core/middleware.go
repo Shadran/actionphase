@@ -176,7 +176,6 @@ func GetAuthenticatedUser(ctx context.Context) *AuthenticatedUser {
 	return nil
 }
 
-
 // GM Authorization Pattern
 //
 // GM authorization is implemented at the HANDLER level, not via middleware.
@@ -202,4 +201,3 @@ func GetAuthenticatedUser(ctx context.Context) *AuthenticatedUser {
 // - Admin mode override
 //
 // See pkg/core/permissions.go for implementation details.
-

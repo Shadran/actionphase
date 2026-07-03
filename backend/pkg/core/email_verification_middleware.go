@@ -89,4 +89,3 @@ func RequireEmailVerificationMiddleware(pool *pgxpool.Pool) func(http.Handler) h
 		})
 	}
 }
-

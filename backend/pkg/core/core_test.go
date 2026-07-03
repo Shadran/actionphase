@@ -282,4 +282,3 @@ func TestRequireEmailVerificationMiddleware_Disabled(t *testing.T) {
 	assert.True(t, reached, "handler should be called when verification is disabled")
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
-

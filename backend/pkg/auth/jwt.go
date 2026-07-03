@@ -98,4 +98,3 @@ func (j *JWTHandler) CreateToken(user *core.User, meta SessionMetadata) (string,
 
 	return finalTokenString, nil
 }
-

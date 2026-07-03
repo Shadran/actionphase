@@ -185,7 +185,6 @@ func TestValidateRequired(t *testing.T) {
 	}
 }
 
-
 // TestGetClientIP tests client IP extraction from various request headers
 func TestGetClientIP(t *testing.T) {
 	tests := []struct {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
 )
 
 func TestAccountService_ChangeUsername(t *testing.T) {
@@ -611,4 +610,3 @@ func TestAccountService_RequestEmailChange(t *testing.T) {
 		core.AssertTrue(t, strings.Contains(pwdErr.Reason, "already in use"), "Error should mention email in use")
 	})
 }
-

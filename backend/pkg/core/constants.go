@@ -314,4 +314,3 @@ func GetGameStateDescriptionBrief(state string) string {
 	}
 	return "Unknown game state"
 }
-

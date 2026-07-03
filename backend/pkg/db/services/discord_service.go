@@ -109,4 +109,3 @@ func rowToDiscordAccount(row models.UserDiscordAccount) *core.DiscordAccount {
 
 	return acct
 }
-

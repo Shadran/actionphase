@@ -112,4 +112,3 @@ func (h *Handler) serveSwaggerUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Write([]byte(html))
 }
-

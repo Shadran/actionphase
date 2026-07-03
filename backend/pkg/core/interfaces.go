@@ -1178,7 +1178,6 @@ type AvatarServiceInterface interface {
 	// DeleteCharacterAvatar removes a character's avatar
 	// Deletes the file from storage and updates database
 	DeleteCharacterAvatar(ctx context.Context, characterID int32) error
-
 }
 
 // DashboardServiceInterface defines the contract for dashboard data operations.
@@ -1655,7 +1654,6 @@ type UserAvatarServiceInterface interface {
 
 	// DeleteUserAvatar removes a user's avatar.
 	DeleteUserAvatar(ctx context.Context, userID int32) error
-
 }
 
 // CharacterServiceInterface defines the contract for character management operations.

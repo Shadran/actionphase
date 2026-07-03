@@ -290,4 +290,3 @@ func GetCorrelationID(ctx context.Context) string {
 	}
 	return ""
 }
-

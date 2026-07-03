@@ -106,4 +106,3 @@ func TestRequireEmailVerificationMiddleware_Enabled_VerifiedPasses(t *testing.T)
 	assert.Equal(t, http.StatusOK, w.Code,
 		"verified user must pass through the middleware")
 }
-

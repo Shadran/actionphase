@@ -809,7 +809,6 @@ func boolToBool(b pgtype.Bool) bool {
 	return false
 }
 
-
 func interfaceToStringPtr(i interface{}) *string {
 	if i == nil {
 		return nil

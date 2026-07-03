@@ -44,4 +44,3 @@ func TestJWTHandler_CreateToken(t *testing.T) {
 	})
 
 }
-
