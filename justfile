@@ -269,12 +269,17 @@ dead-code:
 type-check:
  cd frontend && npx tsc --noEmit
 
+knip:
+    cd frontend && npx knip
+
 verify:
   @echo "Verifying code quality..."
   @just tidy
   @just lint
+  @just dead-code
   @just lint-frontend
   @just type-check
+  @just knip
   @echo "✅ Code quality verified"
 
 # ═══════════════════════════════════════════════════════════════════════════
