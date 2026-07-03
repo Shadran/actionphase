@@ -403,6 +403,24 @@ func GetGameStateDescription(state string) string {
 	return "Unknown game state"
 }
 
+// GetGameStateDescription returns a brief human-readable description of a game state.
+func GetGameStateDescriptionBrief(state string) string {
+	descriptions := map[string]string{
+		GameStateSetup:             "SETUP",
+		GameStateRecruitment:       "RECRUITMENT",
+		GameStateCharacterCreation: "CHARACTER CREATION",
+		GameStateInProgress:        "IN PROGRESS",
+		GameStatePaused:            "PAUSED",
+		GameStateCompleted:         "COMPLETED",
+		GameStateCancelled:         "CANCELLED",
+	}
+
+	if desc, exists := descriptions[state]; exists {
+		return desc
+	}
+	return "Unknown game state"
+}
+
 // GetParticipantRoleDescription returns a human-readable description of a participant role.
 func GetParticipantRoleDescription(role string) string {
 	descriptions := map[string]string{

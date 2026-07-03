@@ -148,6 +148,16 @@ func (ps *PhaseService) TransitionToNextPhase(ctx context.Context, gameID, userI
 		return nil, fmt.Errorf("failed to activate new phase: %w", err)
 	}
 
+	_, err = txQueries.CreateLog(ctx, models.CreateLogParams{
+		GameID:  gameID,
+		Type:    "PHASE_ACTIVATED",
+		Message: pgtype.Text{String: fmt.Sprintf("Game phase changed to: %s", newPhase.Title), Valid: true},
+	})
+	if err != nil {
+		ps.Logger.LogError(ctx, err, "Failed to log phase activation record", "game_id", gameID)
+		return nil, fmt.Errorf("failed to log phase activation: %w", err)
+	}
+
 	// Log the transition
 	transitionParams := models.CreatePhaseTransitionParams{
 		GameID:      gameID,
@@ -252,6 +262,16 @@ func (ps *PhaseService) activatePhaseInternal(ctx context.Context, phaseID int32
 			"game_id", phase.GameID,
 		)
 		return nil, fmt.Errorf("failed to activate phase: %w", err)
+	}
+
+	_, err = txQueries.CreateLog(ctx, models.CreateLogParams{
+		GameID:  phase.GameID,
+		Type:    "PHASE_ACTIVATED",
+		Message: pgtype.Text{String: fmt.Sprintf("Game phase changed to: %s", phase.Title), Valid: true},
+	})
+	if err != nil {
+		ps.Logger.LogError(ctx, err, "Failed to log phase activation record", "game_id", phase.GameID)
+		return nil, fmt.Errorf("failed to log phase activation: %w", err)
 	}
 
 	// Count draft posts before publishing (non-fatal if this fails)

@@ -286,6 +286,9 @@ func (h *Handler) Start() {
 			r.Post("/{gameId}/polls", pollHandler.CreatePoll)
 			r.Get("/{gameId}/polls", pollHandler.ListGamePolls)
 			r.Get("/{gameId}/phases/{phaseId}/polls", pollHandler.ListPollsByPhase)
+
+			// Logs
+			r.Get("/{gameId}/logs", gameHandler.GetGameLogs)
 		})
 	})
 	apiV1Router.Mount("/games", gamesRouter)

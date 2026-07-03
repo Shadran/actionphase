@@ -677,6 +677,9 @@ func setupGameTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 				r.Get("/{id}/private-messages/participants", gameHandler.GetConversationParticipants)
 				r.Get("/{id}/private-messages/conversations/{conversationId}", gameHandler.GetAudienceConversationMessages)
 				r.Get("/{id}/action-submissions/all", gameHandler.ListAllActionSubmissions)
+
+				// Logs
+				r.Get("/{gameId}/logs", gameHandler.GetGameLogs)
 			})
 		})
 	})
