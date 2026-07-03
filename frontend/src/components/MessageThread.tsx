@@ -452,7 +452,10 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
       </div>
 
       {/* Message Input */}
-      <div className="surface-base border-t border-theme-default">
+      {/* min-h-0 + overflow-y-auto let this region scroll internally if the
+          editor is resized taller than the available space, guaranteeing the
+          Send button stays reachable instead of being pushed off screen. */}
+      <div className="surface-base border-t border-theme-default flex-shrink min-h-0 overflow-y-auto">
         {/* Mobile: "Reply" button shown when reply box is collapsed */}
         {isMessagingAllowed && !replyOpen && (
           <div className="sm:hidden p-2 flex justify-end">

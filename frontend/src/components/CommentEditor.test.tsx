@@ -262,48 +262,80 @@ describe('CommentEditor', () => {
   });
 
   describe('Drag Handle', () => {
+    // These tests spy on window.innerHeight and getBoundingClientRect; restore
+    // them afterward so the stubs don't leak into other tests.
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     // The drag handle is the last [aria-hidden="true"] div (SVG icons also use aria-hidden)
     const getDragHandle = (container: HTMLElement) => {
       const els = container.querySelectorAll('[aria-hidden="true"]');
       return els[els.length - 1] as HTMLElement;
     };
 
-    it('does not allow dragging the editor height beyond 50% of the viewport', () => {
+    // The editor panel is the div that wraps the textarea. Stub its top edge so
+    // the container-aware clamp has a realistic position to measure against
+    // (jsdom returns all-zero rects by default).
+    const stubPanelTop = (container: HTMLElement, top: number) => {
+      const panel = container.querySelector('.comment-editor > div + div') as HTMLElement;
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+        top,
+        bottom: top,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect);
+      return panel;
+    };
+
+    it('clamps drag height to the space available below the editor, keeping controls on screen', () => {
       const { container } = render(<CommentEditor {...defaultProps} value="Some content" rows={4} />);
 
-      const dragHandle = getDragHandle(container);
-      expect(dragHandle).toBeInTheDocument();
+      // Simulate a short viewport with the editor starting partway down it.
+      const viewportHeight = 600;
+      const panelTop = 400;
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(viewportHeight);
+      stubPanelTop(container, panelTop);
 
-      // Start drag at y=100 then simulate dragging far off-screen
-      fireEvent.mouseDown(dragHandle, { clientY: 100 });
-      fireEvent.mouseMove(document, { clientY: 10000 });
+      const dragHandle = getDragHandle(container);
+      // Drag far off the bottom of the screen.
+      fireEvent.mouseDown(dragHandle, { clientY: panelTop });
+      fireEvent.mouseMove(document, { clientY: 100000 });
       fireEvent.mouseUp(document);
 
-      // Height must be capped at 50% of viewport height
       const textarea = screen.getByRole('textbox');
-      const heightStyle = (textarea as HTMLElement).style.height;
-      expect(heightStyle).toBeTruthy();
-      const heightPx = parseInt(heightStyle, 10);
-      expect(heightPx).toBeLessThanOrEqual(window.innerHeight * 0.5);
+      const heightPx = parseInt((textarea as HTMLElement).style.height, 10);
+
+      // The editor's bottom (panelTop + padding + height) must stay above the
+      // viewport bottom with room reserved for the controls below it, so the
+      // Send button can never be pushed off screen.
+      const RESERVED_BELOW = 96;
+      const PANEL_PADDING = 24;
+      expect(panelTop + PANEL_PADDING + heightPx).toBeLessThanOrEqual(viewportHeight - RESERVED_BELOW + 1);
     });
 
-    it('allows moderate drag increases within the maximum', () => {
+    it('allows a moderate drag to resize the editor', () => {
       const { container } = render(<CommentEditor {...defaultProps} value="Some content" rows={4} />);
 
-      const dragHandle = getDragHandle(container);
-      expect(dragHandle).toBeInTheDocument();
+      // Plenty of room below the editor so the clamp does not interfere.
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(2000);
+      stubPanelTop(container, 100);
 
+      const dragHandle = getDragHandle(container);
       fireEvent.mouseDown(dragHandle, { clientY: 100 });
-      fireEvent.mouseMove(document, { clientY: 300 });
+      fireEvent.mouseMove(document, { clientY: 300 }); // +200px
       fireEvent.mouseUp(document);
 
-      // Height should increase by the drag delta, staying within limits
       const textarea = screen.getByRole('textbox');
-      const heightStyle = (textarea as HTMLElement).style.height;
-      expect(heightStyle).toBeTruthy();
-      const heightPx = parseInt(heightStyle, 10);
+      const heightPx = parseInt((textarea as HTMLElement).style.height, 10);
+      // Started from ~0 (jsdom offsetHeight) with +200 delta, floored at 80.
       expect(heightPx).toBeGreaterThanOrEqual(80);
-      expect(heightPx).toBeLessThanOrEqual(window.innerHeight * 0.5);
+      expect(heightPx).toBeLessThanOrEqual(200);
     });
   });
 

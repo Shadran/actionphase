@@ -382,8 +382,30 @@ export const CommentEditor = memo(function CommentEditor({
   const handleDragMove = useCallback((clientY: number) => {
     if (dragStartY.current === null) return;
     const delta = clientY - dragStartY.current;
-    const maxHeight = window.innerHeight * 0.5;
-    const newHeight = Math.min(maxHeight, Math.max(80, dragStartHeight.current + delta));
+
+    // Clamp against the space actually available below the editor's top edge so
+    // the editor can never grow past the visible area and push the surrounding
+    // controls (e.g. a Send button) off screen. We measure the editor panel's
+    // position live and use the visual viewport bottom (which shrinks correctly
+    // when a mobile keyboard is open) rather than a fixed viewport fraction.
+    const MIN_HEIGHT = 80;
+    let maxHeight = Number.POSITIVE_INFINITY;
+    const panel = editorRef.current;
+    if (panel) {
+      const panelTop = panel.getBoundingClientRect().top;
+      const viewport = window.visualViewport;
+      const viewportBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+      // Reserve space for the content below the resizable area (the drag handle
+      // plus roughly one control row) so it stays on screen. This is a small,
+      // layout-independent safety margin, not a cap on the editor size itself.
+      const RESERVED_BELOW = 96;
+      // panelTop → available height from the top of the editor panel to the
+      // bottom of the usable viewport, minus the reserved control space.
+      // (panel padding is ~24px; subtract it since editorHeight sizes the inner field.)
+      maxHeight = Math.max(MIN_HEIGHT, viewportBottom - panelTop - 24 - RESERVED_BELOW);
+    }
+
+    const newHeight = Math.min(maxHeight, Math.max(MIN_HEIGHT, dragStartHeight.current + delta));
     setEditorHeight(newHeight);
   }, []);
 
