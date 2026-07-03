@@ -382,7 +382,8 @@ export const CommentEditor = memo(function CommentEditor({
   const handleDragMove = useCallback((clientY: number) => {
     if (dragStartY.current === null) return;
     const delta = clientY - dragStartY.current;
-    const newHeight = Math.max(80, dragStartHeight.current + delta);
+    const maxHeight = window.innerHeight * 0.5;
+    const newHeight = Math.min(maxHeight, Math.max(80, dragStartHeight.current + delta));
     setEditorHeight(newHeight);
   }, []);
 

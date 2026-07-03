@@ -261,7 +261,53 @@ describe('CommentEditor', () => {
     });
   });
 
-  describe('Tab Layout', () => {
+  describe('Drag Handle', () => {
+    // The drag handle is the last [aria-hidden="true"] div (SVG icons also use aria-hidden)
+    const getDragHandle = (container: HTMLElement) => {
+      const els = container.querySelectorAll('[aria-hidden="true"]');
+      return els[els.length - 1] as HTMLElement;
+    };
+
+    it('does not allow dragging the editor height beyond 50% of the viewport', () => {
+      const { container } = render(<CommentEditor {...defaultProps} value="Some content" rows={4} />);
+
+      const dragHandle = getDragHandle(container);
+      expect(dragHandle).toBeInTheDocument();
+
+      // Start drag at y=100 then simulate dragging far off-screen
+      fireEvent.mouseDown(dragHandle, { clientY: 100 });
+      fireEvent.mouseMove(document, { clientY: 10000 });
+      fireEvent.mouseUp(document);
+
+      // Height must be capped at 50% of viewport height
+      const textarea = screen.getByRole('textbox');
+      const heightStyle = (textarea as HTMLElement).style.height;
+      expect(heightStyle).toBeTruthy();
+      const heightPx = parseInt(heightStyle, 10);
+      expect(heightPx).toBeLessThanOrEqual(window.innerHeight * 0.5);
+    });
+
+    it('allows moderate drag increases within the maximum', () => {
+      const { container } = render(<CommentEditor {...defaultProps} value="Some content" rows={4} />);
+
+      const dragHandle = getDragHandle(container);
+      expect(dragHandle).toBeInTheDocument();
+
+      fireEvent.mouseDown(dragHandle, { clientY: 100 });
+      fireEvent.mouseMove(document, { clientY: 300 });
+      fireEvent.mouseUp(document);
+
+      // Height should increase by the drag delta, staying within limits
+      const textarea = screen.getByRole('textbox');
+      const heightStyle = (textarea as HTMLElement).style.height;
+      expect(heightStyle).toBeTruthy();
+      const heightPx = parseInt(heightStyle, 10);
+      expect(heightPx).toBeGreaterThanOrEqual(80);
+      expect(heightPx).toBeLessThanOrEqual(window.innerHeight * 0.5);
+    });
+  });
+
+describe('Tab Layout', () => {
     it('shows write tab content when Write is active', () => {
       render(<CommentEditor {...defaultProps} value="Test" />);
       expect(screen.getByRole('textbox')).toBeInTheDocument();
