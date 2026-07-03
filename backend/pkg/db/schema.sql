@@ -155,6 +155,15 @@ CREATE TABLE game_applications (
     UNIQUE(game_id, user_id)
 );
 
+-- Game logs
+CREATE TABLE game_logs (
+    id SERIAL PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Characters
 CREATE TABLE characters (
     id SERIAL PRIMARY KEY,

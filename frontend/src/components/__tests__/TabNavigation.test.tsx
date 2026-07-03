@@ -256,7 +256,7 @@ describe('TabNavigation', () => {
     });
 
     it('applies correct responsive classes for desktop tabs', () => {
-      render(
+      const { container } = render(
         <TabNavigation
           tabs={mockTabs}
           activeTab="tab1"
@@ -264,10 +264,119 @@ describe('TabNavigation', () => {
         />
       );
 
-      // Desktop tabs container should have hidden md:flex
-      const tablist = screen.getByRole('tablist');
-      expect(tablist.className).toContain('hidden');
-      expect(tablist.className).toContain('md:flex');
+      // Desktop wrapper div should have hidden md:flex
+      const desktopWrapper = container.querySelector('.md\\:flex');
+      expect(desktopWrapper).toBeInTheDocument();
+      expect(desktopWrapper?.className).toContain('hidden');
+    });
+  });
+
+  describe('Overflow tabs (More menu)', () => {
+    const allTabs: Tab[] = [
+      { id: 'tab1', label: 'First Tab' },
+      { id: 'tab2', label: 'Second Tab' },
+      { id: 'tab3', label: 'Third Tab' },
+      { id: 'info', label: 'Game Info' },
+      { id: 'logs', label: 'Game Logs' },
+    ];
+    const overflowTabIds = new Set(['info', 'logs']);
+
+    it('renders overflow tabs inside More button, not in the main bar', () => {
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="tab1"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      expect(screen.getByTestId('tab-more')).toBeInTheDocument();
+      // Overflow tabs not visible until More is opened
+      expect(screen.queryByTestId('tab-info')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('tab-logs')).not.toBeInTheDocument();
+      // Main tabs still visible
+      expect(screen.getByRole('tab', { name: /First Tab/i })).toBeInTheDocument();
+    });
+
+    it('opens the dropdown and shows overflow tabs when More is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="tab1"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      await user.click(screen.getByTestId('tab-more'));
+
+      expect(screen.getByTestId('tab-info')).toBeInTheDocument();
+      expect(screen.getByTestId('tab-logs')).toBeInTheDocument();
+    });
+
+    it('calls onTabChange and closes dropdown when an overflow tab is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="tab1"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      await user.click(screen.getByTestId('tab-more'));
+      await user.click(screen.getByTestId('tab-logs'));
+
+      expect(mockOnTabChange).toHaveBeenCalledWith('logs');
+      expect(screen.queryByTestId('tab-logs')).not.toBeInTheDocument();
+    });
+
+    it('closes dropdown when clicking outside', async () => {
+      const user = userEvent.setup();
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="tab1"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      await user.click(screen.getByTestId('tab-more'));
+      expect(screen.getByTestId('tab-info')).toBeInTheDocument();
+
+      await user.click(document.body);
+      expect(screen.queryByTestId('tab-info')).not.toBeInTheDocument();
+    });
+
+    it('shows More button with active styling when an overflow tab is active', () => {
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="logs"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      expect(screen.getByTestId('tab-more').className).toContain('text-interactive-primary');
+    });
+
+    it('includes overflow tabs in the mobile select dropdown', () => {
+      render(
+        <TabNavigation
+          tabs={allTabs}
+          activeTab="tab1"
+          onTabChange={mockOnTabChange}
+          overflowTabIds={overflowTabIds}
+        />
+      );
+
+      expect(screen.getByRole('option', { name: 'Game Info' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Game Logs' })).toBeInTheDocument();
     });
   });
 

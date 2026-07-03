@@ -1297,6 +1297,24 @@ components:
         is_published:
           type: boolean
 
+    # Game Logs Schemas
+    GameLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        game_id:
+          type: integer
+          format: int32
+        type:
+          type: string
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
 paths:
   # Health Check
   /ping:
@@ -3762,6 +3780,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # Logs Endpoints
+  /games/{gameId}/logs:
+    get:
+      tags:
+        - Game Logs
+      summary: Get game logs
+      description: Get all logs for a game (GM only while the game is running)
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: Game ID
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameLog'
+        '403':
+          description: Only game master can view logs while the game is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 tags:
   - name: Health
     description: API health and status endpoints
@@ -3771,6 +3820,8 @@ tags:
     description: Game creation, management, and participation
   - name: Game Applications
     description: Application system for joining games
+  - name: Game Logs
+    description: Game logs to view the game timeline
   - name: Characters
     description: Character creation, management, and character sheet data
   - name: Phases

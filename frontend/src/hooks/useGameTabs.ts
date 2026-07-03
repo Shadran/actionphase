@@ -161,6 +161,11 @@ export function useGameTabs({
       tabList.push({ id: 'info', label: 'Game Info', icon: icons.info });
     }
 
+    if (isGM || (gameState === 'completed' || gameState === 'cancelled')) {
+      // Game Logs for the game
+      tabList.push({ id: 'logs', 'label': 'Game Logs', icon: icons.info });
+    }
+
     return tabList;
   }, [gameState, isGM, participantCount, currentPhaseType, isParticipant, isAudience, hasCharacters, unvotedPollsCount, hasSubmittedAction]);
 
@@ -299,9 +304,19 @@ export function useGameTabs({
     setSearchParams(newParams, { replace: false });
   };
 
+  // Tabs that should appear in the "More" dropdown rather than the main bar.
+  // Only applied for in-progress games where the GM sees the full tab set.
+  const overflowTabIds = useMemo<Set<string> | undefined>(() => {
+    if (gameState === 'in_progress' && isGM) {
+      return new Set(['info', 'logs']);
+    }
+    return undefined;
+  }, [gameState, isGM]);
+
   return {
     tabs,
     activeTab: activeTab === 'default' ? defaultTab : activeTab,
     setActiveTab: handleSetActiveTab,
+    overflowTabIds,
   };
 }

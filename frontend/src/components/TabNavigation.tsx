@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export interface Tab {
@@ -14,6 +15,8 @@ interface TabNavigationProps {
   onTabChange: (tabId: string) => void;
   /** When provided, tabs render as <a> links for right-click / middle-click / Cmd+click support */
   getTabHref?: (tabId: string) => string;
+  /** Tab IDs that should appear in a "More" overflow dropdown instead of the main bar */
+  overflowTabIds?: Set<string>;
 }
 
 /**
@@ -22,7 +25,73 @@ interface TabNavigationProps {
  * Desktop: Horizontal tab bar with icons and labels
  * Mobile: Dropdown select menu for better space utilization
  */
-export function TabNavigation({ tabs, activeTab, onTabChange, getTabHref }: TabNavigationProps) {
+export function TabNavigation({ tabs, activeTab, onTabChange, getTabHref, overflowTabIds }: TabNavigationProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moreOpen]);
+
+  const mainTabs = overflowTabIds ? tabs.filter(t => !overflowTabIds.has(t.id)) : tabs;
+  const overflowTabs = overflowTabIds ? tabs.filter(t => overflowTabIds.has(t.id)) : [];
+  const overflowActive = overflowTabs.some(t => t.id === activeTab);
+
+  const renderTabContent = (tab: Tab, isActive: boolean) => (
+    <>
+      {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
+      <span>{tab.label}</span>
+      {tab.badge !== undefined && (
+        <span
+          className={`
+            ml-2 py-0.5 px-2 rounded-full text-xs font-medium
+            ${isActive
+              ? 'bg-semantic-info-subtle text-content-primary'
+              : 'surface-raised text-content-secondary'
+            }
+          `}
+        >
+          {tab.badge}
+        </span>
+      )}
+    </>
+  );
+
+  const tabClassName = (isActive: boolean) => `
+    whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center gap-2
+    transition-colors duration-200
+    ${isActive
+      ? 'border-interactive-primary text-interactive-primary'
+      : 'border-transparent text-content-secondary hover:text-content-primary hover:border-theme-default'
+    }
+  `;
+
+  const renderTab = (tab: Tab) => {
+    const isActive = activeTab === tab.id;
+    const sharedProps = {
+      role: 'tab' as const,
+      className: tabClassName(isActive),
+      'aria-selected': isActive,
+      'aria-current': isActive ? ('page' as const) : undefined,
+      'data-testid': `tab-${tab.id}`,
+    };
+    return getTabHref ? (
+      <Link key={tab.id} {...sharedProps} to={getTabHref(tab.id)}>
+        {renderTabContent(tab, isActive)}
+      </Link>
+    ) : (
+      <button key={tab.id} {...sharedProps} onClick={() => onTabChange(tab.id)}>
+        {renderTabContent(tab, isActive)}
+      </button>
+    );
+  };
 
   return (
     <div className="border-b border-theme-default surface-base md:rounded-t-lg">
@@ -54,62 +123,74 @@ export function TabNavigation({ tabs, activeTab, onTabChange, getTabHref }: TabN
       </div>
 
       {/* Desktop: Horizontal Tab Bar */}
-      <nav className="hidden md:flex -mb-px overflow-x-auto" role="tablist" aria-label="Tabs">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const className = `
-            whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center gap-2
-            transition-colors duration-200
-            ${isActive
-              ? 'border-interactive-primary text-interactive-primary'
-              : 'border-transparent text-content-secondary hover:text-content-primary hover:border-theme-default'
-            }
-          `;
-          const sharedProps = {
-            role: 'tab' as const,
-            className,
-            'aria-selected': isActive,
-            'aria-current': isActive ? ('page' as const) : undefined,
-            'data-testid': `tab-${tab.id}`,
-          };
-          const content = (
-            <>
-              {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && (
-                <span
-                  className={`
-                    ml-2 py-0.5 px-2 rounded-full text-xs font-medium
-                    ${isActive
-                      ? 'bg-semantic-info-subtle text-content-primary'
-                      : 'surface-raised text-content-secondary'
-                    }
-                  `}
-                >
-                  {tab.badge}
-                </span>
-              )}
-            </>
-          );
-          return getTabHref ? (
-            <Link
-              key={tab.id}
-              {...sharedProps}
-              to={getTabHref(tab.id)}
-            >
-              {content}
-            </Link>
-          ) : (
+      <div className="hidden md:flex -mb-px">
+        <nav className="flex overflow-x-auto" role="tablist" aria-label="Tabs">
+          {mainTabs.map(renderTab)}
+        </nav>
+
+        {overflowTabs.length > 0 && (
+          <div ref={moreRef} className="relative flex-shrink-0">
             <button
-              key={tab.id}
-              {...sharedProps}
-              onClick={() => onTabChange(tab.id)}
+              className={`
+                whitespace-nowrap py-3 px-4 font-medium text-sm flex items-center gap-2
+                transition-colors duration-200
+                border border-t border-x rounded-t-lg -mb-px pb-[calc(0.75rem+1px)]
+                ${moreOpen
+                  ? 'surface-raised border-t-border-primary border-x-border-primary border-b-transparent'
+                  : 'border-transparent'
+                }
+                ${overflowActive
+                  ? 'text-interactive-primary'
+                  : 'text-content-secondary hover:text-content-primary'
+                }
+              `}
+              onClick={() => setMoreOpen(o => !o)}
+              aria-haspopup="true"
+              aria-expanded={moreOpen}
+              data-testid="tab-more"
             >
-              {content}
+              <span>More</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={moreOpen ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'} />
+              </svg>
             </button>
-          );
-        })}
-      </nav>
+
+            {moreOpen && (
+              <div className="absolute right-0 top-full z-50 min-w-[160px] surface-raised border border-border-primary rounded-b-lg rounded-tl-lg shadow-lg py-1">
+                {overflowTabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const itemClass = `w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors
+                    ${isActive
+                      ? 'text-interactive-primary bg-semantic-info-subtle'
+                      : 'text-content-primary hover:bg-bg-secondary'
+                    }`;
+                  const handleClick = () => { onTabChange(tab.id); setMoreOpen(false); };
+                  return getTabHref ? (
+                    <Link
+                      key={tab.id}
+                      to={getTabHref(tab.id)}
+                      className={itemClass}
+                      onClick={() => setMoreOpen(false)}
+                      data-testid={`tab-${tab.id}`}
+                    >
+                      {renderTabContent(tab, isActive)}
+                    </Link>
+                  ) : (
+                    <button
+                      key={tab.id}
+                      className={itemClass}
+                      onClick={handleClick}
+                      data-testid={`tab-${tab.id}`}
+                    >
+                      {renderTabContent(tab, isActive)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
