@@ -66,7 +66,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-ui': ['@headlessui/react', '@heroicons/react', 'lucide-react'],
-          'vendor-markdown': ['marked', 'dompurify', 'react-syntax-highlighter'],
+          'vendor-markdown': ['marked', 'dompurify'],
           'vendor-utils': ['axios', 'date-fns', 'clsx', 'tailwind-merge'],
         },
       },

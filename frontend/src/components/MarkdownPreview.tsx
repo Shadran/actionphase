@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactDOM from 'react-dom';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CharacterAvatar from './CharacterAvatar';
 import { Badge, Button } from './ui';
 import type { SheetItem } from '../hooks/useCharacterSheetItems';
@@ -31,15 +28,6 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function decodeHtmlEntities(html: string): string {
-  return html
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
 }
 
 // Configure marked once at module level via marked.use()
@@ -91,12 +79,8 @@ marked.use({
       return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-interactive-primary hover:text-interactive-primary-hover underline">${text}</a>${expandBtn}`;
     },
 
-    code({ text, lang }) {
-      const language = (lang ?? '').trim();
-      if (language) {
-        return `<pre data-code-lang="${language}"><code class="language-${language}">${escapeHtml(text)}</code></pre>\n`;
-      }
-      return `<pre><code>${escapeHtml(text)}</code></pre>\n`;
+    code({ text }) {
+      return `<pre class="my-2 p-3 rounded bg-bg-secondary overflow-x-auto text-sm"><code>${escapeHtml(text)}</code></pre>\n`;
     },
   },
 });
@@ -110,7 +94,7 @@ const DOMPURIFY_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
   ],
   ALLOWED_ATTR: [
     'href', 'target', 'rel', 'class', 'data-mention-id', 'data-sheet-ref-id',
-    'data-color', 'data-code-lang', 'data-image-expand',
+    'data-color', 'data-image-expand',
     'src', 'alt', 'type', 'title', 'aria-label',
   ],
   ALLOW_DATA_ATTR: false,
@@ -407,7 +391,6 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   return (
     <div className={`markdown-preview prose ${fullWidth ? 'max-w-none' : 'max-w-prose'} text-content-primary dark:text-white ${className}`}>
       <MarkdownContent containerRef={containerRef} htmlContent={htmlContent} />
-      <SyntaxHighlighterPortals containerRef={containerRef} htmlContent={htmlContent} />
 
       {hoveredCharacter && tooltipPosition && (
         <div
@@ -531,48 +514,4 @@ const MarkdownContent = React.memo(function MarkdownContent({ containerRef, html
     />
   );
 });
-
-interface SyntaxHighlighterPortalsProps {
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  htmlContent: string;
-}
-
-function SyntaxHighlighterPortals({ containerRef, htmlContent }: SyntaxHighlighterPortalsProps) {
-  const [codeBlocks, setCodeBlocks] = useState<Array<{ node: HTMLPreElement; lang: string; text: string }>>([]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const pres = el.querySelectorAll<HTMLPreElement>('pre[data-code-lang]');
-    const blocks: Array<{ node: HTMLPreElement; lang: string; text: string }> = [];
-    pres.forEach((pre) => {
-      const lang = pre.getAttribute('data-code-lang') ?? '';
-      const code = pre.querySelector('code');
-      const text = code ? decodeHtmlEntities(code.innerHTML) : '';
-      blocks.push({ node: pre, lang, text });
-    });
-    setCodeBlocks(blocks);
-  }, [containerRef, htmlContent]);
-
-  if (codeBlocks.length === 0) return null;
-
-  return (
-    <>
-      {codeBlocks.map(({ node, lang, text }, i) =>
-        ReactDOM.createPortal(
-          <SyntaxHighlighter
-            style={vscDarkPlus as { [key: string]: React.CSSProperties }}
-            language={lang}
-            PreTag="div"
-          >
-            {text}
-          </SyntaxHighlighter>,
-          node,
-          `code-block-${i}`
-        )
-      )}
-    </>
-  );
-}
 

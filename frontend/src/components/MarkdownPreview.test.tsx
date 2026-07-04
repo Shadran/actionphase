@@ -94,13 +94,15 @@ describe('MarkdownPreview', () => {
   });
 
   describe('Code Block Rendering', () => {
-    it('renders code blocks with syntax highlighting', () => {
+    it('renders fenced code blocks with a language as plain code', () => {
+      // Syntax highlighting was removed to drop react-syntax-highlighter (~250kB
+      // gzip). A language-tagged block now renders as a plain <pre><code>.
       const code = '```javascript\nconst x = 42;\n```';
       const { container } = render(<MarkdownPreview content={code} />);
 
-      // Check that syntax highlighter is used
-      const codeBlock = container.querySelector('[class*="language-"]');
+      const codeBlock = container.querySelector('pre > code');
       expect(codeBlock).toBeInTheDocument();
+      expect(codeBlock?.textContent).toContain('const x = 42;');
     });
 
     it('renders code blocks without language as plain code', () => {
