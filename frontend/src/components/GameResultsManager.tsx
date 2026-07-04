@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGameActionResults, useUpdateActionResult, usePublishActionResult } from '../hooks/useActionResults';
+import { useGameActionResults, useUpdateActionResult, usePublishActionResult, useDeleteActionResult } from '../hooks/useActionResults';
 import type { ActionResult, GamePhase } from '../types/phases';
 import { Button, Textarea, Badge, Alert } from './ui';
 import { UpdateCharacterSheetModal } from './UpdateCharacterSheetModal';
@@ -134,9 +134,11 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const updateMutation = useUpdateActionResult(gameId);
   const publishMutation = usePublishActionResult(gameId);
+  const deleteMutation = useDeleteActionResult(gameId);
   const { data: draftCount } = useDraftUpdateCount(gameId, result.id);
 
   // Determine if content should be collapsible (long results)
@@ -175,6 +177,15 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
       setTimeout(() => setPublishSuccess(false), 5000);
     } catch (error) {
       logger.error('Failed to publish result', { error, resultId: result.id, gameId });
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(result.id);
+      setIsDeleteConfirmOpen(false);
+    } catch (error) {
+      logger.error('Failed to delete result', { error, resultId: result.id, gameId });
     }
   };
 
@@ -228,6 +239,15 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
                 onClick={onStartEdit}
               >
                 Edit
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                disabled={deleteMutation.isPending}
+                data-testid={`delete-result-${result.id}`}
+              >
+                Delete
               </Button>
               <Button
                 variant="primary"
@@ -339,6 +359,38 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
           actionResultId={result.id}
           isPublishing={publishMutation.isPending}
         />
+
+        {/* Delete Confirmation */}
+        {isDeleteConfirmOpen && (
+          <div className="mt-3 p-4 border border-semantic-danger rounded-lg bg-semantic-danger-subtle" data-testid="delete-confirm-dialog">
+            <p className="text-sm font-medium text-content-primary mb-1">Delete this draft result?</p>
+            <p className="text-sm text-content-secondary mb-3">
+              This will permanently delete the draft result for {result.character_name ? `${result.character_name} (${result.username})` : (result.username || `User #${result.user_id}`)}, including any pending character sheet updates.
+            </p>
+            {deleteMutation.isError && (
+              <p className="text-sm text-semantic-danger mb-3">Failed to delete. Please try again.</p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                data-testid="confirm-delete-result"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete Draft'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

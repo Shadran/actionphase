@@ -88,6 +88,10 @@ export class PhasesApi extends BaseApiClient {
     return this.client.post<ActionResult>(`/api/v1/games/${gameId}/results/${resultId}/publish`);
   }
 
+  async deleteActionResult(gameId: number, resultId: number) {
+    return this.client.delete(`/api/v1/games/${gameId}/results/${resultId}`);
+  }
+
   // Draft character update endpoints
   async createDraftCharacterUpdate(gameId: number, resultId: number, data: CreateDraftCharacterUpdateRequest) {
     return this.client.post<DraftCharacterUpdate>(

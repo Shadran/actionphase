@@ -219,6 +219,10 @@ SET content = $2
 WHERE id = $1 AND is_published = false
 RETURNING *;
 
+-- name: DeleteActionResult :exec
+DELETE FROM action_results
+WHERE id = $1 AND is_published = false;
+
 -- name: GetSubmissionStatsForPhase :one
 SELECT
     $1::int as phase_id,

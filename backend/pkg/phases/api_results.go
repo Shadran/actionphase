@@ -258,6 +258,52 @@ func (h *Handler) GetGameActionResults(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// DeleteActionResult deletes an unpublished (draft) action result (GM only)
+func (h *Handler) DeleteActionResult(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_delete_action_result")()
+
+	gameIDStr := chi.URLParam(r, "gameId")
+	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid delete action result request")
+		return
+	}
+
+	resultIDStr := chi.URLParam(r, "resultId")
+	resultID, err := strconv.ParseInt(resultIDStr, 10, 32)
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid result ID")), "Invalid delete action result request")
+		return
+	}
+
+	authUser := core.GetAuthenticatedUser(ctx)
+	if authUser == nil {
+		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user in context")
+		return
+	}
+
+	phaseService := h.PhaseService
+	canManage, err := phaseService.CanUserManagePhases(ctx, int32(gameID), int32(authUser.ID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to check phase management permission", "error", err)
+		return
+	}
+
+	if !canManage {
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can delete action results"), "Delete action result forbidden")
+		return
+	}
+
+	actionService := h.ActionSubmissionService
+	if err := actionService.DeleteActionResult(ctx, int32(resultID)); err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete action result", "error", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // UpdateActionResult updates an unpublished action result (GM only)
 func (h *Handler) UpdateActionResult(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

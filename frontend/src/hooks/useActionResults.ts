@@ -56,6 +56,21 @@ export function useUpdateActionResult(gameId: number) {
   });
 }
 
+export function useDeleteActionResult(gameId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (resultId: number) => {
+      await apiClient.phases.deleteActionResult(gameId, resultId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['actionResults', 'game', gameId] });
+      queryClient.invalidateQueries({ queryKey: ['actionResults', 'user', gameId] });
+      queryClient.invalidateQueries({ queryKey: ['unpublishedResultsCount'] });
+    },
+  });
+}
+
 export function usePublishActionResult(gameId: number) {
   const queryClient = useQueryClient();
 

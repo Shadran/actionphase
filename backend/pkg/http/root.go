@@ -252,6 +252,7 @@ func (h *Handler) Start() {
 			r.Get("/{gameId}/results", phaseHandler.GetGameActionResults)
 			r.Get("/{gameId}/results/mine", phaseHandler.GetUserActionResults)
 			r.Put("/{gameId}/results/{resultId}", phaseHandler.UpdateActionResult)
+			r.Delete("/{gameId}/results/{resultId}", phaseHandler.DeleteActionResult)
 			r.Post("/{gameId}/results/{resultId}/publish", phaseHandler.PublishActionResult)
 			r.Post("/{gameId}/phases/{phaseId}/results/publish", phaseHandler.PublishAllPhaseResults)
 			r.Get("/{gameId}/phases/{phaseId}/results/unpublished-count", phaseHandler.GetUnpublishedResultsCount)

@@ -385,6 +385,16 @@ func (q *Queries) DeleteAction(ctx context.Context, arg DeleteActionParams) erro
 	return err
 }
 
+const deleteActionResult = `-- name: DeleteActionResult :exec
+DELETE FROM action_results
+WHERE id = $1 AND is_published = false
+`
+
+func (q *Queries) DeleteActionResult(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteActionResult, id)
+	return err
+}
+
 const deleteActionSubmission = `-- name: DeleteActionSubmission :exec
 DELETE FROM action_submissions
 WHERE id = $1 AND user_id = $2

@@ -251,6 +251,44 @@ func (as *ActionSubmissionService) GetUnpublishedResultsCount(ctx context.Contex
 	return count, nil
 }
 
+// DeleteActionResult deletes an unpublished (draft) action result and its associated draft character updates.
+// Returns an error if the result is already published.
+func (as *ActionSubmissionService) DeleteActionResult(ctx context.Context, resultID int32) error {
+	err := pgx.BeginFunc(ctx, as.DB, func(tx pgx.Tx) error {
+		queries := models.New(tx)
+
+		// Verify the result exists and is unpublished
+		result, err := queries.GetActionResult(ctx, resultID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("action result not found")
+			}
+			return fmt.Errorf("failed to get action result: %w", err)
+		}
+		if result.IsPublished.Bool {
+			return fmt.Errorf("cannot delete a published action result")
+		}
+
+		// Delete associated draft character updates first
+		if err := queries.DeletePublishedDrafts(ctx, resultID); err != nil {
+			return fmt.Errorf("failed to delete draft character updates: %w", err)
+		}
+
+		// Delete the action result (only if unpublished, enforced by SQL)
+		if err := queries.DeleteActionResult(ctx, resultID); err != nil {
+			return fmt.Errorf("failed to delete action result: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	as.Logger.Info(ctx, "Draft action result deleted", "result_id", resultID)
+	return nil
+}
+
 // UpdateActionResult updates the content of an unpublished action result
 func (as *ActionSubmissionService) UpdateActionResult(ctx context.Context, resultID int32, content string) (*models.ActionResult, error) {
 	queries := models.New(as.DB)

@@ -956,6 +956,118 @@ describe('GameResultsManager', () => {
     });
   });
 
+  describe('Delete Functionality', () => {
+    it('shows a Delete button for unpublished results', async () => {
+      setupDefaultHandlers([mockUnpublishedResult]);
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+      });
+    });
+
+    it('does not show Delete button for published results', async () => {
+      setupDefaultHandlers([mockPublishedResult]);
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('This is a published result that was sent')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+    });
+
+    it('shows confirmation dialog when Delete is clicked', async () => {
+      const user = userEvent.setup();
+      setupDefaultHandlers([mockUnpublishedResult]);
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+
+      expect(screen.getByText('Delete this draft result?')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /yes, delete draft/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+    });
+
+    it('hides confirmation dialog when Cancel is clicked', async () => {
+      const user = userEvent.setup();
+      setupDefaultHandlers([mockUnpublishedResult]);
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+      expect(screen.getByText('Delete this draft result?')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      expect(screen.queryByText('Delete this draft result?')).not.toBeInTheDocument();
+    });
+
+    it('calls delete API and removes result when confirmed', async () => {
+      const user = userEvent.setup();
+      let deleteCalled = false;
+
+      server.use(
+        http.get('/api/v1/games/:gameId/results', () => {
+          return HttpResponse.json([mockUnpublishedResult]);
+        }),
+        http.delete('/api/v1/games/:gameId/results/:resultId', () => {
+          deleteCalled = true;
+          return new HttpResponse(null, { status: 204 });
+        })
+      );
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+      await user.click(screen.getByRole('button', { name: /yes, delete draft/i }));
+
+      await waitFor(() => {
+        expect(deleteCalled).toBe(true);
+      });
+    });
+
+    it('shows error message when delete fails', async () => {
+      const user = userEvent.setup();
+
+      server.use(
+        http.get('/api/v1/games/:gameId/results', () => {
+          return HttpResponse.json([mockUnpublishedResult]);
+        }),
+        http.delete('/api/v1/games/:gameId/results/:resultId', () => {
+          return HttpResponse.json({ error: 'Failed to delete' }, { status: 500 });
+        })
+      );
+
+      renderWithProviders(<GameResultsManager gameId={mockGameId} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+      await user.click(screen.getByRole('button', { name: /yes, delete draft/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to delete. Please try again.')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('Integration', () => {
     it('handles complete edit workflow', async () => {
       const user = userEvent.setup();

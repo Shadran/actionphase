@@ -177,6 +177,48 @@ func TestActionSubmissionService_ActionResultOperations(t *testing.T) {
 		require.Error(t, err, "Should error when result doesn't exist")
 		assert.Contains(t, err.Error(), "action result not found")
 	})
+
+	t.Run("deletes unpublished draft result", func(t *testing.T) {
+		result, err := actionService.CreateActionResult(context.Background(), core.CreateActionResultRequest{
+			GameID:      game.ID,
+			PhaseID:     phase.ID,
+			UserID:      int32(player.ID),
+			Content:     "Draft to delete",
+			IsPublished: false,
+		})
+		require.NoError(t, err)
+
+		err = actionService.DeleteActionResult(context.Background(), result.ID)
+		require.NoError(t, err)
+
+		_, err = actionService.GetActionResult(context.Background(), result.ID)
+		require.Error(t, err, "Should not be able to retrieve deleted result")
+		assert.Contains(t, err.Error(), "action result not found")
+	})
+
+	t.Run("cannot delete a published result", func(t *testing.T) {
+		result, err := actionService.CreateActionResult(context.Background(), core.CreateActionResultRequest{
+			GameID:      game.ID,
+			PhaseID:     phase.ID,
+			UserID:      int32(player.ID),
+			Content:     "Published result",
+			IsPublished: false,
+		})
+		require.NoError(t, err)
+
+		err = actionService.PublishActionResult(context.Background(), result.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		err = actionService.DeleteActionResult(context.Background(), result.ID)
+		require.Error(t, err, "Should not be able to delete a published result")
+		assert.Contains(t, err.Error(), "cannot delete a published action result")
+	})
+
+	t.Run("returns error when deleting non-existent result", func(t *testing.T) {
+		err := actionService.DeleteActionResult(context.Background(), int32(999999))
+		require.Error(t, err, "Should error when result doesn't exist")
+		assert.Contains(t, err.Error(), "action result not found")
+	})
 }
 
 func TestActionSubmissionService_GetUserPhaseResults(t *testing.T) {

@@ -551,6 +551,9 @@ type ActionSubmissionServiceInterface interface {
 	// UpdateActionResult updates the content of an unpublished action result
 	UpdateActionResult(ctx context.Context, resultID int32, content string) (*models.ActionResult, error)
 
+	// DeleteActionResult deletes an unpublished (draft) action result
+	DeleteActionResult(ctx context.Context, resultID int32) error
+
 	// GetSubmissionStats returns statistics about submissions for a phase
 	GetSubmissionStats(ctx context.Context, phaseID int32) (*ActionSubmissionStats, error)
 
