@@ -6,6 +6,7 @@ import type { LoginRequest, RegisterRequest, User, AuthResponse } from '../types
 import type { AxiosResponse } from 'axios';
 import { logger } from '@/services/LoggingService';
 import { SessionExpiredModal } from '@/components/SessionExpiredModal';
+import { setFaroUser, clearFaroUser } from '@/lib/faro';
 
 interface AuthContextValue {
   // User data
@@ -67,6 +68,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Derive authentication state from currentUser query
   const isAuthenticated = !hasAuthError && currentUser !== null && currentUser !== undefined;
+
+  // Attach the user's id to Faro so traces carry business context; clear it on
+  // logout. Driven off currentUser so it covers login, register, and session
+  // restore via /auth/me in one place. Only the id is sent — no PII in Grafana.
+  useEffect(() => {
+    if (currentUser?.id !== undefined && currentUser.id !== null) {
+      setFaroUser(currentUser.id);
+    } else {
+      clearFaroUser();
+    }
+  }, [currentUser?.id]);
 
   // Log user error if it occurs
   useEffect(() => {
