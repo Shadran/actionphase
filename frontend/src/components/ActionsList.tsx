@@ -125,11 +125,8 @@ export function ActionsList({ gameId, currentPhase, className = '' }: ActionsLis
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div>
-                  <p className="font-medium text-semantic-warning">
+                  <p className="font-medium text-content-primary">
                     {unpublishedCount} unpublished {unpublishedCount === 1 ? 'result' : 'results'}
-                  </p>
-                  <p className="text-sm text-semantic-warning mt-0.5">
-                    These results are ready to be sent to players
                   </p>
                 </div>
               </div>

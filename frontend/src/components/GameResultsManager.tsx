@@ -4,9 +4,11 @@ import type { ActionResult, GamePhase } from '../types/phases';
 import { Button, Textarea, Badge, Alert } from './ui';
 import { UpdateCharacterSheetModal } from './UpdateCharacterSheetModal';
 import { PublishResultConfirmationDialog } from './PublishResultConfirmationDialog';
+import { ConfirmModal } from './ConfirmModal';
 import { MarkdownPreview } from './MarkdownPreview';
 import { useDraftUpdateCount } from '../hooks';
 import { logger } from '@/services/LoggingService';
+import { useToast } from '../contexts/ToastContext';
 
 interface GameResultsManagerProps {
   gameId: number;
@@ -140,6 +142,7 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
   const publishMutation = usePublishActionResult(gameId);
   const deleteMutation = useDeleteActionResult(gameId);
   const { data: draftCount } = useDraftUpdateCount(gameId, result.id);
+  const { showError } = useToast();
 
   // Determine if content should be collapsible (long results)
   const isCollapsible = result.content.length > 200;
@@ -186,6 +189,7 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
       setIsDeleteConfirmOpen(false);
     } catch (error) {
       logger.error('Failed to delete result', { error, resultId: result.id, gameId });
+      showError('Failed to delete result. Please try again.');
     }
   };
 
@@ -360,37 +364,17 @@ function ResultCard({ result, gameId, isEditing, onStartEdit, onCancelEdit }: Re
           isPublishing={publishMutation.isPending}
         />
 
-        {/* Delete Confirmation */}
-        {isDeleteConfirmOpen && (
-          <div className="mt-3 p-4 border border-semantic-danger rounded-lg bg-semantic-danger-subtle" data-testid="delete-confirm-dialog">
-            <p className="text-sm font-medium text-content-primary mb-1">Delete this draft result?</p>
-            <p className="text-sm text-content-secondary mb-3">
-              This will permanently delete the draft result for {result.character_name ? `${result.character_name} (${result.username})` : (result.username || `User #${result.user_id}`)}, including any pending character sheet updates.
-            </p>
-            {deleteMutation.isError && (
-              <p className="text-sm text-semantic-danger mb-3">Failed to delete. Please try again.</p>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleteMutation.isPending}
-                data-testid="confirm-delete-result"
-              >
-                {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete Draft'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-                disabled={deleteMutation.isPending}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Delete Confirmation Modal */}
+        <ConfirmModal
+          isOpen={isDeleteConfirmOpen}
+          onClose={() => setIsDeleteConfirmOpen(false)}
+          onConfirm={handleDelete}
+          title="Delete Draft Result"
+          message={`This will permanently delete the draft result for ${result.character_name ? `${result.character_name} (${result.username})` : (result.username || `User #${result.user_id}`)}, including any pending character sheet updates.`}
+          confirmText="Yes, Delete Draft"
+          variant="danger"
+          isLoading={deleteMutation.isPending}
+        />
       </div>
     </div>
   );

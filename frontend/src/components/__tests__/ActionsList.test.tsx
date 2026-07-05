@@ -844,21 +844,6 @@ describe('ActionsList', () => {
       });
     });
 
-    it('shows warning message about unpublished results', async () => {
-      setupDefaultHandlers(mockActions, [mockActionPhase1], 3);
-
-      renderWithProviders(
-        <ActionsList gameId={1} currentPhase={mockActionPhase1} />,
-        { gameId: 1 }
-      );
-
-      await waitFor(() => {
-        expect(
-          screen.getByText('These results are ready to be sent to players')
-        ).toBeInTheDocument();
-      });
-    });
-
     it('opens confirmation dialog when publish button clicked', async () => {
       const user = userEvent.setup();
       setupDefaultHandlers(mockActions, [mockActionPhase1], 3);

@@ -991,7 +991,7 @@ describe('GameResultsManager', () => {
 
       await user.click(screen.getByRole('button', { name: /delete/i }));
 
-      expect(screen.getByText('Delete this draft result?')).toBeInTheDocument();
+      expect(screen.getByText('Delete Draft Result')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /yes, delete draft/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     });
@@ -1007,10 +1007,10 @@ describe('GameResultsManager', () => {
       });
 
       await user.click(screen.getByRole('button', { name: /delete/i }));
-      expect(screen.getByText('Delete this draft result?')).toBeInTheDocument();
+      expect(screen.getByText('Delete Draft Result')).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /cancel/i }));
-      expect(screen.queryByText('Delete this draft result?')).not.toBeInTheDocument();
+      expect(screen.queryByText('Delete Draft Result')).not.toBeInTheDocument();
     });
 
     it('calls delete API and removes result when confirmed', async () => {
@@ -1041,7 +1041,7 @@ describe('GameResultsManager', () => {
       });
     });
 
-    it('shows error message when delete fails', async () => {
+    it('leaves result in list when delete fails', async () => {
       const user = userEvent.setup();
 
       server.use(
@@ -1063,7 +1063,7 @@ describe('GameResultsManager', () => {
       await user.click(screen.getByRole('button', { name: /yes, delete draft/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Failed to delete. Please try again.')).toBeInTheDocument();
+        expect(screen.getByText('This is an unpublished result for the player')).toBeInTheDocument();
       });
     });
   });

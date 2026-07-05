@@ -43,7 +43,7 @@ export const ConfirmModal = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'primary',
-  isLoading = false
+  isLoading = false,
 }: ConfirmModalProps) => {
   const handleConfirm = async () => {
     await onConfirm();

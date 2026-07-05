@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from '../fixtures/auth-helpers';
-import { getFixtureGameId, getWorkerUsername } from '../fixtures/game-helpers';
+import { createDraftResultViaApi, getFixtureGameId, getParticipantUserId, getWorkerUsername } from '../fixtures/game-helpers';
 import { GameDetailsPage } from '../pages/GameDetailsPage';
 import { ActionResultsPage } from '../pages/ActionResultsPage';
 
@@ -295,5 +295,35 @@ test.describe('@mobile GM Action Results Editing', () => {
     // Unpublished results section SHOULD have Edit buttons
     const unpublishedSection = page.getByTestId('unpublished-results-section');
     await expect(unpublishedSection.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  });
+
+  test('GM can delete a draft result', async ({ page }) => {
+    await loginAs(page, 'GM');
+    const gameId = await getFixtureGameId(page, 'E2E_GM_EDITING_RESULTS');
+
+    // Create a fresh draft result via API so this test doesn't depend on fixture state
+    const player4Id = await getParticipantUserId(page, gameId, getWorkerUsername('TestPlayer4'));
+    const resultId = await createDraftResultViaApi(page, gameId, player4Id, 'E2E delete test draft result');
+    expect(resultId).toBeTruthy();
+
+    const gamePage = new GameDetailsPage(page);
+    await gamePage.goto(gameId);
+    await gamePage.goToActions();
+
+    // Wait for unpublished results section to be visible (includes our new result)
+    await expect(page.getByText('Unpublished Results (Editable)')).toBeVisible({ timeout: 10000 });
+
+    // Find and delete our specific result using its testid
+    await page.getByTestId(`delete-result-${resultId}`).click();
+
+    // Confirmation modal should appear
+    await expect(page.getByRole('heading', { name: 'Delete Draft Result' })).toBeVisible({ timeout: 5000 });
+
+    // Confirm deletion
+    await page.getByRole('button', { name: 'Yes, Delete Draft' }).click();
+
+    // Our result should be gone — modal closes and result no longer in the list
+    await expect(page.getByRole('heading', { name: 'Delete Draft Result' })).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(`delete-result-${resultId}`)).not.toBeVisible();
   });
 });

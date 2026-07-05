@@ -316,6 +316,36 @@ export async function addCommentViaApi(
   }
 }
 
+/**
+ * Create a draft action result for a player via the API (GM must be logged in).
+ * Returns the new result's ID.
+ *
+ * @param page - Playwright page (must be logged in as GM)
+ * @param gameId - Game ID
+ * @param userId - Numeric user ID of the player to create the result for
+ * @param content - Draft result content
+ */
+export async function createDraftResultViaApi(
+  page: Page,
+  gameId: number,
+  userId: number,
+  content: string,
+): Promise<number> {
+  const result = await page.evaluate(async (args: { gameId: number; userId: number; content: string }) => {
+    const resp = await fetch(`/api/v1/games/${args.gameId}/results`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: args.userId, content: args.content, is_published: false }),
+    });
+    if (!resp.ok) throw new Error(`Failed to create draft result: ${resp.status}`);
+    const data = await resp.json();
+    return data.id as number;
+  }, { gameId, userId, content });
+
+  return result;
+}
+
 export interface CreateGameOptions {
   title: string;
   description?: string;
