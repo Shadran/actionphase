@@ -50,15 +50,6 @@ export function useAddParticipant(gameId: number, role: 'player' | 'audience') {
   });
 }
 
-/** Convenience wrapper for adding a player directly */
-export function useAddPlayer(gameId: number) {
-  return useAddParticipant(gameId, 'player');
-}
-
-/** Convenience wrapper for adding an audience member directly */
-export function useAddAudienceMember(gameId: number) {
-  return useAddParticipant(gameId, 'audience');
-}
 
 /**
  * Hook to promote an audience member to co-GM (Primary GM only)

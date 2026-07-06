@@ -23,7 +23,6 @@ type DeadlineService struct {
 // Compile-time verification that DeadlineService implements DeadlineServiceInterface
 var _ core.DeadlineServiceInterface = (*DeadlineService)(nil)
 
-
 // CreateDeadline creates a new deadline for a game
 func (s *DeadlineService) CreateDeadline(ctx context.Context, req core.CreateDeadlineRequest) (*db.GameDeadline, error) {
 	s.Logger.Info(ctx, "Creating deadline",

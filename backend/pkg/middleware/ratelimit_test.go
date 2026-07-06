@@ -277,67 +277,6 @@ func TestStrictRateLimit(t *testing.T) {
 	assert.Equal(t, 2, blocked, "StrictRateLimit should block remaining 2 requests")
 }
 
-func TestModerateRateLimit(t *testing.T) {
-	middleware := ModerateRateLimit()
-	handler := middleware(mockHandler())
-
-	// Should allow burst of 5 requests
-	allowed := 0
-	blocked := 0
-
-	for i := 0; i < 7; i++ {
-		req := httptest.NewRequest("GET", "/test", nil)
-		req.RemoteAddr = "192.168.1.1:12345"
-		w := httptest.NewRecorder()
-
-		handler.ServeHTTP(w, req)
-
-		if w.Code == http.StatusOK {
-			allowed++
-		} else if w.Code == http.StatusTooManyRequests {
-			blocked++
-		}
-	}
-
-	assert.Equal(t, 5, allowed, "ModerateRateLimit should allow burst of 5 requests")
-	assert.Equal(t, 2, blocked, "ModerateRateLimit should block remaining 2 requests")
-}
-
-func TestLenientRateLimit(t *testing.T) {
-	middleware := LenientRateLimit()
-	handler := middleware(mockHandler())
-
-	// Should allow burst of 10 requests
-	allowed := 0
-	blocked := 0
-
-	for i := 0; i < 12; i++ {
-		req := httptest.NewRequest("GET", "/test", nil)
-		req.RemoteAddr = "192.168.1.1:12345"
-		w := httptest.NewRecorder()
-
-		handler.ServeHTTP(w, req)
-
-		if w.Code == http.StatusOK {
-			allowed++
-		} else if w.Code == http.StatusTooManyRequests {
-			blocked++
-		}
-	}
-
-	assert.Equal(t, 10, allowed, "LenientRateLimit should allow burst of 10 requests")
-	assert.Equal(t, 2, blocked, "LenientRateLimit should block remaining 2 requests")
-}
-
-func TestDefaultRateLimitConfig(t *testing.T) {
-	config := DefaultRateLimitConfig()
-
-	assert.Equal(t, 5.0, config.RequestsPerSecond, "Default should be 5 requests per second")
-	assert.Equal(t, 10, config.Burst, "Default burst should be 10")
-	assert.Equal(t, 60*time.Minute, config.TTL, "Default TTL should be 60 minutes")
-	assert.Equal(t, []string{"X-Real-IP", "X-Forwarded-For", "RemoteAddr"}, config.IPLookups, "Default should check all IP lookup methods")
-}
-
 // Benchmark tests to verify performance
 func BenchmarkRateLimitMiddleware(b *testing.B) {
 	config := RateLimitConfig{

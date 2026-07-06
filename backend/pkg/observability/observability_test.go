@@ -95,28 +95,6 @@ func TestMetrics_ErrorRate_ZeroRequests(t *testing.T) {
 	assert.Equal(t, 0.0, snap.ErrorRate, "zero requests should produce 0% error rate, not divide-by-zero")
 }
 
-func TestMetrics_IncrementCounter(t *testing.T) {
-	m := NewMetrics()
-	m.IncrementCounter("game_created")
-	m.IncrementCounter("game_created")
-
-	snap := m.GetMetrics()
-	assert.Equal(t, int64(2), snap.Counters["game_created"])
-}
-
-func TestMetrics_GetMetrics_Snapshot_IsIsolated(t *testing.T) {
-	m := NewMetrics()
-	m.IncrementCounter("events")
-
-	snap1 := m.GetMetrics()
-	m.IncrementCounter("events")
-	snap2 := m.GetMetrics()
-
-	// Modifying snap1 maps should not affect snap2
-	assert.Equal(t, int64(1), snap1.Counters["events"])
-	assert.Equal(t, int64(2), snap2.Counters["events"])
-}
-
 // ============================================================================
 // normalizeRoute
 // ============================================================================

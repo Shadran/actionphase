@@ -16,7 +16,6 @@ type RateLimitConfig struct {
 	IPLookups         []string
 }
 
-
 // RateLimitMiddleware creates a rate limiting middleware with custom config
 func RateLimitMiddleware(config RateLimitConfig) func(http.Handler) http.Handler {
 	lmt := tollbooth.NewLimiter(config.RequestsPerSecond, &limiter.ExpirableOptions{
@@ -60,4 +59,3 @@ func StrictRateLimit(isDevelopment bool) func(http.Handler) http.Handler {
 		IPLookups:         []string{"X-Real-IP", "X-Forwarded-For", "RemoteAddr"},
 	})
 }
-

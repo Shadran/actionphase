@@ -377,9 +377,11 @@ func (s *AccountService) CompleteEmailChange(ctx context.Context, req *VerifyEma
 			"new_email", verificationToken.Email)
 	}
 
-	if err := s.EmailService.SendEmailChangedEmail(ctx, user.Email, verificationToken.Email); err != nil {
-		if s.Logger != nil {
-			s.Logger.Warn(ctx, "Failed to send email change notification", "error", err, "user_id", verificationToken.UserID)
+	if s.EmailService != nil {
+		if err := s.EmailService.SendEmailChangedEmail(ctx, user.Email, verificationToken.Email); err != nil {
+			if s.Logger != nil {
+				s.Logger.Warn(ctx, "Failed to send email change notification", "error", err, "user_id", verificationToken.UserID)
+			}
 		}
 	}
 
@@ -445,10 +447,12 @@ func (s *AccountService) SoftDeleteAccount(ctx context.Context, userID int) erro
 		}
 	}
 
-	deletionScheduledFor := time.Now().AddDate(0, 0, 30)
-	if err := s.EmailService.SendAccountDeletionScheduledEmail(ctx, user.Email, deletionScheduledFor); err != nil {
-		if s.Logger != nil {
-			s.Logger.Warn(ctx, "Failed to send account deletion notification email", "error", err, "user_id", userID)
+	if s.EmailService != nil {
+		deletionScheduledFor := time.Now().AddDate(0, 0, 30)
+		if err := s.EmailService.SendAccountDeletionScheduledEmail(ctx, user.Email, deletionScheduledFor); err != nil {
+			if s.Logger != nil {
+				s.Logger.Warn(ctx, "Failed to send account deletion notification email", "error", err, "user_id", userID)
+			}
 		}
 	}
 

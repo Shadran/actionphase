@@ -54,10 +54,6 @@ export interface AssignNPCRequest {
   assigned_user_id: number;
 }
 
-export interface ReassignCharacterRequest {
-  new_owner_user_id: number;
-}
-
 export interface CharacterActivityStats {
   public_messages: number;
   private_messages?: number;

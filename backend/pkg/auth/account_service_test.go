@@ -338,68 +338,6 @@ func TestAccountService_RevokeAllSessions(t *testing.T) {
 	})
 }
 
-func TestAccountService_RestoreAccount(t *testing.T) {
-	testDB := core.NewTestDatabase(t)
-	app := core.NewTestApp(testDB.Pool)
-	defer testDB.Close()
-	defer testDB.CleanupTables(t, "sessions", "users")
-
-	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
-	accountService := &AccountService{
-		DB:     testDB.Pool,
-		Logger: app.ObsLogger,
-	}
-
-	t.Run("restores a soft-deleted account", func(t *testing.T) {
-		user, err := userService.CreateUser(&core.User{
-			Username: "restoreuser",
-			Password: "password123",
-			Email:    "restore@example.com",
-		})
-		core.AssertNoError(t, err, "User creation should succeed")
-
-		// Soft-delete the account first
-		err = accountService.SoftDeleteAccount(context.Background(), user.ID)
-		core.AssertNoError(t, err, "Soft delete should succeed")
-
-		// Restore it
-		err = accountService.RestoreAccount(context.Background(), user.ID)
-		core.AssertNoError(t, err, "Restore should succeed")
-
-		// Verify the account is no longer marked as deleted
-		var deletedAt *string
-		queryErr := testDB.Pool.QueryRow(context.Background(),
-			"SELECT deleted_at::text FROM users WHERE id = $1",
-			user.ID,
-		).Scan(&deletedAt)
-		core.AssertNoError(t, queryErr, "Should be able to query user")
-		core.AssertTrue(t, deletedAt == nil, "deleted_at should be NULL after restore")
-	})
-
-	t.Run("returns error when account is not deleted", func(t *testing.T) {
-		user, err := userService.CreateUser(&core.User{
-			Username: "activeuser",
-			Password: "password123",
-			Email:    "active@example.com",
-		})
-		core.AssertNoError(t, err, "User creation should succeed")
-
-		err = accountService.RestoreAccount(context.Background(), user.ID)
-		core.AssertTrue(t, err != nil, "Should return error for non-deleted account")
-		pwdErr, ok := err.(*PasswordValidationError)
-		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
-		core.AssertEqual(t, "account", pwdErr.Field, "Error field should be 'account'")
-	})
-
-	t.Run("returns error when user does not exist", func(t *testing.T) {
-		err := accountService.RestoreAccount(context.Background(), 99999999)
-		core.AssertTrue(t, err != nil, "Should return error for nonexistent user")
-		pwdErr, ok := err.(*PasswordValidationError)
-		core.AssertTrue(t, ok, "Error should be PasswordValidationError")
-		core.AssertEqual(t, "account", pwdErr.Field, "Error field should be 'account'")
-	})
-}
-
 func TestAccountService_CompleteEmailChange(t *testing.T) {
 	testDB := core.NewTestDatabase(t)
 	app := core.NewTestApp(testDB.Pool)

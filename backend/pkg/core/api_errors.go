@@ -162,7 +162,6 @@ func ErrNotFound(message string) render.Renderer {
 	}
 }
 
-
 // ErrConflict creates a 409 Conflict error for resource conflicts.
 // Use this when the request conflicts with the current state of the system.
 //
@@ -218,7 +217,6 @@ func getStatusText(httpStatus int) string {
 	}
 	return "Unknown error."
 }
-
 
 // ErrGameArchived creates a specific error for write operations on completed/cancelled games.
 // Completed games are read-only archives and no new content can be created.

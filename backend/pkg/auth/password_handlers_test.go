@@ -34,7 +34,6 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	tables := []string{
 		"sessions",
 		"email_verification_tokens",
-		"email_change_tokens",
 		"password_reset_tokens",
 		"registration_attempts",
 		"users",

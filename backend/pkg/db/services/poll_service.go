@@ -23,7 +23,6 @@ type PollService struct {
 // Compile-time verification that PollService implements PollServiceInterface
 var _ core.PollServiceInterface = (*PollService)(nil)
 
-
 // CreatePollWithOptions creates a new poll with its options in a transaction
 func (s *PollService) CreatePollWithOptions(ctx context.Context, req core.CreatePollRequest) (*core.PollWithOptions, error) {
 	s.Logger.Info(ctx, "Creating poll with options",

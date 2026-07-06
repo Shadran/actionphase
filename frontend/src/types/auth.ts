@@ -33,10 +33,6 @@ export interface AuthResponse {
   token?: string; // Keep lowercase for backward compatibility
 }
 
-export interface AuthError {
-  message: string;
-}
-
 export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;

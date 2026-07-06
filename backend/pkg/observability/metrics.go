@@ -72,7 +72,6 @@ func (m *Metrics) RecordHTTPRequest(method, path string, statusCode int, duratio
 	}
 }
 
-
 // GetMetrics returns a snapshot of current metrics for reporting
 func (m *Metrics) GetMetrics() MetricsSnapshot {
 	m.mu.RLock()

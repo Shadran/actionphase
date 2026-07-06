@@ -87,7 +87,3 @@ export function clearFaroUser(): void {
   faroInstance?.api.resetUser();
 }
 
-// getFaro returns the Faro instance, or null if not initialized.
-export function getFaro(): Faro | null {
-  return faroInstance;
-}

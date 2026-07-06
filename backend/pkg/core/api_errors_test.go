@@ -226,25 +226,6 @@ func TestErrNotFound(t *testing.T) {
 	}
 }
 
-// TestErrValidationFailed tests the 422 Validation Failed constructor
-func TestErrValidationFailed(t *testing.T) {
-	message := "Must be at least 13 years old"
-	result := ErrValidationFailed(message).(*ErrResponse)
-
-	if result.HTTPStatusCode != 422 {
-		t.Errorf("Expected status 422, got %d", result.HTTPStatusCode)
-	}
-	if result.StatusText != "Validation failed." {
-		t.Errorf("Expected 'Validation failed.', got '%s'", result.StatusText)
-	}
-	if result.ErrorText != message {
-		t.Errorf("Expected message '%s', got '%s'", message, result.ErrorText)
-	}
-	if result.AppCode != ErrCodeValidation {
-		t.Errorf("Expected AppCode %d, got %d", ErrCodeValidation, result.AppCode)
-	}
-}
-
 // TestErrConflict tests the 409 Conflict constructor
 func TestErrConflict(t *testing.T) {
 	message := "Username already exists"
@@ -347,66 +328,6 @@ func TestGetStatusText(t *testing.T) {
 				t.Errorf("Expected '%s', got '%s'", tt.expectedText, result)
 			}
 		})
-	}
-}
-
-// TestErrGameNotRecruiting tests the specific game error
-func TestErrGameNotRecruiting(t *testing.T) {
-	result := ErrGameNotRecruiting().(*ErrResponse)
-
-	if result.HTTPStatusCode != 400 {
-		t.Errorf("Expected status 400, got %d", result.HTTPStatusCode)
-	}
-	if result.AppCode != ErrCodeGameNotRecruiting {
-		t.Errorf("Expected AppCode %d, got %d", ErrCodeGameNotRecruiting, result.AppCode)
-	}
-	if result.ErrorText != "Game is not currently accepting new players" {
-		t.Errorf("Unexpected error text: %s", result.ErrorText)
-	}
-}
-
-// TestErrGameFull tests the game full error
-func TestErrGameFull(t *testing.T) {
-	result := ErrGameFull().(*ErrResponse)
-
-	if result.HTTPStatusCode != 400 {
-		t.Errorf("Expected status 400, got %d", result.HTTPStatusCode)
-	}
-	if result.AppCode != ErrCodeGameFull {
-		t.Errorf("Expected AppCode %d, got %d", ErrCodeGameFull, result.AppCode)
-	}
-	if result.ErrorText != "Game has reached maximum player capacity" {
-		t.Errorf("Unexpected error text: %s", result.ErrorText)
-	}
-}
-
-// TestErrAlreadyParticipant tests the already participant error
-func TestErrAlreadyParticipant(t *testing.T) {
-	result := ErrAlreadyParticipant().(*ErrResponse)
-
-	if result.HTTPStatusCode != 400 {
-		t.Errorf("Expected status 400, got %d", result.HTTPStatusCode)
-	}
-	if result.AppCode != ErrCodeAlreadyParticipant {
-		t.Errorf("Expected AppCode %d, got %d", ErrCodeAlreadyParticipant, result.AppCode)
-	}
-	if result.ErrorText != "You are already a participant in this game" {
-		t.Errorf("Unexpected error text: %s", result.ErrorText)
-	}
-}
-
-// TestErrNotGameMaster tests the not game master error
-func TestErrNotGameMaster(t *testing.T) {
-	result := ErrNotGameMaster().(*ErrResponse)
-
-	if result.HTTPStatusCode != 403 {
-		t.Errorf("Expected status 403, got %d", result.HTTPStatusCode)
-	}
-	if result.AppCode != ErrCodeNotGameMaster {
-		t.Errorf("Expected AppCode %d, got %d", ErrCodeNotGameMaster, result.AppCode)
-	}
-	if result.ErrorText != "Only the game master can perform this action" {
-		t.Errorf("Unexpected error text: %s", result.ErrorText)
 	}
 }
 

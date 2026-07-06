@@ -78,13 +78,6 @@ export interface UpdateMessageRequest {
   content: string;
 }
 
-// Read tracking types
-export interface ConversationReadInfo {
-  conversation_id: number;
-  unread_count: number;
-  first_unread_message_id?: number;
-}
-
 // Audience viewing types (read-only conversation access for audience members)
 export interface AudienceConversationListItem {
   conversation_id: number;

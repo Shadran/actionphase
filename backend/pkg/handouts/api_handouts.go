@@ -417,7 +417,6 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
-
 // UnpublishHandout unpublishes a published handout
 func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
