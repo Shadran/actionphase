@@ -304,25 +304,6 @@ func TestHealthHandler_ElevatedErrorRate_Degraded(t *testing.T) {
 }
 
 // ============================================================================
-// MetricsHandler
-// ============================================================================
-
-func TestMetricsHandler_ReturnsValidJSON(t *testing.T) {
-	obs := New("test", "error")
-	obs.Metrics.IncrementCounter("test_counter")
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	rec := httptest.NewRecorder()
-	obs.MetricsHandler()(rec, req)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-
-	var snap MetricsSnapshot
-	err := json.Unmarshal(rec.Body.Bytes(), &snap)
-	require.NoError(t, err, "metrics response should be valid JSON")
-	assert.Equal(t, int64(1), snap.Counters["test_counter"])
-}
-
 // ============================================================================
 // isScannerProbe
 // ============================================================================

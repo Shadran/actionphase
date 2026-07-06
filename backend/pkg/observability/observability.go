@@ -37,31 +37,6 @@ func (o *Observability) MiddlewareStack() []func(http.Handler) http.Handler {
 	}
 }
 
-// MetricsHandler returns an HTTP handler that exposes metrics.
-// When OTELMetrics is configured, serves Prometheus text format for scraping.
-// Falls back to JSON format if OTEL metrics are not enabled.
-func (o *Observability) MetricsHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if o.OTELMetrics != nil && o.OTELMetrics.PrometheusHandler != nil {
-			o.OTELMetrics.PrometheusHandler.ServeHTTP(w, r)
-			return
-		}
-
-		metrics := o.Metrics.GetMetrics()
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "  ") // Pretty print for readability
-
-		if err := encoder.Encode(metrics); err != nil {
-			o.Logger.Error(r.Context(), "Failed to encode metrics", "error", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-	}
-}
-
 // HealthHandler returns an HTTP handler for health checks with detailed status.
 // This includes database connectivity, uptime, and basic system health.
 func (o *Observability) HealthHandler() http.HandlerFunc {

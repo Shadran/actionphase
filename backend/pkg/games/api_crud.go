@@ -19,9 +19,6 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	// Track the overall operation timing using observability logger
 	defer h.App.ObsLogger.LogOperation(ctx, "api_create_game")()
 
-	// Increment business metric
-	h.App.Observability.Metrics.IncrementCounter("games_create_requests")
-
 	data := &CreateGameRequest{}
 	if err := render.Bind(r, data); err != nil {
 		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid create game request", "error", err)
@@ -68,7 +65,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		h.App.Observability.Metrics.IncrementCounter("games_create_errors")
+		h.App.Observability.OTELMetrics.RecordGameCreateError(ctx)
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to create game",
 			"error", err,
 			"title", data.Title,
@@ -81,7 +78,7 @@ func (h *Handler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		"game_id", game.ID,
 		"title", game.Title,
 		"gm_user_id", game.GmUserID)
-	h.App.Observability.Metrics.IncrementCounter("games_created")
+	h.App.Observability.OTELMetrics.RecordGameCreated(ctx)
 
 	// Convert to response format
 	response := &GameResponse{

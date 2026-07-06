@@ -77,7 +77,6 @@ func (h *Handler) Start() {
 
 	// Observability endpoints
 	r.Get("/health", h.App.Observability.HealthHandler())
-	r.Get("/metrics", h.App.Observability.MetricsHandler())
 
 	r.Get("/panic", func(w http.ResponseWriter, r *http.Request) {
 		panic("test")

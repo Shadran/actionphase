@@ -35,6 +35,8 @@ type OTELMetrics struct {
 	backgroundJobFailures metric.Int64Counter
 	commentsCreated       metric.Int64Counter
 	postsCreated          metric.Int64Counter
+	gamesCreated          metric.Int64Counter
+	gamesCreateErrors     metric.Int64Counter
 	// PrometheusHandler serves /metrics in Prometheus text format for local scraping.
 	PrometheusHandler http.Handler
 }
@@ -128,6 +130,20 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 		return nil, nil, fmt.Errorf("failed to create posts counter: %w", err)
 	}
 
+	gamesCreated, err := meter.Int64Counter("app.games.created",
+		metric.WithDescription("Number of games created"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create games created counter: %w", err)
+	}
+
+	gamesCreateErrors, err := meter.Int64Counter("app.games.create_errors",
+		metric.WithDescription("Number of game creation errors"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create games create errors counter: %w", err)
+	}
+
 	return &OTELMetrics{
 			meter:                 meter,
 			requestCounter:        reqCounter,
@@ -135,6 +151,8 @@ func InitMeterProvider(cfg MeterConfig) (om *OTELMetrics, shutdown func(), err e
 			backgroundJobFailures: bgJobFailures,
 			commentsCreated:       commentsCreated,
 			postsCreated:          postsCreated,
+			gamesCreated:          gamesCreated,
+			gamesCreateErrors:     gamesCreateErrors,
 			PrometheusHandler:     promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}),
 		}, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -187,6 +205,22 @@ func (om *OTELMetrics) RecordPostCreated(ctx context.Context) {
 		return
 	}
 	om.postsCreated.Add(ctx, 1)
+}
+
+// RecordGameCreated increments the game created counter.
+func (om *OTELMetrics) RecordGameCreated(ctx context.Context) {
+	if om == nil || om.gamesCreated == nil {
+		return
+	}
+	om.gamesCreated.Add(ctx, 1)
+}
+
+// RecordGameCreateError increments the game creation error counter.
+func (om *OTELMetrics) RecordGameCreateError(ctx context.Context) {
+	if om == nil || om.gamesCreateErrors == nil {
+		return
+	}
+	om.gamesCreateErrors.Add(ctx, 1)
 }
 
 // statusClass converts a status code to a class string (2xx, 3xx, 4xx, 5xx).

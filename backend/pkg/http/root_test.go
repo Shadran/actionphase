@@ -87,21 +87,6 @@ func TestRootEndpoints(t *testing.T) {
 		}
 	})
 
-	t.Run("metrics endpoint is accessible", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/metrics", nil)
-		rec := httptest.NewRecorder()
-
-		// Setup observability metrics handler
-		testRouter := chi.NewRouter()
-		testRouter.Get("/metrics", handler.App.Observability.MetricsHandler())
-
-		testRouter.ServeHTTP(rec, req)
-
-		// Metrics endpoint should return 200 or appropriate status
-		if rec.Code != http.StatusOK {
-			t.Logf("Metrics endpoint returned status %d (may be expected if metrics not configured)", rec.Code)
-		}
-	})
 }
 
 // TestMiddlewareStack tests that middleware is properly applied
