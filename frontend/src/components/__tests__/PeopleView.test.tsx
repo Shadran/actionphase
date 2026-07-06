@@ -350,6 +350,133 @@ describe('PeopleView - Pending audience applications with no participants', () =
   });
 });
 
+describe('PeopleView - anonymous game former player display', () => {
+  const formerPlayer: GameParticipant = {
+    id: 10,
+    game_id: 1,
+    user_id: 10,
+    username: 'deadPlayer',
+    role: 'audience',
+    status: 'active',
+    joined_at: '2024-01-01T00:00:00Z',
+    is_former_player: true,
+  };
+
+  it('shows former players in a "Former Players" section in non-anonymous games', async () => {
+    const user = userEvent.setup();
+
+    renderInRouter(
+      <PeopleView
+        gameId={1}
+        participants={[formerPlayer]}
+        isGM={false}
+        currentUserId={99}
+        gameState="in_progress"
+        isAnonymous={false}
+      />
+    );
+
+    const participantsTab = screen.getByRole('button', { name: /participants/i });
+    await user.click(participantsTab);
+
+    expect(screen.getByText(/former players/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^players$/i)).not.toBeInTheDocument();
+  });
+
+  it('hides "Former Players" section from a regular player in an anonymous game', async () => {
+    const user = userEvent.setup();
+    const regularPlayer: GameParticipant = {
+      id: 11, game_id: 1, user_id: 11, username: 'activePlayer',
+      role: 'player', status: 'active', joined_at: '2024-01-01T00:00:00Z',
+    };
+
+    renderInRouter(
+      <PeopleView
+        gameId={1}
+        participants={[regularPlayer, formerPlayer]}
+        isGM={false}
+        currentUserId={11} // viewing as the active player
+        gameState="in_progress"
+        isAnonymous={true}
+      />
+    );
+
+    const participantsTab = screen.getByRole('button', { name: /participants/i });
+    await user.click(participantsTab);
+
+    expect(screen.queryByText(/former players/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/^players \(2\)$/i)).toBeInTheDocument();
+    expect(screen.getByText('deadPlayer')).toBeInTheDocument();
+  });
+
+  it('hides "Former Players" section from a non-participant in an anonymous game', async () => {
+    const user = userEvent.setup();
+
+    renderInRouter(
+      <PeopleView
+        gameId={1}
+        participants={[formerPlayer]}
+        isGM={false}
+        currentUserId={99} // not in participants list
+        gameState="in_progress"
+        isAnonymous={true}
+      />
+    );
+
+    const participantsTab = screen.getByRole('button', { name: /participants/i });
+    await user.click(participantsTab);
+
+    expect(screen.queryByText(/former players/i)).not.toBeInTheDocument();
+  });
+
+  it('shows "Former Players" section to the GM in an anonymous game', async () => {
+    const user = userEvent.setup();
+
+    renderInRouter(
+      <PeopleView
+        gameId={1}
+        participants={[formerPlayer]}
+        isGM={true}
+        currentUserId={1}
+        gameState="in_progress"
+        isAnonymous={true}
+      />
+    );
+
+    const participantsTab = screen.getByRole('button', { name: /participants/i });
+    await user.click(participantsTab);
+
+    expect(screen.getByText(/former players/i)).toBeInTheDocument();
+    expect(screen.getByText('deadPlayer')).toBeInTheDocument();
+  });
+
+  it('shows "Former Players" section to an audience member in an anonymous game', async () => {
+    const user = userEvent.setup();
+    const audienceMember: GameParticipant = {
+      id: 20, game_id: 1, user_id: 20, username: 'watcher',
+      role: 'audience', status: 'active', joined_at: '2024-01-01T00:00:00Z',
+      is_former_player: false,
+    };
+
+    renderInRouter(
+      <PeopleView
+        gameId={1}
+        participants={[audienceMember, formerPlayer]}
+        isGM={false}
+        currentUserId={20} // viewing as audience member
+        gameState="in_progress"
+        isAnonymous={true}
+      />
+    );
+
+    const participantsTab = screen.getByRole('button', { name: /participants/i });
+    await user.click(participantsTab);
+
+    expect(screen.getByText(/former players/i)).toBeInTheDocument();
+    expect(screen.getByText('deadPlayer')).toBeInTheDocument();
+  });
+});
+
 describe('PeopleView - participant profile links', () => {
   const mockPlayer: GameParticipant = {
     id: 1,

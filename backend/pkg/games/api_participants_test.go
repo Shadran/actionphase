@@ -389,6 +389,92 @@ func TestGameAPI_TransitionPlayerToAudience(t *testing.T) {
 	})
 }
 
+// TestGameAPI_GetGameParticipants_AnonymousRedaction verifies that is_former_player
+// is redacted for regular players viewing an anonymous game's participant list.
+func TestGameAPI_GetGameParticipants_AnonymousRedaction(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm_anon", "gm_anon@example.com")
+	player := testDB.CreateTestUser(t, "player_anon", "player_anon@example.com")
+	formerPlayer := testDB.CreateTestUser(t, "former_anon", "former_anon@example.com")
+	audienceMember := testDB.CreateTestUser(t, "audience_anon", "audience_anon@example.com")
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	playerToken, err := core.CreateTestJWTTokenForUser(app, player)
+	require.NoError(t, err)
+	audienceToken, err := core.CreateTestJWTTokenForUser(app, audienceMember)
+	require.NoError(t, err)
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game, err := gameService.CreateGame(context.Background(), core.CreateGameRequest{
+		Title:       "Anonymous Game",
+		Description: "Test",
+		GMUserID:    int32(gm.ID),
+		IsAnonymous: true,
+	})
+	require.NoError(t, err)
+
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(player.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(formerPlayer.ID), "player")
+	require.NoError(t, err)
+	_, err = gameService.AddGameParticipant(context.Background(), game.ID, int32(audienceMember.ID), "audience")
+	require.NoError(t, err)
+
+	// Transition formerPlayer to audience (sets is_former_player = true)
+	err = gameService.TransitionPlayerToAudience(context.Background(), game.ID, int32(formerPlayer.ID), int32(gm.ID))
+	require.NoError(t, err)
+
+	getParticipants := func(token string) []map[string]interface{} {
+		t.Helper()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/participants", game.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp []map[string]interface{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		return resp
+	}
+
+	formerPlayerEntry := func(resp []map[string]interface{}) map[string]interface{} {
+		for _, p := range resp {
+			if int(p["user_id"].(float64)) == formerPlayer.ID {
+				return p
+			}
+		}
+		return nil
+	}
+
+	t.Run("regular player sees former player as a regular player", func(t *testing.T) {
+		resp := getParticipants(playerToken)
+		entry := formerPlayerEntry(resp)
+		require.NotNil(t, entry, "former player should still appear in the participant list")
+		assert.Equal(t, "player", entry["role"], "role should be spoofed to player to hide transition")
+		assert.Equal(t, false, entry["is_former_player"], "is_former_player should be false to prevent network inspection revealing identity")
+	})
+
+	t.Run("GM sees is_former_player as true", func(t *testing.T) {
+		resp := getParticipants(gmToken)
+		entry := formerPlayerEntry(resp)
+		require.NotNil(t, entry)
+		assert.Equal(t, true, entry["is_former_player"])
+	})
+
+	t.Run("audience member sees is_former_player as true", func(t *testing.T) {
+		resp := getParticipants(audienceToken)
+		entry := formerPlayerEntry(resp)
+		require.NotNil(t, entry)
+		assert.Equal(t, true, entry["is_former_player"])
+	})
+}
+
 // TestGameAPI_LeaveGame_NotAssociated documents the current behavior when a user
 // who has no participant record AND no application tries to leave a game.
 // Note: LeaveGame uses UPDATE...WHERE which silently affects zero rows, so the

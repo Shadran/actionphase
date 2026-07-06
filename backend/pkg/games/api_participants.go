@@ -87,19 +87,40 @@ func (h *Handler) GetGameParticipants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine whether is_former_player should be redacted.
+	// In anonymous games only GMs, co-GMs, and audience members may know which
+	// participants are former players; regular players and non-participants cannot.
+	redactFormerPlayer := false
+	game, err := gameService.GetGame(ctx, int32(gameID))
+	if err == nil && game.IsAnonymous {
+		viewerID, errResp := core.GetUserIDFromJWT(ctx, h.UserService)
+		if errResp != nil || !core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, *game, viewerID) {
+			redactFormerPlayer = true
+		}
+	}
+
 	// Convert to response format
 	var response []map[string]interface{}
 	for _, participant := range participants {
+		role := participant.Role
+		isFormerPlayer := participant.IsFormerPlayer
+		// In anonymous games, viewers who can't see former-player status see them as
+		// regular players instead — role spoofed to "player", flag cleared.
+		if redactFormerPlayer && participant.IsFormerPlayer {
+			role = "player"
+			isFormerPlayer = false
+		}
+
 		participantData := map[string]interface{}{
 			"id":       participant.ID,
 			"game_id":  participant.GameID,
 			"user_id":  participant.UserID,
 			"username": participant.Username,
 			// Note: Email is intentionally omitted for privacy
-			"role":             participant.Role,
+			"role":             role,
 			"status":           participant.Status,
 			"joined_at":        participant.JoinedAt.Time,
-			"is_former_player": participant.IsFormerPlayer,
+			"is_former_player": isFormerPlayer,
 		}
 
 		// Include avatar_url if present

@@ -216,7 +216,15 @@ export function PeopleView({
 
               {/* Active Participants */}
               {['player', 'co_gm'].map((role) => {
-                const roleGameParticipants = participants.filter(p => p.role === role && p.status === 'active');
+                const roleGameParticipants = participants.filter(p => {
+                  if (p.status !== 'active') return false;
+                  if (p.role === role) return true;
+                  // In anonymous games, former players are blended into the Players list for
+                  // anyone who isn't a GM or audience member (who already know player identities).
+                  const viewerCanSeeFormerPlayers = currentUserRole === 'gm' || currentUserRole === 'audience';
+                  if (isAnonymous && !viewerCanSeeFormerPlayers && role === 'player' && p.role === 'audience' && p.is_former_player) return true;
+                  return false;
+                });
                 if (roleGameParticipants.length === 0) return null;
                 return (
                   <div key={role}>
@@ -275,7 +283,10 @@ export function PeopleView({
               })}
 
               {/* Former Players (transitioned to audience via permadeath) */}
+              {/* In anonymous games, only GMs and audience members can see this section */}
               {(() => {
+                const viewerCanSeeFormerPlayers = currentUserRole === 'gm' || currentUserRole === 'audience';
+                if (isAnonymous && !viewerCanSeeFormerPlayers) return null;
                 const formerPlayers = participants.filter(p => p.role === 'audience' && p.is_former_player && p.status === 'active');
                 if (formerPlayers.length === 0) return null;
                 return (
@@ -335,6 +346,7 @@ export function PeopleView({
 
               {/* Audience */}
               {(() => {
+                // In anonymous games, former players are shown in the Players section, not here
                 const audienceMembers = participants.filter(p => p.role === 'audience' && !p.is_former_player && p.status === 'active');
                 if (audienceMembers.length === 0) return null;
                 return (
