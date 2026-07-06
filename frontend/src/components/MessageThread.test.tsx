@@ -1,8 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MessageThread } from './MessageThread';
 import type { PrivateMessage } from '../types/conversations';
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useBlocker: () => ({ state: 'unblocked', reset: undefined, proceed: undefined }),
+  };
+});
 
 // Mock the ConversationContext
 const mockEditMessage = vi.fn();
@@ -75,6 +83,11 @@ const defaultProps = {
   currentPhaseType: 'common_room',
 };
 
+const defaultConversation = {
+  conversation: { id: 1, game_id: 1, title: 'Test Chat', conversation_type: 'direct', created_by_user_id: 1, created_at: '2026-01-01', updated_at: '2026-01-01' },
+  participants: [],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockLoadMessages.mockResolvedValue([]);
@@ -82,6 +95,32 @@ beforeEach(() => {
   mockMarkAsRead.mockResolvedValue(undefined);
   mockRefreshConversation.mockResolvedValue(false);
   baseConversationContext.messages = [];
+  baseConversationContext.conversation = { ...defaultConversation, participants: [] };
+});
+
+describe('MessageThread draft clearing on conversation change', () => {
+  it('clears the message draft when switching to a different conversation', async () => {
+    const user = userEvent.setup();
+
+    // Set up participants so the message form renders
+    baseConversationContext.conversation = {
+      conversation: { id: 1, game_id: 1, title: 'Test Chat', conversation_type: 'direct', created_by_user_id: 1, created_at: '2026-01-01', updated_at: '2026-01-01' },
+      participants: [{ id: 1, conversation_id: 1, character_id: 10, character_name: 'TestChar', user_id: 1, username: 'testuser', joined_at: '2026-01-01' }],
+    };
+
+    const { rerender } = render(<MessageThread {...defaultProps} conversationId={1} />);
+
+    const textarea = screen.getByPlaceholderText('Type your message...');
+    await user.type(textarea, 'drafted text for wrong recipient');
+    expect(textarea).toHaveValue('drafted text for wrong recipient');
+
+    // Simulate navigating to a different conversation (e.g. via a notification)
+    act(() => {
+      rerender(<MessageThread {...defaultProps} conversationId={2} />);
+    });
+
+    expect(screen.getByPlaceholderText('Type your message...')).toHaveValue('');
+  });
 });
 
 describe('MessageThread edit functionality', () => {

@@ -136,9 +136,10 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
     }
   }, [messages.length, hasScrolledToUnread, selectedConversationInfo, conversationId, gameId, markAsRead, scrollToBottom, scrollToFirstUnread]);
 
-  // Reset scroll state when conversation changes
+  // Reset scroll state and draft when conversation changes
   useEffect(() => {
     setHasScrolledToUnread(false);
+    setNewMessage('');
   }, [conversationId]);
 
   // Restore scroll position after refresh or send completes
