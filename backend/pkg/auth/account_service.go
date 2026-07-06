@@ -464,11 +464,6 @@ func (s *AccountService) RestoreAccount(ctx context.Context, userID int) error {
 	return nil
 }
 
-// PermanentlyDeleteOldAccounts deletes accounts that have been soft-deleted for >30 days
-func (s *AccountService) PermanentlyDeleteOldAccounts(ctx context.Context) error {
-	queries := db.New(s.DB)
-	return queries.PermanentlyDeleteUser(ctx, 0) // Uses WHERE clause to filter by date
-}
 
 // RevokeAllSessions revokes all sessions for a user (except current session)
 func (s *AccountService) RevokeAllSessions(ctx context.Context, userID int, currentSessionID int32) error {

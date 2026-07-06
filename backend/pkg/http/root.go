@@ -717,6 +717,27 @@ func (h *Handler) Start() {
 		}
 	}()
 
+	// Background job: auth table cleanup (tokens, verification records, bot data)
+	go func() {
+		passwordSvc := &auth.PasswordService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		accountSvc := &auth.AccountService{DB: h.App.Pool, Logger: h.App.ObsLogger}
+		botPreventionSvc := auth.NewBotPreventionService(h.App.Pool)
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx := context.Background()
+			if err := passwordSvc.CleanupExpiredTokens(ctx); err != nil {
+				h.App.ObsLogger.Error(ctx, "Background password token cleanup failed", "error", err)
+			}
+			if err := accountSvc.CleanupExpiredVerificationTokens(ctx); err != nil {
+				h.App.ObsLogger.Error(ctx, "Background verification token cleanup failed", "error", err)
+			}
+			if err := botPreventionSvc.CleanupOldRegistrationAttempts(ctx); err != nil {
+				h.App.ObsLogger.Error(ctx, "Background registration attempt cleanup failed", "error", err)
+			}
+		}
+	}()
+
 	if err := server.ListenAndServe(); err != nil {
 		h.App.Logger.Error("HTTP server failed", "error", err)
 	}
