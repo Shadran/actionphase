@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, go_rewrite]
+    branches: [master, develop, go_rewrite]
   pull_request:
-    branches: [master, go_rewrite]
+    branches: [master, develop, go_rewrite]
 
 jobs:
   backend-lint:
