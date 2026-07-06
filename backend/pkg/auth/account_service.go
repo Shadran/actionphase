@@ -377,6 +377,12 @@ func (s *AccountService) CompleteEmailChange(ctx context.Context, req *VerifyEma
 			"new_email", verificationToken.Email)
 	}
 
+	if err := s.EmailService.SendEmailChangedEmail(ctx, user.Email, verificationToken.Email); err != nil {
+		if s.Logger != nil {
+			s.Logger.Warn(ctx, "Failed to send email change notification", "error", err, "user_id", verificationToken.UserID)
+		}
+	}
+
 	return nil
 }
 
@@ -418,8 +424,8 @@ func (s *AccountService) ResendVerificationEmail(ctx context.Context, userID int
 func (s *AccountService) SoftDeleteAccount(ctx context.Context, userID int) error {
 	queries := db.New(s.DB)
 
-	// Check if user exists
-	_, err := queries.GetUser(ctx, int32(userID))
+	// Get user to capture email before deletion
+	user, err := queries.GetUser(ctx, int32(userID))
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
@@ -439,31 +445,15 @@ func (s *AccountService) SoftDeleteAccount(ctx context.Context, userID int) erro
 		}
 	}
 
-	return nil
-}
-
-// RestoreAccount restores a soft-deleted account
-func (s *AccountService) RestoreAccount(ctx context.Context, userID int) error {
-	queries := db.New(s.DB)
-
-	// Check if user is actually deleted
-	_, err := queries.GetDeletedUser(ctx, int32(userID))
-	if err != nil {
-		return &PasswordValidationError{
-			Field:  "account",
-			Reason: "account not found or not deleted",
+	deletionScheduledFor := time.Now().AddDate(0, 0, 30)
+	if err := s.EmailService.SendAccountDeletionScheduledEmail(ctx, user.Email, deletionScheduledFor); err != nil {
+		if s.Logger != nil {
+			s.Logger.Warn(ctx, "Failed to send account deletion notification email", "error", err, "user_id", userID)
 		}
 	}
 
-	// Restore the user
-	err = queries.RestoreDeletedUser(ctx, int32(userID))
-	if err != nil {
-		return fmt.Errorf("failed to restore user account: %w", err)
-	}
-
 	return nil
 }
-
 
 // RevokeAllSessions revokes all sessions for a user (except current session)
 func (s *AccountService) RevokeAllSessions(ctx context.Context, userID int, currentSessionID int32) error {

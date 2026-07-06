@@ -212,13 +212,13 @@ func (s *EmailService) SendEmailChangedEmail(ctx context.Context, oldEmail, newE
 }
 
 // SendAccountDeletionScheduledEmail notifies user account will be deleted
-func (s *EmailService) SendAccountDeletionScheduledEmail(ctx context.Context, email string, scheduledFor time.Time) error {
+func (s *EmailService) SendAccountDeletionScheduledEmail(ctx context.Context, userEmail string, scheduledFor time.Time) error {
 	subject := "Your Account Deletion Has Been Scheduled"
 	htmlBody := s.renderAccountDeletionTemplate(scheduledFor.Format("January 2, 2006"))
 	textBody := fmt.Sprintf("Your account is scheduled for deletion on %s.\n\nYou can cancel this by logging in and going to your account settings.", scheduledFor.Format("January 2, 2006"))
 
 	return s.SendEmail(ctx, &core.SendEmailRequest{
-		To:       email,
+		To:       userEmail,
 		Subject:  subject,
 		HTMLBody: htmlBody,
 		TextBody: textBody,

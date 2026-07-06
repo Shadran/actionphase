@@ -23,10 +23,6 @@ type DeadlineService struct {
 // Compile-time verification that DeadlineService implements DeadlineServiceInterface
 var _ core.DeadlineServiceInterface = (*DeadlineService)(nil)
 
-// NewDeadlineService creates a new deadline service
-func NewDeadlineService(dbPool *pgxpool.Pool, logger *observability.Logger) *DeadlineService {
-	return &DeadlineService{DB: dbPool, Logger: logger}
-}
 
 // CreateDeadline creates a new deadline for a game
 func (s *DeadlineService) CreateDeadline(ctx context.Context, req core.CreateDeadlineRequest) (*db.GameDeadline, error) {

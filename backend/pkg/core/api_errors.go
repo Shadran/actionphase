@@ -162,23 +162,6 @@ func ErrNotFound(message string) render.Renderer {
 	}
 }
 
-// ErrValidationFailed creates a 422 Unprocessable Entity error for validation failures.
-// Use this for business rule violations that aren't simple malformed requests.
-//
-// Example Usage:
-//
-//	if user.Age < 13 {
-//	    render.Render(w, r, ErrValidationFailed("Must be at least 13 years old"))
-//	    return
-//	}
-func ErrValidationFailed(message string) render.Renderer {
-	return &ErrResponse{
-		HTTPStatusCode: 422,
-		StatusText:     "Validation failed.",
-		ErrorText:      message,
-		AppCode:        ErrCodeValidation,
-	}
-}
 
 // ErrConflict creates a 409 Conflict error for resource conflicts.
 // Use this when the request conflicts with the current state of the system.
@@ -236,29 +219,6 @@ func getStatusText(httpStatus int) string {
 	return "Unknown error."
 }
 
-// ErrGameNotRecruiting creates a specific error for games that aren't accepting players.
-func ErrGameNotRecruiting() render.Renderer {
-	return ErrWithCode(400, ErrCodeGameNotRecruiting,
-		"Game is not currently accepting new players")
-}
-
-// ErrGameFull creates a specific error for games that have reached capacity.
-func ErrGameFull() render.Renderer {
-	return ErrWithCode(400, ErrCodeGameFull,
-		"Game has reached maximum player capacity")
-}
-
-// ErrAlreadyParticipant creates a specific error for users already in a game.
-func ErrAlreadyParticipant() render.Renderer {
-	return ErrWithCode(400, ErrCodeAlreadyParticipant,
-		"You are already a participant in this game")
-}
-
-// ErrNotGameMaster creates a specific error for non-GM users trying to perform GM actions.
-func ErrNotGameMaster() render.Renderer {
-	return ErrWithCode(403, ErrCodeNotGameMaster,
-		"Only the game master can perform this action")
-}
 
 // ErrGameArchived creates a specific error for write operations on completed/cancelled games.
 // Completed games are read-only archives and no new content can be created.

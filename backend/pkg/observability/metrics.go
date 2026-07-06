@@ -72,13 +72,6 @@ func (m *Metrics) RecordHTTPRequest(method, path string, statusCode int, duratio
 	}
 }
 
-// IncrementCounter increments a named counter
-func (m *Metrics) IncrementCounter(name string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.counters[name]++
-}
 
 // GetMetrics returns a snapshot of current metrics for reporting
 func (m *Metrics) GetMetrics() MetricsSnapshot {

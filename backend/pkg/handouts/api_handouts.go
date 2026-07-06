@@ -417,10 +417,6 @@ func (h *Handler) PublishHandout(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
-// Helper function to create string pointers
-func stringPtr(s string) *string {
-	return &s
-}
 
 // UnpublishHandout unpublishes a published handout
 func (h *Handler) UnpublishHandout(w http.ResponseWriter, r *http.Request) {
