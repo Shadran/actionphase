@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -457,6 +458,24 @@ func TestConversationAPI_SendMessage(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 		assert.Contains(t, rec.Body.String(), "content is required")
+	})
+
+	t.Run("rejects message exceeding max length", func(t *testing.T) {
+		reqBody := SendMessageRequest{
+			CharacterID: playerChar1.ID,
+			Content:     strings.Repeat("a", 50_001),
+		}
+		reqJSON, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages", game.ID, conversation.ID), bytes.NewBuffer(reqJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.Contains(t, rec.Body.String(), "exceeds maximum length")
 	})
 
 	t.Run("rejects message outside common room phase", func(t *testing.T) {
@@ -1229,6 +1248,21 @@ func TestConversationAPI_UpdateMessage(t *testing.T) {
 		router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("returns 400 for content exceeding max length", func(t *testing.T) {
+		body := map[string]string{"content": strings.Repeat("a", 50_001)}
+		bodyJSON, _ := json.Marshal(body)
+
+		req := httptest.NewRequest("PATCH", editURL, bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+player1Token)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.Contains(t, rec.Body.String(), "exceeds maximum length")
 	})
 
 	t.Run("cannot edit message outside common room phase", func(t *testing.T) {

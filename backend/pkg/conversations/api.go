@@ -8,6 +8,7 @@ import (
 
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
+	"actionphase/pkg/validation"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -327,6 +328,11 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validation.ValidatePrivateMessage(data.Content); err != nil {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid send message request", "error", err)
+		return
+	}
+
 	conversationService := h.ConversationService
 
 	// Verify the character is a participant in this conversation
@@ -542,6 +548,11 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 
 	if data.Content == "" {
 		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("message content is required")), "Invalid update message request")
+		return
+	}
+
+	if err := validation.ValidatePrivateMessage(data.Content); err != nil {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(err), "Invalid update message request", "error", err)
 		return
 	}
 

@@ -9,6 +9,7 @@ import (
 	"actionphase/pkg/core"
 	models "actionphase/pkg/db/models"
 	"actionphase/pkg/observability"
+	"actionphase/pkg/validation"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -225,6 +226,10 @@ type SendMessageRequest = core.SendConversationMessageRequest
 
 // SendMessage sends a message in a conversation
 func (s *ConversationService) SendMessage(ctx context.Context, req SendMessageRequest) (*models.PrivateMessage, error) {
+	if err := validation.ValidatePrivateMessage(req.Content); err != nil {
+		return nil, err
+	}
+
 	// Verify sender is a participant
 	isParticipant, err := s.Queries.IsUserInConversation(ctx, models.IsUserInConversationParams{
 		ConversationID: req.ConversationID,
@@ -522,6 +527,10 @@ func (s *ConversationService) GetUserConversationRead(ctx context.Context, userI
 // UpdatePrivateMessage edits the content of a private message.
 // Only the message sender can edit their own messages, and only if not deleted.
 func (s *ConversationService) UpdatePrivateMessage(ctx context.Context, messageID int32, userID int32, content string) (*models.PrivateMessage, error) {
+	if err := validation.ValidatePrivateMessage(content); err != nil {
+		return nil, err
+	}
+
 	// Get the message to verify ownership and status
 	message, err := s.Queries.GetPrivateMessage(ctx, messageID)
 	if err != nil {
