@@ -382,11 +382,10 @@ func TestIsUserGameMaster(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create HTTP request with admin mode header
 			req := httptest.NewRequest("GET", "/test", nil)
-			if tt.adminModeHdr != "" {
-				req.Header.Set("X-Admin-Mode", tt.adminModeHdr)
-			}
+			// AdminModeMiddleware reads the header and sets context; simulate that here.
+			ctx := WithAdminMode(req.Context(), tt.adminModeHdr == "true")
+			req = req.WithContext(ctx)
 
 			got := IsUserGameMaster(req, tt.userID, tt.isAdmin, tt.game, testDB.Pool)
 			if got != tt.want {

@@ -175,6 +175,7 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			// Game listing and viewing
 			r.Get("/recruiting", gameHandler.GetRecruitingGames)
@@ -377,6 +378,7 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			// Character management
 			r.Get("/{id}", characterHandler.GetCharacter)
@@ -425,6 +427,7 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			// Phase management
 			r.Post("/{id}/activate", phaseHandler.ActivatePhase)
@@ -464,6 +467,7 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			// Deadline management
 			r.Get("/upcoming", deadlineHandler.GetUpcomingDeadlines) // Get upcoming deadlines across all user's games
@@ -493,6 +497,7 @@ func (h *Handler) Start() {
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(h.sessionValidateMW())
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			// Poll management
 			r.Get("/{pollId}", pollHandler.GetPoll)

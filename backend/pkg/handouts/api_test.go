@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
+	dbmodels "actionphase/pkg/db/models"
 	dbsvc "actionphase/pkg/db/services"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -29,6 +32,7 @@ func setupHandoutTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux {
 		r.Use(jwtauth.Verifier(tokenAuth))
 		r.Use(jwtauth.Authenticator(tokenAuth))
 		r.Use(core.RequireAuthenticationMiddleware(userService))
+		r.Use(core.AdminModeMiddleware)
 
 		handler := &Handler{
 			App:                 app,
@@ -807,4 +811,109 @@ func TestHandoutAPI_CreatePublishedHandout_SendsNotifications(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "player should receive a handout_published notification when handout is created in published state")
+}
+
+// TestHandoutAPI_AdminMode_CreateHandout is the regression test for the bug where admin mode
+// was silently broken for handout endpoints because IsUserGameMasterCtx read admin mode from
+// context but no middleware ever set it. After the fix, AdminModeMiddleware propagates the
+// X-Admin-Mode header into the context so IsUserGameMasterCtx works correctly.
+func TestHandoutAPI_AdminMode_CreateHandout(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "handout_comments", "handouts", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupHandoutTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	admin := testDB.CreateTestUser(t, "admin", "admin@example.com")
+
+	// Grant admin status to the admin user
+	queries := dbmodels.New(testDB.Pool)
+	err := queries.UpdateUserAdminStatus(context.Background(), dbmodels.UpdateUserAdminStatusParams{
+		ID:      int32(admin.ID),
+		IsAdmin: pgtype.Bool{Bool: true, Valid: true},
+	})
+	require.NoError(t, err)
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	adminToken, err := core.CreateTestJWTTokenForUser(app, admin)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	body := CreateHandoutRequest{
+		Title:   "Admin-Created Handout",
+		Content: "Admin mode should grant GM access.",
+		Status:  "draft",
+	}
+	bodyJSON, _ := json.Marshal(body)
+
+	t.Run("admin without X-Admin-Mode header is rejected", func(t *testing.T) {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts", game.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		// No X-Admin-Mode header
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, "admin without admin mode header should be rejected")
+	})
+
+	t.Run("admin with X-Admin-Mode: true can create handout", func(t *testing.T) {
+		body2 := CreateHandoutRequest{
+			Title:   "Admin-Created Handout",
+			Content: "Admin mode should grant GM access.",
+			Status:  "draft",
+		}
+		body2JSON, _ := json.Marshal(body2)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts", game.ID), bytes.NewBuffer(body2JSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		req.Header.Set("X-Admin-Mode", "true")
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code, "admin with admin mode header should be able to create handout: %s", rec.Body.String())
+	})
+
+	t.Run("non-admin with X-Admin-Mode: true is still rejected", func(t *testing.T) {
+		// Regular GM token but for a different game — to verify non-admin cannot fake admin mode
+		otherGM := testDB.CreateTestUser(t, "othergm", "othergm@example.com")
+		otherGMToken, err := core.CreateTestJWTTokenForUser(app, otherGM)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts", game.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+otherGMToken)
+		req.Header.Set("X-Admin-Mode", "true")
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, "non-admin cannot use admin mode header to gain access")
+	})
+
+	// Ensure the primary GM still works normally
+	t.Run("primary GM can still create handout without admin mode header", func(t *testing.T) {
+		body3 := CreateHandoutRequest{
+			Title:   "GM Handout",
+			Content: "Normal GM operation.",
+			Status:  "draft",
+		}
+		body3JSON, _ := json.Marshal(body3)
+
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/handouts", game.ID), bytes.NewBuffer(body3JSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+gmToken)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code, "primary GM should still work normally")
+	})
 }

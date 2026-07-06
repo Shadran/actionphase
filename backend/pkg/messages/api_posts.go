@@ -682,17 +682,13 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get admin mode header
-	adminModeHeader := r.Header.Get("X-Admin-Mode")
-	isAdminMode := adminModeHeader == "true"
-
 	user, err := h.UserService.GetUserByID(int(userID))
 	if err != nil {
 		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get user", "error", err, "user_id", userID)
 		return
 	}
 
-	isAdmin := isAdminMode && user.IsAdmin
+	isAdmin := core.GetAdminMode(ctx) && user.IsAdmin
 
 	messageService := h.MessageService
 

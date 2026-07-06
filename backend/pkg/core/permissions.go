@@ -45,44 +45,15 @@ func IsUserAudience(ctx context.Context, db *pgxpool.Pool, gameID int32, userID 
 }
 
 // IsUserGameMaster checks if a user has Game Master permissions for a game.
-// This function considers GM ownership, co-GM status, and admin mode.
+// It delegates to IsUserGameMasterCtx using the request context. Admin mode
+// is read from the context (set by AdminModeMiddleware from the X-Admin-Mode header).
 //
 // A user is considered a Game Master if:
 // 1. They are the primary GM of the game (game.GmUserID == userID), OR
 // 2. They are a co-GM for the game (participant role == 'co_gm'), OR
-// 3. They are an admin with admin mode enabled
-//
-// Admin mode is determined by the "X-Admin-Mode" request header.
-// This header should be set to "true" by the frontend when admin mode is active.
-//
-// Note: This function requires database access to check co-GM status.
-// Use IsUserGameMasterCtx for the context-based version.
-//
-// Usage Example:
-//
-//	// In a handler
-//	user := GetAuthenticatedUser(r.Context())
-//	if !IsUserGameMaster(r, user.ID, user.IsAdmin, game, db) {
-//		render.Render(w, r, core.ErrForbidden("only the GM can perform this action"))
-//		return
-//	}
+// 3. They are an admin with admin mode enabled (X-Admin-Mode: true header)
 func IsUserGameMaster(r *http.Request, userID int32, isAdmin bool, game models.Game, db *pgxpool.Pool) bool {
-	// Check if user is the primary GM
-	if game.GmUserID == userID {
-		return true
-	}
-
-	// Check if user is a co-GM
-	if IsUserCoGM(r.Context(), db, game.ID, userID) {
-		return true
-	}
-
-	// Check if user is admin with admin mode enabled
-	if isAdmin && r.Header.Get("X-Admin-Mode") == "true" {
-		return true
-	}
-
-	return false
+	return IsUserGameMasterCtx(r.Context(), userID, isAdmin, game, db)
 }
 
 // contextKey is a custom type for context keys to avoid collisions

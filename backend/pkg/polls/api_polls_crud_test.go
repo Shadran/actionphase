@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"actionphase/pkg/core"
+	dbmodels "actionphase/pkg/db/models"
 	dbservices "actionphase/pkg/db/services"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -30,6 +33,7 @@ func setupPollCRUDTestRouter(app *core.App, testDB *core.TestDatabase) *chi.Mux 
 			r.Use(jwtauth.Verifier(tokenAuth))
 			r.Use(jwtauth.Authenticator(tokenAuth))
 			r.Use(core.RequireAuthenticationMiddleware(userService))
+			r.Use(core.AdminModeMiddleware)
 
 			handler := &Handler{
 				App:                 app,
@@ -482,5 +486,81 @@ func TestPollCRUD_ListGamePolls_IncludeExpired(t *testing.T) {
 		var response []interface{}
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		assert.Len(t, response, 2, "should return both active and expired polls")
+	})
+}
+
+// TestPollAPI_AdminMode_CreatePoll is the regression test for the bug where admin mode was
+// silently broken for poll endpoints. IsUserGameMasterCtx read admin mode from context but
+// no middleware ever set it. After the fix, AdminModeMiddleware propagates the X-Admin-Mode
+// header into the context so IsUserGameMasterCtx works correctly.
+func TestPollAPI_AdminMode_CreatePoll(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "poll_options", "common_room_polls", "game_participants", "games", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupPollCRUDTestRouter(app, testDB)
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	admin := testDB.CreateTestUser(t, "admin", "admin@example.com")
+
+	// Grant admin status
+	queries := dbmodels.New(testDB.Pool)
+	err := queries.UpdateUserAdminStatus(context.Background(), dbmodels.UpdateUserAdminStatusParams{
+		ID:      int32(admin.ID),
+		IsAdmin: pgtype.Bool{Bool: true, Valid: true},
+	})
+	require.NoError(t, err)
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, gm)
+	require.NoError(t, err)
+	adminToken, err := core.CreateTestJWTTokenForUser(app, admin)
+	require.NoError(t, err)
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	validBody := CreatePollRequest{
+		Question: "Admin mode poll test?",
+		Deadline: time.Now().Add(24 * time.Hour),
+		Options: []PollOptionRequest{
+			{Text: "Option A", DisplayOrder: 1},
+			{Text: "Option B", DisplayOrder: 2},
+		},
+	}
+
+	makeCreateRequest := func(token string, adminModeHeader string) *httptest.ResponseRecorder {
+		bodyJSON, _ := json.Marshal(validBody)
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/games/%d/polls", game.ID), bytes.NewBuffer(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		if adminModeHeader != "" {
+			req.Header.Set("X-Admin-Mode", adminModeHeader)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("admin without X-Admin-Mode header is rejected", func(t *testing.T) {
+		rec := makeCreateRequest(adminToken, "")
+		assert.Equal(t, http.StatusForbidden, rec.Code, "admin without admin mode header should be rejected")
+	})
+
+	t.Run("admin with X-Admin-Mode: true can create poll", func(t *testing.T) {
+		rec := makeCreateRequest(adminToken, "true")
+		assert.Equal(t, http.StatusOK, rec.Code, "admin with admin mode should be able to create poll: %s", rec.Body.String())
+	})
+
+	t.Run("non-admin with X-Admin-Mode: true is still rejected", func(t *testing.T) {
+		outsider := testDB.CreateTestUser(t, "outsider", "outsider@example.com")
+		outsiderToken, err := core.CreateTestJWTTokenForUser(app, outsider)
+		require.NoError(t, err)
+		rec := makeCreateRequest(outsiderToken, "true")
+		assert.Equal(t, http.StatusForbidden, rec.Code, "non-admin cannot use admin mode header to gain access")
+	})
+
+	t.Run("primary GM can still create poll without admin mode header", func(t *testing.T) {
+		rec := makeCreateRequest(gmToken, "")
+		assert.Equal(t, http.StatusOK, rec.Code, "primary GM should still work normally")
 	})
 }

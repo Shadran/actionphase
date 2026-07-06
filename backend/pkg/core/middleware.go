@@ -176,6 +176,18 @@ func GetAuthenticatedUser(ctx context.Context) *AuthenticatedUser {
 	return nil
 }
 
+// AdminModeMiddleware reads the X-Admin-Mode request header and stores the
+// result in the request context via WithAdminMode. This must run after
+// RequireAuthenticationMiddleware so that the authenticated user is available,
+// but it does not itself enforce admin status — that is left to the handler.
+func AdminModeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		enabled := r.Header.Get("X-Admin-Mode") == "true"
+		ctx := WithAdminMode(r.Context(), enabled)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // GM Authorization Pattern
 //
 // GM authorization is implemented at the HANDLER level, not via middleware.
