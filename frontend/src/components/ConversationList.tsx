@@ -77,6 +77,7 @@ export function ConversationList({ gameId, onSelectConversation, selectedConvers
               : 'border-l-transparent hover:border-l-border-primary'
           }`}
           data-testid="conversation-item"
+          data-faro-user-action-name="open-conversation"
         >
           {/* Mobile: Vertical Stack Layout */}
           <div className="md:hidden w-full">
