@@ -776,6 +776,7 @@ export const ThreadedComment = memo(function ThreadedComment({
                     variant="primary"
                     size="sm"
                     disabled={isSubmitting || !replyContent.trim()}
+                    data-faro-user-action-name="submit-comment"
                   >
                     {isSubmitting ? 'Posting...' : 'Reply'}
                   </Button>

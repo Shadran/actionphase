@@ -78,6 +78,7 @@ export const CreateActionResultForm: React.FC<CreateActionResultFormProps> = ({
         variant="primary"
         disabled={createResult.isPending}
         className="w-full"
+        data-faro-user-action-name="create-action-result"
       >
         {createResult.isPending ? 'Creating...' : 'Create Draft Result'}
       </Button>

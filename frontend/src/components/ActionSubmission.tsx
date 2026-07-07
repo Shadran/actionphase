@@ -263,6 +263,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                     size="sm"
                     onClick={() => setSheetDrawerOpen(true)}
                     data-testid="sheet-toggle-button"
+                    data-faro-user-action-name="open-character-sheet"
                     title="Character Sheet"
                     className="!px-2"
                   >
@@ -294,6 +295,7 @@ export function ActionSubmission({ gameId, currentPhase, className = '' }: Actio
                 variant="primary"
                 disabled={!content.trim() || submitActionMutation.isPending}
                 data-testid="submit-action-button"
+                data-faro-user-action-name="submit-action"
               >
                 {submitActionMutation.isPending
                   ? 'Submitting...'
