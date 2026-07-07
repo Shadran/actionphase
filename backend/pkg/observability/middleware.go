@@ -100,7 +100,10 @@ func MetricsMiddleware(metrics *Metrics, otelMetrics *OTELMetrics) func(next htt
 			duration := time.Since(start)
 			status := ww.Status()
 
-			route := routePattern(r)
+			// Logging wants the raw path (below), but metrics need a bounded label:
+			// an unmatched request falls through to r.URL.Path, so every 404 / scanner
+			// probe would otherwise mint a new http.route series forever. Collapse those.
+			route := metricRoute(r)
 			metrics.RecordHTTPRequest(r.Method, route, status, duration)
 
 			if otelMetrics != nil {
@@ -231,11 +234,33 @@ func RouteTagMiddleware(next http.Handler) http.Handler {
 // routePattern returns the chi route template (e.g. "/api/v1/games/{id}") for a
 // request, falling back to r.URL.Path when no chi context is present.
 // Using the template prevents high-cardinality metric labels from parameterized routes.
+//
+// This raw-path fallback is intended for *logging* (error logs want the actual path a
+// client or scanner hit). Do NOT use it for metric labels — see metricRoute.
 func routePattern(r *http.Request) string {
 	if chiCtx := chi.RouteContext(r.Context()); chiCtx != nil && chiCtx.RoutePattern() != "" {
 		return chiCtx.RoutePattern()
 	}
 	return r.URL.Path
+}
+
+// unmatchedRoute is the single http.route label value used for any request that did
+// not match a registered chi route (404s, scanner probes, malformed paths).
+const unmatchedRoute = "unmatched"
+
+// metricRoute returns a bounded http.route label for a request: the chi route template
+// when the request matched a registered route, or the unmatchedRoute sentinel otherwise.
+//
+// Unlike routePattern, it never returns the raw URL path. That distinction is the whole
+// point: raw paths are unbounded (internet scanners hit a fresh URL on every probe), and
+// each distinct value mints a new metric series — for the duration histogram, 13 series
+// (11 buckets + _count + _sum). Collapsing unmatched requests to one label keeps 404
+// noise from growing the active series count without bound.
+func metricRoute(r *http.Request) string {
+	if chiCtx := chi.RouteContext(r.Context()); chiCtx != nil && chiCtx.RoutePattern() != "" {
+		return chiCtx.RoutePattern()
+	}
+	return unmatchedRoute
 }
 
 // isScannerProbe reports whether the request path matches patterns commonly
