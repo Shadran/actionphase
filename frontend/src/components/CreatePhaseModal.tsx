@@ -198,6 +198,7 @@ export function CreatePhaseModal({ onClose, onSubmit, isSubmitting }: CreatePhas
             type="submit"
             variant="primary"
             disabled={isSubmitting}
+            data-faro-user-action-name="create-phase"
           >
             {isSubmitting ? 'Creating...' : 'Create Phase'}
           </Button>

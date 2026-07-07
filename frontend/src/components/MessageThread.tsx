@@ -514,6 +514,7 @@ export function MessageThread({ gameId, conversationId, characters, currentPhase
                     variant="primary"
                     disabled={sending || !newMessage.trim() || !isMessagingAllowed}
                     title={!isMessagingAllowed ? 'Messages can only be sent during Common Room or Interlude phases' : undefined}
+                    data-faro-user-action-name="send-private-message"
                 >
                   {sending ? 'Sending...' : 'Send'}
                 </Button>

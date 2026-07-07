@@ -25,6 +25,7 @@ export default function NotificationBell() {
         className="relative p-2 text-white/90 hover:text-white h-auto"
         aria-label="Notifications"
         data-testid="notification-bell"
+        data-faro-user-action-name="open-notifications"
       >
         {/* Bell Icon */}
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

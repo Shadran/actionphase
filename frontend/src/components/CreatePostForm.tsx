@@ -152,6 +152,7 @@ export function CreatePostForm({ gameId: _gameId, characters, allCharacters, onS
         variant="primary"
         disabled={isSubmitting || !content.trim()}
         className="w-full text-lg py-3"
+        data-faro-user-action-name="create-post"
       >
         {isSubmitting ? 'Creating GM Post...' : 'Create GM Post'}
       </Button>
