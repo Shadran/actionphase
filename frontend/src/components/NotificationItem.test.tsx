@@ -163,6 +163,81 @@ describe('NotificationItem', () => {
     expect(markReadCalled).toBe(false);
   });
 
+  it('marks notification as read on middle-click (open in new tab)', async () => {
+    // Middle-clicking a link opens it in a new background tab. The browser
+    // fires an `auxclick`/`mouseup` event, NOT a `click` event, so an onClick
+    // handler alone never runs. We must still mark the notification as read.
+    const notification = createMockNotification({ is_read: false });
+
+    let markReadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        markReadCalled = true;
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    // pointerEventsCheck disabled so we can dispatch a middle-click (button 1).
+    await user.pointer({
+      keys: '[MouseMiddle]',
+      target: screen.getByText('Test Notification'),
+    });
+
+    await waitFor(() => {
+      expect(markReadCalled).toBe(true);
+    });
+  });
+
+  it('does not mark notification as read on right-click', async () => {
+    // Right-click opens the context menu; it must not consume the notification.
+    const notification = createMockNotification({ is_read: false });
+
+    let markReadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        markReadCalled = true;
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('Test Notification'),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(markReadCalled).toBe(false);
+  });
+
+  it('does not mark an already-read notification on middle-click', async () => {
+    const notification = createMockNotification({ is_read: true });
+
+    let markReadCalled = false;
+    server.use(
+      http.put('/api/v1/notifications/:id/mark-read', () => {
+        markReadCalled = true;
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationItem notification={notification} />);
+
+    await user.pointer({
+      keys: '[MouseMiddle]',
+      target: screen.getByText('Test Notification'),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(markReadCalled).toBe(false);
+  });
+
   it('calls onNavigate callback when clicked', async () => {
     const notification = createMockNotification({ link_url: '/games/123#results' });
     const mockOnNavigate = vi.fn();

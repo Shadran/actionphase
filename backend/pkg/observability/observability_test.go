@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -362,4 +363,70 @@ func TestIsScannerProbe(t *testing.T) {
 	for _, p := range legit {
 		assert.False(t, isScannerProbe(p), "expected NOT probe: %s", p)
 	}
+}
+
+// ============================================================================
+// metricRoute / routePattern — http.route label cardinality
+// ============================================================================
+
+// reqWithRoutePattern builds a request carrying a chi route context whose matched
+// pattern is patterns (empty patterns => no match, i.e. a 404).
+func reqWithRoutePattern(path string, patterns ...string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	rctx := chi.NewRouteContext()
+	rctx.RoutePatterns = patterns
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
+// TestMetricRoute_CollapsesUnmatchedPaths is the regression guard for the cardinality
+// leak: a request that matched no chi route must produce the single "unmatched" sentinel
+// label, never its raw URL path. Otherwise every 404 / scanner probe mints new series.
+func TestMetricRoute_CollapsesUnmatchedPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *http.Request
+		want string
+	}{
+		{
+			name: "matched route uses the chi template",
+			req:  reqWithRoutePattern("/api/v1/games/42", "/api/v1/games/{id}"),
+			want: "/api/v1/games/{id}",
+		},
+		{
+			name: "unmatched path collapses to sentinel",
+			req:  reqWithRoutePattern("/api/v1/nonexistent"),
+			want: unmatchedRoute,
+		},
+		{
+			name: "scanner probe collapses to sentinel (no raw path leak)",
+			req:  reqWithRoutePattern("/.env"),
+			want: unmatchedRoute,
+		},
+		{
+			name: "no chi context at all collapses to sentinel",
+			req:  httptest.NewRequest(http.MethodGet, "/anything", nil),
+			want: unmatchedRoute,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, metricRoute(tt.req))
+		})
+	}
+}
+
+// TestRoutePattern_KeepsRawPathForLogging documents the deliberate split: unlike
+// metricRoute, routePattern still returns the raw path on a miss so error logs show what
+// a client or scanner actually hit. High log cardinality is fine; log lines aren't series.
+func TestRoutePattern_KeepsRawPathForLogging(t *testing.T) {
+	assert.Equal(t,
+		"/api/v1/games/{id}",
+		routePattern(reqWithRoutePattern("/api/v1/games/42", "/api/v1/games/{id}")),
+		"matched request should use the chi template",
+	)
+	assert.Equal(t,
+		"/.env",
+		routePattern(reqWithRoutePattern("/.env")),
+		"unmatched request should keep the raw path for logging",
+	)
 }

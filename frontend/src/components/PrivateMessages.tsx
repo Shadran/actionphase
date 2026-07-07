@@ -106,6 +106,7 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
                   onClick={() => setShowNewConversationModal(true)}
                   disabled={!isMessagingAllowed}
                   title={!isMessagingAllowed ? 'New conversations can only be started during Common Room or Interlude phases' : 'Start a new private conversation'}
+                  data-faro-user-action-name="start-conversation"
                 >
                   + New
                 </Button>
