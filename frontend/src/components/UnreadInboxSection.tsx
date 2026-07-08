@@ -25,11 +25,11 @@ export function UnreadInboxSection() {
   }
 
   return (
-    <div className="surface-base rounded-lg shadow-md border border-theme-default p-6">
+    <div className="surface-base rounded-lg shadow-md border border-theme-default">
       <Button
         variant="ghost"
         onClick={() => setIsCollapsed((prev) => !prev)}
-        className="w-full justify-between px-0 py-0 font-normal"
+        className="w-full justify-between p-6 font-normal"
         aria-expanded={!isCollapsed}
       >
         <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export function UnreadInboxSection() {
       </Button>
 
       {!isCollapsed && (
-        <div className="mt-4 space-y-3">
+        <div className="px-6 pb-6 space-y-3">
           {isLoading && (
             <div className="flex items-center gap-2 text-content-secondary text-sm">
               <Spinner size="sm" /> Loading...

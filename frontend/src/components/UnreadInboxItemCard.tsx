@@ -34,11 +34,11 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
   };
 
   return (
-    <div className="border border-theme-default rounded-md p-3">
+    <div className="border border-theme-default rounded-md">
       <Button
         variant="ghost"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full justify-start gap-3 px-0 py-0 text-left font-normal"
+        className="w-full justify-start gap-3 p-3 text-left font-normal"
         aria-expanded={isExpanded}
       >
         <span className="text-interactive-primary flex-shrink-0">
@@ -48,7 +48,7 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
       </Button>
 
       {isExpanded && (
-        <div className="mt-3 space-y-3">
+        <div className="px-3 pb-3 space-y-3">
           {isLoading && (
             <div className="flex items-center gap-2 text-content-secondary text-sm">
               <Spinner size="sm" /> Loading...
