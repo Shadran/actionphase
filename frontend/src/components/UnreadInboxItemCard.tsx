@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Reply, AtSign } from 'lucide-react';
-import { Spinner, Alert } from './ui';
+import { Button, Spinner, Alert } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
 import CharacterAvatar from './CharacterAvatar';
 import { UnreadReplyBox } from './UnreadReplyBox';
@@ -35,17 +35,17 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
 
   return (
     <div className="border border-theme-default rounded-md p-3">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full flex items-center gap-3 text-left"
+        className="w-full justify-start gap-3 px-0 py-0 text-left font-normal"
         aria-expanded={isExpanded}
       >
         <span className="text-interactive-primary flex-shrink-0">
           {TYPE_ICON[item.notification.type] ?? <MessageSquare className="w-4 h-4" />}
         </span>
         <span className="flex-1 text-sm text-content-primary">{item.notification.title}</span>
-      </button>
+      </Button>
 
       {isExpanded && (
         <div className="mt-3 space-y-3">
@@ -89,14 +89,20 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
                 />
               </div>
 
-              <UnreadReplyBox
-                controllableCharacters={context.controllableCharacters}
-                mentionableCharacters={context.mentionableCharacters}
-                defaultCharacterId={context.defaultCharacterId}
-                onSubmit={handleSubmit}
-                isSubmitting={replyMutation.isPending}
-                error={replyMutation.isError ? 'Failed to send reply. Please try again.' : null}
-              />
+              {context.kind === 'comment' && context.isReplyDisabled ? (
+                <p className="text-sm text-content-tertiary italic">
+                  This comment has been deleted, so you can't reply to it here.
+                </p>
+              ) : (
+                <UnreadReplyBox
+                  controllableCharacters={context.controllableCharacters}
+                  mentionableCharacters={context.mentionableCharacters}
+                  defaultCharacterId={context.defaultCharacterId}
+                  onSubmit={handleSubmit}
+                  isSubmitting={replyMutation.isPending}
+                  error={replyMutation.isError ? 'Failed to send reply. Please try again.' : null}
+                />
+              )}
             </>
           )}
         </div>

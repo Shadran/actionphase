@@ -27,6 +27,8 @@ export interface CommentItemContext {
   /** Every character in the game, for the @-mention list (matches Common Room scope). */
   mentionableCharacters: Character[];
   defaultCharacterId: number | null;
+  /** True if the comment has been deleted or is still a draft; Common Room hides replying in both cases. */
+  isReplyDisabled: boolean;
 }
 
 export interface PmItemContext {
@@ -92,6 +94,7 @@ export function useUnreadItemContext(item: UnreadInboxItem, enabled: boolean) {
           controllableCharacters,
           mentionableCharacters,
           defaultCharacterId: pickDefaultCharacterId(controllableCharacters, preferredCharacterId),
+          isReplyDisabled: comment.is_deleted || comment.is_draft,
         };
       }
 
@@ -101,10 +104,14 @@ export function useUnreadItemContext(item: UnreadInboxItem, enabled: boolean) {
         fetchConversationParticipantCharacterIds(item.gameId, item.conversationId),
       ]);
       const lastMessage = messages[messages.length - 1];
+      const participantSet = new Set(participantCharacterIds);
+      // Matches MessageThread's participantCharacters scoping: the reply-as
+      // picker only offers characters already in this conversation, not every
+      // character the user controls in the game.
+      const participantControllableCharacters = controllableCharacters.filter((c) => participantSet.has(c.id));
       const preferredCharacterId = participantCharacterIds.find((id) =>
         controllableCharacters.some((c) => c.id === id)
       );
-      const participantSet = new Set(participantCharacterIds);
 
       return {
         kind: 'private_message',
@@ -116,9 +123,9 @@ export function useUnreadItemContext(item: UnreadInboxItem, enabled: boolean) {
           characterName: lastMessage?.sender_character_name ?? null,
           characterAvatarUrl: lastMessage?.sender_avatar_url ?? null,
         },
-        controllableCharacters,
+        controllableCharacters: participantControllableCharacters,
         mentionableCharacters: mentionableCharacters.filter((c) => participantSet.has(c.id)),
-        defaultCharacterId: pickDefaultCharacterId(controllableCharacters, preferredCharacterId),
+        defaultCharacterId: pickDefaultCharacterId(participantControllableCharacters, preferredCharacterId),
       };
     },
   });

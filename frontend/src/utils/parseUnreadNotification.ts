@@ -31,9 +31,9 @@ export function classifyNotification(notification: Notification): UnreadInboxIte
   if (!notification.game_id) return null;
 
   if (COMMENT_NOTIFICATION_TYPES.has(notification.type)) {
-    // related_id is always the comment/reply message id for these types; the
-    // backend's related_type value for it has been observed to vary ("comment"
-    // vs "message") in seeded data, so we key off `type` instead of trusting it.
+    // related_id is always the comment/reply message id for these types.
+    // `type` alone is sufficient to classify these notifications as
+    // comment-shaped; related_type isn't needed.
     if (!notification.related_id) return null;
     return {
       kind: 'comment',

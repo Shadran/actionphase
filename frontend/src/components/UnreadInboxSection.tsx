@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Inbox } from 'lucide-react';
-import { Badge, Spinner } from './ui';
+import { Badge, Button, Spinner } from './ui';
 import { UnreadInboxItemCard } from './UnreadInboxItemCard';
 import { useUnreadInbox } from '../hooks/useUnreadInbox';
 
@@ -26,10 +26,10 @@ export function UnreadInboxSection() {
 
   return (
     <div className="surface-base rounded-lg shadow-md border border-theme-default p-6">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setIsCollapsed((prev) => !prev)}
-        className="w-full flex items-center justify-between gap-2"
+        className="w-full justify-between px-0 py-0 font-normal"
         aria-expanded={!isCollapsed}
       >
         <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export function UnreadInboxSection() {
         ) : (
           <ChevronUp className="w-5 h-5 text-content-tertiary" />
         )}
-      </button>
+      </Button>
 
       {!isCollapsed && (
         <div className="mt-4 space-y-3">

@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { findRootPostId, fetchCommentWithParents } from '@/utils/threadUtils';
+import { logger } from '@/services/LoggingService';
 import type { Message } from '@/types/messages';
 import type { PrivateMessage } from '@/types/conversations';
 import type { Character } from '@/types/characters';
@@ -31,8 +32,13 @@ export interface CommentContext {
 export async function fetchCommentContext(gameId: number, commentId: number): Promise<CommentContext> {
   const { messages } = await fetchCommentWithParents(gameId, commentId, 1);
   const comment = messages[messages.length - 1];
+  if (!comment) {
+    throw new Error(`Comment ${commentId} could not be loaded (it may have been deleted)`);
+  }
   const parent = messages.length > 1 ? messages[messages.length - 2] : null;
-  const rootPostId = await findRootPostId(gameId, comment);
+  // parent (if fetched) is already the message findRootPostId would fetch first;
+  // starting from it instead of `comment` avoids re-fetching it over the network.
+  const rootPostId = await findRootPostId(gameId, parent ?? comment);
 
   return { comment, parent, rootPostId };
 }
@@ -100,7 +106,7 @@ export async function replyToComment({
     content,
     root_post_id: rootPostId,
   });
-  await apiClient.notifications.markNotificationAsRead(notificationId);
+  await markNotificationAsReadBestEffort(notificationId);
 }
 
 export interface ReplyToPmParams {
@@ -122,5 +128,19 @@ export async function replyToPm({
     character_id: characterId,
     content,
   });
-  await apiClient.notifications.markNotificationAsRead(notificationId);
+  await markNotificationAsReadBestEffort(notificationId);
+}
+
+/**
+ * Marks a notification as read without failing the calling mutation if it
+ * errors (e.g. the notification was already read/removed elsewhere) — the
+ * reply/message itself has already been sent successfully by this point, so
+ * a mark-read failure shouldn't be reported to the user as a failed reply.
+ */
+async function markNotificationAsReadBestEffort(notificationId: number): Promise<void> {
+  try {
+    await apiClient.notifications.markNotificationAsRead(notificationId);
+  } catch (error) {
+    logger.error(`Failed to mark notification ${notificationId} as read after a successful reply`, { error });
+  }
 }

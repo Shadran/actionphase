@@ -53,10 +53,11 @@ describe('classifyNotification', () => {
     });
   });
 
-  it('classifies a comment_reply notification even when related_type is unexpectedly "message"', () => {
-    // Seen in real fixture data where related_type doesn't match the "comment"
-    // value the backend's NotifyCommentReply normally sets. `type` alone is
-    // sufficient to know this points at a comment/reply message.
+  it('classifies a comment_reply notification even when related_type is "message"', () => {
+    // classifyNotification doesn't need related_type at all — `type` alone is
+    // sufficient to know this points at a comment/reply message. Regression
+    // coverage for a real bug in a test fixture that mis-set related_type to
+    // "message" on a comment_reply row (backend/pkg/db/test_fixtures/e2e/25_notification_flow.sql).
     const notification = makeNotification({
       type: 'comment_reply',
       related_type: 'message',
