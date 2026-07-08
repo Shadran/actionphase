@@ -24,8 +24,9 @@ const buttonStyles = tv({
     'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
     // Cursor
     'cursor-pointer',
-    // Focus states - using semantic tokens
-    'focus:outline-none focus:ring-2 focus:ring-interactive-primary focus:ring-offset-2',
+    // Focus states - using semantic tokens. focus-visible (not focus) so the
+    // ring only shows for keyboard navigation, not mouse clicks.
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary focus-visible:ring-offset-2',
     // Disabled state
     'disabled:opacity-50 disabled:cursor-not-allowed',
   ].join(' '),
