@@ -8,6 +8,7 @@ import { UpcomingDeadlinesCard } from '../components/UpcomingDeadlinesCard';
 import { ActivityTabs } from '../components/Dashboard/ActivityTabs';
 import { NotificationDigest } from '../components/NotificationDigest';
 import { PrivateMessagePreview } from '../components/PrivateMessagePreview';
+import { UnreadInboxSection } from '../components/UnreadInboxSection';
 
 /**
  * DashboardPage - Main user dashboard showing games, actions, and activity
@@ -61,6 +62,13 @@ export function DashboardPage() {
             </p>
           </div>
         </div>
+
+        {/* Unread inbox: reply to comment/mention/PM notifications inline */}
+        {dashboard.has_games && (
+          <div className="mb-8">
+            <UnreadInboxSection />
+          </div>
+        )}
 
         {/* Empty State for Users Without Games */}
         {!dashboard.has_games ? (
