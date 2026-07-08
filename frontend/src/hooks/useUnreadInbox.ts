@@ -13,7 +13,7 @@ export function useUnreadInbox() {
     queryKey: ['unread-inbox'],
     queryFn: fetchUnreadInboxItems,
     enabled: isAuthenticated,
-    refetchInterval: isAuthenticated ? 30000 : false,
+    refetchInterval: isAuthenticated ? 15000 : false,
     placeholderData: (previousData) => previousData,
   });
 }
