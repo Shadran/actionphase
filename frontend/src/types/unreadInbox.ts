@@ -12,6 +12,9 @@ export interface UnreadPrivateMessageItem {
   notification: Notification;
   gameId: number;
   conversationId: number;
+  /** The specific message this notification was for — used to preview the
+   * right message when a conversation has multiple unread notifications. */
+  messageId: number;
 }
 
 export type UnreadInboxItem = UnreadCommentItem | UnreadPrivateMessageItem;
