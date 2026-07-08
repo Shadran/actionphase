@@ -10,7 +10,7 @@ import type { UnreadInboxItem } from '@/types/unreadInbox';
 import type { Character } from '@/types/characters';
 
 /** Maps directly onto ParentCommentPreview's props for the quoted-content block. */
-export interface PreviewMessage {
+interface PreviewMessage {
   content: string;
   createdAt: string | null;
   authorUsername: string | null;
@@ -19,7 +19,7 @@ export interface PreviewMessage {
   characterAvatarUrl: string | null;
 }
 
-export interface CommentItemContext {
+interface CommentItemContext {
   kind: 'comment';
   previewMessage: PreviewMessage;
   rootPostId: number;
@@ -31,7 +31,7 @@ export interface CommentItemContext {
   isReplyDisabled: boolean;
 }
 
-export interface PmItemContext {
+interface PmItemContext {
   kind: 'private_message';
   previewMessage: PreviewMessage;
   controllableCharacters: Character[];
