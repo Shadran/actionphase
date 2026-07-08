@@ -464,6 +464,28 @@ test-run pattern:
 # FRONTEND TESTING
 # ═══════════════════════════════════════════════════════════════════════════
 
+# Regenerate frontend/package-lock.json inside a Linux container (matches CI).
+# ALWAYS use this instead of a bare `npm install` on macOS: some deps
+# (@oxc-parser, etc.) carry platform-specific optional-dependency subtrees that
+# npm only resolves into the lockfile on Linux, so a local install produces a
+# lockfile that fails `npm ci` in CI. Run this whenever you change frontend deps.
+#
+# The container runs in an isolated temp copy of ONLY package.json +
+# package-lock.json, so it can never touch your local node_modules (a Linux
+# `npm ci`/`install` against a mounted tree would clobber your macOS native
+# bindings, e.g. @oxc-parser/binding-darwin-arm64, and break `just knip`).
+relock-frontend:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  echo "🔒 Regenerating frontend/package-lock.json in node:24 (linux)..."
+  workdir=$(mktemp -d)
+  trap 'rm -rf "$workdir"' EXIT
+  cp frontend/package.json frontend/package-lock.json "$workdir/"
+  docker run --rm -v "$workdir":/app -w /app node:24 \
+    npm install --package-lock-only
+  cp "$workdir/package-lock.json" frontend/package-lock.json
+  echo "✅ Lockfile regenerated. Review the diff and commit frontend/package-lock.json"
+
 # Run frontend tests (default: run once)
 test-frontend:
   cd frontend && npm test

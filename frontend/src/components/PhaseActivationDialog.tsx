@@ -91,6 +91,7 @@ export function PhaseActivationDialog({
                 }}
                 disabled={isActivating || publishAllMutation.isPending}
                 className="w-full"
+                data-faro-user-action-name="activate-phase"
               >
                 {publishAllMutation.isPending ? 'Publishing...' : isActivating ? 'Activating...' : 'Publish & Activate Phase'}
               </Button>
@@ -102,6 +103,7 @@ export function PhaseActivationDialog({
                 }}
                 disabled={isActivating || publishAllMutation.isPending}
                 className="w-full"
+                data-faro-user-action-name="activate-phase"
               >
                 {isActivating ? 'Activating...' : 'Activate Without Publishing'}
               </Button>

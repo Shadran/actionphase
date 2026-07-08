@@ -123,6 +123,22 @@ describe('MessageThread draft clearing on conversation change', () => {
   });
 });
 
+describe('MessageThread observability', () => {
+  it('names the private-message send button for Faro user-action attribution', () => {
+    // Participants must be present for the send form (and its button) to render.
+    baseConversationContext.conversation = {
+      conversation: { id: 1, game_id: 1, title: 'Test Chat', conversation_type: 'direct', created_by_user_id: 1, created_at: '2026-01-01', updated_at: '2026-01-01' },
+      participants: [{ id: 1, conversation_id: 1, character_id: 10, character_name: 'TestChar', user_id: 1, username: 'testuser', joined_at: '2026-01-01' }],
+    };
+
+    render(<MessageThread {...defaultProps} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Send' })
+    ).toHaveAttribute('data-faro-user-action-name', 'send-private-message');
+  });
+});
+
 describe('MessageThread edit functionality', () => {
   it('shows edit button on hover for sender messages during common_room phase', async () => {
     baseConversationContext.messages = [makeMessage({ sender_user_id: 1 })];

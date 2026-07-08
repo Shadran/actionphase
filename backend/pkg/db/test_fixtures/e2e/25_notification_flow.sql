@@ -119,7 +119,7 @@ BEGIN
   ) VALUES (
     p1_id, game_id, 'comment_reply', 'Someone replied to your comment',
     'Pre-seeded reply notification for mark-all-as-read test',
-    'message', comment_id,
+    'comment', comment_id,
     '/games/' || game_id || '?tab=common-room',
     false,
     NOW() - INTERVAL '3 days'

@@ -3,7 +3,6 @@ import type { KnipConfig } from 'knip';
 const config: KnipConfig = {
   entry: [
     'src/mocks/server.ts',
-    'src/mocks/handlers.ts',
     'src/pages/*.tsx',
     'src/**/*.test.{ts,tsx}',
   ],
