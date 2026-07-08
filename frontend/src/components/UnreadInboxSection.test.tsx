@@ -78,6 +78,12 @@ const mockControllableCharacters = [
   { id: 7, game_id: 12, name: 'My Character', status: 'approved', is_active: true, created_at: '', updated_at: '' },
 ];
 
+const mockAllGameCharacters = [
+  ...mockControllableCharacters,
+  { id: 3, game_id: 12, name: 'Jane the Bard', status: 'approved', is_active: true, created_at: '', updated_at: '' },
+  { id: 8, game_id: 12, name: 'Alex the Rogue', status: 'approved', is_active: true, created_at: '', updated_at: '' },
+];
+
 function setupHandlers() {
   const readIds = new Set<number>();
 
@@ -95,6 +101,9 @@ function setupHandlers() {
     }),
     http.get('/api/v1/games/:gameId/characters/controllable', () => {
       return HttpResponse.json(mockControllableCharacters);
+    }),
+    http.get('/api/v1/games/:gameId/characters', () => {
+      return HttpResponse.json(mockAllGameCharacters);
     }),
     http.get('/api/v1/games/:gameId/messages/:messageId', ({ params }) => {
       if (params.messageId === '99') return HttpResponse.json(mockComment);
@@ -215,6 +224,32 @@ describe('UnreadInboxSection', () => {
     // The replied item disappears once the notification list refetches as read.
     await waitFor(() => {
       expect(screen.queryByText('Jane replied to your comment')).not.toBeInTheDocument();
+    });
+  });
+
+  it('offers every character in the game for @-mentions, not just ones the replier controls', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(<UnreadInboxSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jane replied to your comment')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Jane replied to your comment'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByPlaceholderText('Write a reply...'), '@Jane');
+
+    // "Jane the Bard" is not in mockControllableCharacters (only "My Character" is).
+    // She already appears once as the quoted comment's author; a second match
+    // means the mention dropdown is offering her too, proving the mention list
+    // isn't scoped to the replier's own controllable characters.
+    await waitFor(() => {
+      expect(screen.getAllByText('Jane the Bard').length).toBeGreaterThanOrEqual(2);
     });
   });
 });

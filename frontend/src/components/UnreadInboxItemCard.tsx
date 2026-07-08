@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Reply, AtSign } from 'lucide-react';
 import { Spinner, Alert } from './ui';
 import { MarkdownPreview } from './MarkdownPreview';
+import CharacterAvatar from './CharacterAvatar';
 import { UnreadReplyBox } from './UnreadReplyBox';
 import { useUnreadItemContext } from '../hooks/useUnreadItemContext';
 import { useReplyToUnread } from '../hooks/useReplyToUnread';
@@ -46,7 +48,7 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
       </button>
 
       {isExpanded && (
-        <div className="mt-3 pl-7 space-y-3">
+        <div className="mt-3 space-y-3">
           {isLoading && (
             <div className="flex items-center gap-2 text-content-secondary text-sm">
               <Spinner size="sm" /> Loading...
@@ -57,13 +59,39 @@ export function UnreadInboxItemCard({ item }: UnreadInboxItemCardProps) {
 
           {context && (
             <>
-              <div className="text-sm border-l-2 border-theme-default pl-3">
-                <span className="font-medium text-content-primary">{context.authorName}: </span>
-                <MarkdownPreview content={context.contentPreview} />
+              <div className="bg-bg-secondary rounded-lg p-3">
+                <div className="flex items-start gap-3 mb-2">
+                  <CharacterAvatar
+                    avatarUrl={context.previewMessage.characterAvatarUrl}
+                    characterName={context.previewMessage.characterName || context.previewMessage.authorUsername || 'Unknown'}
+                    size="sm"
+                  />
+                  <div className="flex flex-col flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-text-heading">
+                        {context.previewMessage.characterName || 'Unknown'}
+                      </span>
+                      {context.previewMessage.authorUsername && (
+                        <span className="text-sm text-content-tertiary">@{context.previewMessage.authorUsername}</span>
+                      )}
+                      {context.previewMessage.createdAt && (
+                        <span className="text-sm text-content-tertiary">
+                          {formatDistanceToNow(new Date(context.previewMessage.createdAt), { addSuffix: true })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <MarkdownPreview
+                  content={context.previewMessage.content}
+                  fullWidth
+                  mentionedCharacters={context.mentionableCharacters}
+                />
               </div>
 
               <UnreadReplyBox
                 controllableCharacters={context.controllableCharacters}
+                mentionableCharacters={context.mentionableCharacters}
                 defaultCharacterId={context.defaultCharacterId}
                 onSubmit={handleSubmit}
                 isSubmitting={replyMutation.isPending}

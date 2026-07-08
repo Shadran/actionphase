@@ -5,6 +5,8 @@ import type { Character } from '../types/characters';
 
 interface UnreadReplyBoxProps {
   controllableCharacters: Character[];
+  /** Characters eligible for @-mention autocomplete (broader than controllableCharacters). */
+  mentionableCharacters: Character[];
   defaultCharacterId: number | null;
   onSubmit: (characterId: number, content: string) => void;
   isSubmitting: boolean;
@@ -13,6 +15,7 @@ interface UnreadReplyBoxProps {
 
 export function UnreadReplyBox({
   controllableCharacters,
+  mentionableCharacters,
   defaultCharacterId,
   onSubmit,
   isSubmitting,
@@ -58,7 +61,7 @@ export function UnreadReplyBox({
         disabled={isSubmitting}
         rows={3}
         maxLength={10000}
-        characters={controllableCharacters}
+        characters={mentionableCharacters}
       />
 
       {error && <Alert variant="danger">{error}</Alert>}

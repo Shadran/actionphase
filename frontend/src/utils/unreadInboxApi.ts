@@ -52,9 +52,21 @@ export async function resolveReplyCharacters(gameId: number): Promise<Character[
 }
 
 /**
+ * All characters in the game (permission-filtered by the backend), used as
+ * the @-mention list when replying to a comment — matches the Common Room's
+ * mention scope, which is every character in the game, not just the ones the
+ * replier controls.
+ */
+export async function fetchAllGameCharacters(gameId: number): Promise<Character[]> {
+  const response = await apiClient.characters.getGameCharacters(gameId);
+  return response.data;
+}
+
+/**
  * Returns the character IDs already participating in a conversation, used to
  * default the reply-as character picker to a character the user already
- * spoke as in this thread.
+ * spoke as in this thread, and to scope the @-mention list to conversation
+ * participants (matching MessageThread's mention scope for PMs).
  */
 export async function fetchConversationParticipantCharacterIds(
   gameId: number,
