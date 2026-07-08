@@ -86,6 +86,7 @@ describe('useUnreadInbox', () => {
         notification: expect.objectContaining({ id: 2 }),
         gameId: 12,
         conversationId: 34,
+        messageId: 55,
       },
     ]);
   });

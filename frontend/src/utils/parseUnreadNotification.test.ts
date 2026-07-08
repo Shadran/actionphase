@@ -100,6 +100,7 @@ describe('classifyNotification', () => {
       notification,
       gameId: 12,
       conversationId: 34,
+      messageId: 77,
     });
   });
 
@@ -109,6 +110,17 @@ describe('classifyNotification', () => {
       related_type: 'message',
       related_id: 77,
       link_url: undefined,
+    });
+
+    expect(classifyNotification(notification)).toBeNull();
+  });
+
+  it('returns null for a private_message notification missing related_id', () => {
+    const notification = makeNotification({
+      type: 'private_message',
+      related_type: 'message',
+      related_id: undefined,
+      link_url: '/games/12?tab=messages&conversation=34',
     });
 
     expect(classifyNotification(notification)).toBeNull();

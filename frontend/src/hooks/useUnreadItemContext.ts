@@ -69,7 +69,14 @@ function pickDefaultCharacterId(
  */
 export function useUnreadItemContext(item: UnreadInboxItem, enabled: boolean) {
   return useQuery<UnreadItemContext>({
-    queryKey: ['unread-inbox', 'item-context', item.kind, item.gameId, item.kind === 'comment' ? item.commentId : item.conversationId],
+    queryKey: [
+      'unread-inbox',
+      'item-context',
+      item.kind,
+      item.gameId,
+      item.kind === 'comment' ? item.commentId : item.conversationId,
+      item.kind === 'private_message' ? item.messageId : undefined,
+    ],
     enabled,
     queryFn: async () => {
       const controllableCharacters = await resolveReplyCharacters(item.gameId);
@@ -103,7 +110,9 @@ export function useUnreadItemContext(item: UnreadInboxItem, enabled: boolean) {
         fetchAllGameCharacters(item.gameId),
         fetchConversationParticipantCharacterIds(item.gameId, item.conversationId),
       ]);
-      const lastMessage = messages[messages.length - 1];
+      // Prefer the specific message this notification was for; fall back to the
+      // most recent message if it can't be found (e.g. it was deleted).
+      const lastMessage = messages.find((m) => m.id === item.messageId) ?? messages[messages.length - 1];
       const participantSet = new Set(participantCharacterIds);
       // Matches MessageThread's participantCharacters scoping: the reply-as
       // picker only offers characters already in this conversation, not every

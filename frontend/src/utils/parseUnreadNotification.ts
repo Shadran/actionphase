@@ -46,11 +46,15 @@ export function classifyNotification(notification: Notification): UnreadInboxIte
   if (notification.type === 'private_message') {
     const conversationId = parseConversationIdFromLinkUrl(notification.link_url);
     if (!conversationId) return null;
+    // related_id is the specific message this notification was for — needed to
+    // preview the right message when a conversation has multiple unread notifications.
+    if (!notification.related_id) return null;
     return {
       kind: 'private_message',
       notification,
       gameId: notification.game_id,
       conversationId,
+      messageId: notification.related_id,
     };
   }
 

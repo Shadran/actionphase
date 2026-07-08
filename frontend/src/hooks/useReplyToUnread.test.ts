@@ -91,6 +91,7 @@ describe('useReplyToUnread', () => {
       notification: makeNotification({ id: 2, type: 'private_message' }),
       gameId: 12,
       conversationId: 34,
+      messageId: 55,
     };
 
     const { result } = renderHook(() => useReplyToUnread(), { wrapper: createWrapper(queryClient) });
@@ -119,6 +120,7 @@ describe('useReplyToUnread', () => {
       notification: makeNotification({ id: 2, type: 'private_message' }),
       gameId: 12,
       conversationId: 34,
+      messageId: 55,
     };
 
     const { result } = renderHook(() => useReplyToUnread(), { wrapper: createWrapper(queryClient) });
@@ -141,6 +143,7 @@ describe('useReplyToUnread', () => {
       notification: makeNotification({ id: 2, type: 'private_message' }),
       gameId: 12,
       conversationId: 34,
+      messageId: 55,
     };
 
     const { result } = renderHook(() => useReplyToUnread(), { wrapper: createWrapper(queryClient) });
