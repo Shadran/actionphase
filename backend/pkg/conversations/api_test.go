@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"actionphase/pkg/core"
+	models "actionphase/pkg/db/models"
 	db "actionphase/pkg/db/services"
 	phasesvc "actionphase/pkg/db/services/phases"
 	"bytes"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -658,6 +660,99 @@ func TestConversationAPI_GetConversationMessages(t *testing.T) {
 
 		messages := response["messages"].([]interface{})
 		assert.Len(t, messages, 0)
+	})
+
+	t.Run("redacts sender username from players in anonymous game, but not from GM", func(t *testing.T) {
+		anonGM := testDB.CreateTestUser(t, "anongm", "anongm@example.com")
+		anonPlayer1 := testDB.CreateTestUser(t, "anonplayer1", "anonplayer1@example.com")
+		anonPlayer2 := testDB.CreateTestUser(t, "anonplayer2", "anonplayer2@example.com")
+
+		anonGMToken, err := core.CreateTestJWTTokenForUser(app, anonGM)
+		core.AssertNoError(t, err, "Should create anon GM token")
+		anonPlayer1Token, err := core.CreateTestJWTTokenForUser(app, anonPlayer1)
+		core.AssertNoError(t, err, "Should create anon player1 token")
+
+		queries := models.New(testDB.Pool)
+		anonGame, err := queries.CreateGame(context.Background(), models.CreateGameParams{
+			Title:       "Anonymous Test Game",
+			Description: pgtype.Text{String: "Test", Valid: true},
+			GmUserID:    int32(anonGM.ID),
+			IsAnonymous: true,
+			IsPublic:    pgtype.Bool{Bool: true, Valid: true},
+		})
+		core.AssertNoError(t, err, "Should create anonymous game")
+
+		_, err = gameService.AddGameParticipant(context.Background(), anonGame.ID, int32(anonPlayer1.ID), "player")
+		core.AssertNoError(t, err, "Should add anonPlayer1")
+		_, err = gameService.AddGameParticipant(context.Background(), anonGame.ID, int32(anonPlayer2.ID), "player")
+		core.AssertNoError(t, err, "Should add anonPlayer2")
+
+		gmChar, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        anonGame.ID,
+			UserID:        int32Ptr(int32(anonGM.ID)),
+			Name:          "GM Character",
+			CharacterType: "npc",
+		})
+		core.AssertNoError(t, err, "Should create GM character")
+
+		anonChar1, err := characterService.CreateCharacter(context.Background(), db.CreateCharacterRequest{
+			GameID:        anonGame.ID,
+			UserID:        int32Ptr(int32(anonPlayer1.ID)),
+			Name:          "Anon Player 1 Character",
+			CharacterType: "player_character",
+		})
+		core.AssertNoError(t, err, "Should create anonPlayer1 character")
+
+		anonConversation, err := conversationService.CreateConversation(context.Background(), db.CreateConversationRequest{
+			GameID:          anonGame.ID,
+			Title:           "GM DM",
+			CreatedByUserID: int32(anonGM.ID),
+			ParticipantIDs:  []int32{gmChar.ID, anonChar1.ID},
+		})
+		core.AssertNoError(t, err, "Should create anonymous conversation")
+
+		_, err = conversationService.SendMessage(context.Background(), db.SendMessageRequest{
+			ConversationID:    anonConversation.ID,
+			SenderUserID:      int32(anonGM.ID),
+			SenderCharacterID: gmChar.ID,
+			Content:           "Hello from the GM",
+		})
+		core.AssertNoError(t, err, "Should send GM message")
+
+		// Player viewing the conversation must not see the GM's username.
+		req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages", anonGame.ID, anonConversation.ID), nil)
+		req.Header.Set("Authorization", "Bearer "+anonPlayer1Token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var playerResponse map[string]interface{}
+		err = json.Unmarshal(rec.Body.Bytes(), &playerResponse)
+		require.NoError(t, err)
+
+		playerMessages := playerResponse["messages"].([]interface{})
+		require.Len(t, playerMessages, 1)
+		msg := playerMessages[0].(map[string]interface{})
+		assert.Equal(t, "Hello from the GM", msg["content"])
+		assert.Equal(t, "", msg["sender_username"], "player should not see the GM's username in an anonymous game")
+
+		// The GM viewing the same conversation should still see usernames.
+		gmReq := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/games/%d/conversations/%d/messages", anonGame.ID, anonConversation.ID), nil)
+		gmReq.Header.Set("Authorization", "Bearer "+anonGMToken)
+		gmRec := httptest.NewRecorder()
+		router.ServeHTTP(gmRec, gmReq)
+
+		assert.Equal(t, http.StatusOK, gmRec.Code)
+
+		var gmResponse map[string]interface{}
+		err = json.Unmarshal(gmRec.Body.Bytes(), &gmResponse)
+		require.NoError(t, err)
+
+		gmMessages := gmResponse["messages"].([]interface{})
+		require.Len(t, gmMessages, 1)
+		gmMsg := gmMessages[0].(map[string]interface{})
+		assert.Equal(t, "anongm", gmMsg["sender_username"], "GM should still see usernames in an anonymous game")
 	})
 }
 
