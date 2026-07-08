@@ -752,7 +752,7 @@ func TestConversationAPI_GetConversationMessages(t *testing.T) {
 		gmMessages := gmResponse["messages"].([]interface{})
 		require.Len(t, gmMessages, 1)
 		gmMsg := gmMessages[0].(map[string]interface{})
-		assert.Equal(t, "anongm", gmMsg["sender_username"], "GM should still see usernames in an anonymous game")
+		assert.Equal(t, anonGM.Username, gmMsg["sender_username"], "GM should still see usernames in an anonymous game")
 	})
 }
 
