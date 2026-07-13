@@ -22,6 +22,9 @@ export function FontSizeApplier() {
 
   useEffect(() => {
     document.documentElement.style.setProperty('--font-scale', FONT_SCALE[fontSize]);
+    return () => {
+      document.documentElement.style.removeProperty('--font-scale');
+    };
   }, [fontSize]);
 
   return null;

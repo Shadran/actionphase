@@ -6,13 +6,14 @@ import type { UserPreferences, CommentReadMode, FontSize } from '../lib/api/auth
  * Hook to fetch the current user's preferences from the server.
  * Uses a long staleTime since preferences rarely change.
  */
-export function useUserPreferences() {
+export function useUserPreferences(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['userPreferences'],
     queryFn: async () => {
       const response = await apiClient.auth.getPreferences();
       return response.data.preferences as UserPreferences;
     },
+    enabled: options?.enabled,
     staleTime: 10 * 60 * 1000, // 10 minutes
     // Supply defaults while loading so consumers can rely on the shape
     placeholderData: {
@@ -55,7 +56,7 @@ export function useCommentReadMode(): CommentReadMode {
  * Convenience hook returning the user's font size preference.
  * Defaults to 'medium' while loading.
  */
-export function useFontSize(): FontSize {
-  const { data } = useUserPreferences();
+export function useFontSize(options?: { enabled?: boolean }): FontSize {
+  const { data } = useUserPreferences(options);
   return data?.font_size ?? 'medium';
 }

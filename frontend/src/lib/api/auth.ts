@@ -9,7 +9,7 @@ import type {
   User
 } from '../../types/auth';
 
-type Theme = 'light' | 'dark' | 'auto';
+type Theme = 'light' | 'dark' | 'highContrast' | 'highContrastDark' | 'colorblind' | 'auto';
 export type CommentReadMode = 'auto' | 'manual';
 export type FontSize = 'small' | 'medium' | 'large';
 

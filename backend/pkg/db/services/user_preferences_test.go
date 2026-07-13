@@ -145,7 +145,7 @@ func TestUserPreferencesService_UpdateUserPreferences_ValidThemes(t *testing.T) 
 	require.NoError(t, err)
 
 	// Test all valid theme values
-	validThemes := []string{"light", "dark", "auto"}
+	validThemes := []string{"light", "dark", "highContrast", "highContrastDark", "colorblind", "auto"}
 
 	for _, theme := range validThemes {
 		t.Run(theme, func(t *testing.T) {
@@ -321,4 +321,51 @@ func TestUserPreferencesService_FontSize_InvalidValue(t *testing.T) {
 			assert.Contains(t, err.Error(), "invalid font_size")
 		})
 	}
+}
+
+func TestUserPreferencesService_UpdateUserPreferences_PreservesDiscordNotificationsWhenOmitted(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping database test in short mode")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "user_preferences", "users")
+
+	service := NewUserPreferencesService(testDB.Pool)
+	ctx := context.Background()
+
+	queries := models.New(testDB.Pool)
+	user, err := queries.CreateUser(ctx, models.CreateUserParams{
+		Username: "prefs_merge_user",
+		Email:    "prefs_merge@example.com",
+		Password: "testpass",
+	})
+	require.NoError(t, err)
+
+	// Save Discord notification preferences.
+	_, err = service.UpdateUserPreferences(ctx, user.ID, PreferencesData{
+		Theme:                "auto",
+		CommentReadMode:      "manual",
+		FontSize:             "medium",
+		DiscordNotifications: map[string]bool{"private_message": true},
+	})
+	require.NoError(t, err)
+
+	// Later, change only the font size (as SettingsPage does) without
+	// resending discord_notifications — it must not be wiped out.
+	updated, err := service.UpdateUserPreferences(ctx, user.ID, PreferencesData{
+		Theme:           "auto",
+		CommentReadMode: "manual",
+		FontSize:        "large",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "large", updated.FontSize)
+	assert.Equal(t, map[string]bool{"private_message": true}, updated.DiscordNotifications,
+		"discord_notifications should be preserved when the update payload omits it")
+
+	retrieved, err := service.GetUserPreferences(ctx, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]bool{"private_message": true}, retrieved.DiscordNotifications,
+		"discord_notifications should still be persisted after an unrelated preference update")
 }
