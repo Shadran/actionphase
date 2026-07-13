@@ -9,6 +9,7 @@ import { AdminModeProvider } from './contexts/AdminModeContext';
 import { GameProvider } from './contexts/GameContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { FontSizeApplier } from './components/FontSizeApplier';
 import { logger } from '@/services/LoggingService';
 
 // Lazy load Layout and all page components for better code splitting
@@ -90,8 +91,10 @@ function GamePageSkeleton() {
 
 // Root layout: wraps every route with the shared Layout + Suspense
 function RootLayout() {
+  const { isAuthenticated } = useAuth();
   return (
     <Layout>
+      {isAuthenticated && <FontSizeApplier />}
       <Suspense fallback={<PageLoader />}>
         <Outlet />
       </Suspense>
