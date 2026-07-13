@@ -239,3 +239,86 @@ func TestUserPreferencesService_CommentReadMode_InvalidValue(t *testing.T) {
 		})
 	}
 }
+
+func TestUserPreferencesService_FontSize_Default(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping database test in short mode")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "user_preferences", "users")
+
+	service := NewUserPreferencesService(testDB.Pool)
+	ctx := context.Background()
+
+	queries := models.New(testDB.Pool)
+	user, err := queries.CreateUser(ctx, models.CreateUserParams{
+		Username: "fontsize_default_user",
+		Email:    "fontsize_default@example.com",
+		Password: "testpass",
+	})
+	require.NoError(t, err)
+
+	// Preferences never set — should default to "medium"
+	prefs, err := service.GetUserPreferences(ctx, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "medium", prefs.FontSize, "default font_size should be 'medium'")
+}
+
+func TestUserPreferencesService_FontSize_ValidValues(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping database test in short mode")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "user_preferences", "users")
+
+	service := NewUserPreferencesService(testDB.Pool)
+	ctx := context.Background()
+
+	queries := models.New(testDB.Pool)
+	user, err := queries.CreateUser(ctx, models.CreateUserParams{
+		Username: "fontsize_valid_user",
+		Email:    "fontsize_valid@example.com",
+		Password: "testpass",
+	})
+	require.NoError(t, err)
+
+	for _, size := range []string{"small", "medium", "large"} {
+		t.Run(size, func(t *testing.T) {
+			prefs := PreferencesData{Theme: "auto", CommentReadMode: "manual", FontSize: size}
+			updated, err := service.UpdateUserPreferences(ctx, user.ID, prefs)
+			require.NoError(t, err, "should accept valid font_size: %s", size)
+			assert.Equal(t, size, updated.FontSize)
+
+			// Verify it persisted
+			retrieved, err := service.GetUserPreferences(ctx, user.ID)
+			require.NoError(t, err)
+			assert.Equal(t, size, retrieved.FontSize)
+		})
+	}
+}
+
+func TestUserPreferencesService_FontSize_InvalidValue(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping database test in short mode")
+	}
+
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "user_preferences", "users")
+
+	service := NewUserPreferencesService(testDB.Pool)
+	ctx := context.Background()
+
+	for _, size := range []string{"huge", "Small", "MEDIUM", "extra-large"} {
+		t.Run(size, func(t *testing.T) {
+			prefs := PreferencesData{Theme: "auto", CommentReadMode: "manual", FontSize: size}
+			_, err := service.UpdateUserPreferences(ctx, 1, prefs)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid font_size")
+		})
+	}
+}

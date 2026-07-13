@@ -38,6 +38,7 @@ func (s *UserPreferencesService) GetUserPreferences(ctx context.Context, userID 
 		return &PreferencesData{
 			Theme:           "auto",
 			CommentReadMode: "manual",
+			FontSize:        "medium",
 		}, nil
 	}
 
@@ -54,6 +55,9 @@ func (s *UserPreferencesService) GetUserPreferences(ctx context.Context, userID 
 	if data.CommentReadMode == "" {
 		data.CommentReadMode = "manual"
 	}
+	if data.FontSize == "" {
+		data.FontSize = "medium"
+	}
 
 	return &data, nil
 }
@@ -67,6 +71,9 @@ func (s *UserPreferencesService) UpdateUserPreferences(ctx context.Context, user
 	if prefs.CommentReadMode == "" {
 		prefs.CommentReadMode = "manual"
 	}
+	if prefs.FontSize == "" {
+		prefs.FontSize = "medium"
+	}
 
 	// Validate theme value
 	validThemes := map[string]bool{"light": true, "dark": true, "auto": true}
@@ -78,6 +85,12 @@ func (s *UserPreferencesService) UpdateUserPreferences(ctx context.Context, user
 	validReadModes := map[string]bool{"auto": true, "manual": true}
 	if !validReadModes[prefs.CommentReadMode] {
 		return nil, fmt.Errorf("invalid comment_read_mode value: must be 'auto' or 'manual'")
+	}
+
+	// Validate font_size value
+	validFontSizes := map[string]bool{"small": true, "medium": true, "large": true}
+	if !validFontSizes[prefs.FontSize] {
+		return nil, fmt.Errorf("invalid font_size value: must be 'small', 'medium', or 'large'")
 	}
 
 	// Validate discord_notifications keys (if provided)
