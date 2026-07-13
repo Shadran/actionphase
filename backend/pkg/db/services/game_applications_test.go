@@ -922,6 +922,79 @@ func TestGameApplicationService_RemovedParticipantCanApplyAsAudience(t *testing.
 	})
 }
 
+func TestGameApplicationService_ApproveAudienceApplicationDeletesIt(t *testing.T) {
+	// Root-cause regression test: approving an audience application must create the
+	// participant AND delete the application row, so an approved audience member exists
+	// only as a participant. Previously the row was left as 'approved', which went stale
+	// when the member later left and broke re-apply / withdraw / the UI. A player
+	// application, by contrast, must survive approval (it isn't converted to a participant
+	// until recruitment closes).
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+
+	service := &GameApplicationService{DB: testDB.Pool}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+	_, err := gameService.UpdateGameState(context.Background(), game.ID, core.GameStateRecruitment)
+	require.NoError(t, err)
+
+	t.Run("approving an audience application deletes it and creates an active participant", func(t *testing.T) {
+		audienceUser := testDB.CreateTestUser(t, "audience_user", "audience@example.com")
+		application, err := service.CreateGameApplication(context.Background(), core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(audienceUser.ID),
+			Role:   core.RoleAudience,
+		})
+		require.NoError(t, err)
+
+		err = service.ApproveGameApplication(context.Background(), application.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		// Application row is gone
+		_, err = service.GetGameApplication(context.Background(), application.ID)
+		require.Error(t, err, "approved audience application should be deleted")
+
+		// Participant row exists and is active
+		var status string
+		err = testDB.Pool.QueryRow(context.Background(),
+			`SELECT status FROM game_participants WHERE game_id = $1 AND user_id = $2 AND role = 'audience'`,
+			game.ID, audienceUser.ID,
+		).Scan(&status)
+		require.NoError(t, err)
+		assert.Equal(t, "active", status)
+	})
+
+	t.Run("approving a player application keeps it (converted to participant later)", func(t *testing.T) {
+		playerUser := testDB.CreateTestUser(t, "player_user", "player@example.com")
+		application, err := service.CreateGameApplication(context.Background(), core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(playerUser.ID),
+			Role:   core.RolePlayer,
+		})
+		require.NoError(t, err)
+
+		err = service.ApproveGameApplication(context.Background(), application.ID, int32(gm.ID))
+		require.NoError(t, err)
+
+		// Player application row survives, marked approved
+		retrieved, err := service.GetGameApplication(context.Background(), application.ID)
+		require.NoError(t, err, "approved player application should not be deleted")
+		assert.Equal(t, core.ApplicationStatusApproved, retrieved.Status.String)
+
+		// No participant row yet (created only at recruitment close)
+		var count int
+		err = testDB.Pool.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM game_participants WHERE game_id = $1 AND user_id = $2`,
+			game.ID, playerUser.ID,
+		).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "player should not become a participant until recruitment closes")
+	})
+}
+
 func TestGameApplicationService_LeftAudienceMemberCanReapply(t *testing.T) {
 	// Regression test: a user who applied to the audience, was approved (creating an
 	// 'approved' game_applications row plus an active game_participants row), and then

@@ -80,12 +80,17 @@ export function GameActions({
   const hasDeleteAction = isGM && game.state === 'cancelled' && onDeleteGame;
   const hasMenuItems = hasEditAction || hasStateActions || hasDeleteAction;
 
-  // An approved/rejected application only reflects a real, unresolved state while the user
-  // is still in the game. If they've since left (!isInGame), it's a stale leftover record —
-  // e.g. an approved audience application whose participant record was later removed when
-  // the user left. Treat it as if there's no application at all: don't let it block re-applying,
-  // and let it be withdrawn/cleared like a pending one would be.
-  const isStaleApplication = !!userApplication && !isInGame && userApplication.status !== 'pending';
+  // A stale application is a leftover 'approved' record with no active membership behind it —
+  // e.g. (for accounts affected before the backend fix that now deletes an audience application
+  // on approval) an approved audience row left behind after the member left. It represents no
+  // real relationship, so treat it as if there's no application: don't let it block re-applying,
+  // and let it be withdrawn/cleared.
+  //
+  // A 'rejected' application is NOT stale — it's a terminal GM decision. It must keep blocking
+  // re-applying (otherwise a rejected user could re-apply repeatedly) and must not be withdrawable
+  // (a user cannot un-reject themselves). The backend enforces both; we mirror it here so the UI
+  // never offers an action that would just fail.
+  const isStaleApplication = !!userApplication && !isInGame && userApplication.status === 'approved';
   const hasBlockingApplication = !!userApplication && !isStaleApplication;
 
   // Player action buttons (always visible when applicable)

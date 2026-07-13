@@ -199,7 +199,16 @@ func (gas *GameApplicationService) ApproveGameApplication(ctx context.Context, a
 
 	// For audience applications, create participant immediately
 	// Audience members can apply at any time (not just during recruitment),
-	// so they should become participants as soon as approved
+	// so they should become participants as soon as approved.
+	//
+	// Once the participant exists, the application record has served its purpose and
+	// is deleted: approved audience members should exist ONLY as participants, never
+	// as a lingering 'approved' application. This matches the two other approval paths
+	// (auto-accept in games.ApplyToGame, and recruitment-close in
+	// ConvertApprovedApplicationsToParticipants), both of which already delete the
+	// audience application after creating the participant. Leaving it behind is what
+	// caused stale 'approved' rows that blocked re-applying, broke withdrawal, and
+	// showed contradictory UI after a member left.
 	if application.Role == core.RoleAudience {
 		_, err = queries.AddGameParticipant(ctx, models.AddGameParticipantParams{
 			GameID: application.GameID,
@@ -208,6 +217,13 @@ func (gas *GameApplicationService) ApproveGameApplication(ctx context.Context, a
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create participant from audience application: %w", err)
+		}
+
+		if err = queries.DeleteGameApplication(ctx, models.DeleteGameApplicationParams{
+			ID:     applicationID,
+			UserID: application.UserID,
+		}); err != nil {
+			return fmt.Errorf("failed to delete audience application after creating participant: %w", err)
 		}
 	}
 

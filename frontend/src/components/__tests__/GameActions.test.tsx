@@ -131,3 +131,54 @@ describe('GameActions - stale application after leaving (regression)', () => {
     expect(screen.getByTestId('withdraw-application-button')).toBeInTheDocument();
   });
 });
+
+describe('GameActions - rejected application is terminal, not stale', () => {
+  // A rejection is a terminal GM decision, not a stale leftover. A rejected user must not be
+  // able to re-apply (they'd just re-apply repeatedly) or withdraw the rejection (they can't
+  // un-reject themselves). The backend enforces this; the UI must not offer either action.
+  const rejectedApplication: GameApplication = {
+    id: 1,
+    game_id: baseGame.id,
+    user_id: 42,
+    role: 'audience',
+    status: 'rejected',
+    applied_at: '2024-01-01T00:00:00Z',
+  };
+
+  it('does not show Withdraw button for a rejected application', () => {
+    render(
+      <GameActions
+        {...defaultProps}
+        isInGame={false}
+        userApplication={rejectedApplication}
+        game={{ ...baseGame, state: 'in_progress' }}
+      />
+    );
+    expect(screen.queryByTestId('withdraw-application-button')).not.toBeInTheDocument();
+  });
+
+  it('does not show Join as Audience button for a rejected application', () => {
+    render(
+      <GameActions
+        {...defaultProps}
+        isInGame={false}
+        userApplication={rejectedApplication}
+        game={{ ...baseGame, state: 'in_progress' }}
+      />
+    );
+    expect(screen.queryByTestId('join-as-audience-button')).not.toBeInTheDocument();
+  });
+
+  it('does not show Apply button for a rejected application during recruitment', () => {
+    render(
+      <GameActions
+        {...defaultProps}
+        isInGame={false}
+        userApplication={rejectedApplication}
+        game={{ ...baseGame, state: 'recruitment' }}
+      />
+    );
+    expect(screen.queryByTestId('apply-button-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('withdraw-application-button')).not.toBeInTheDocument();
+  });
+});
