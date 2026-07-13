@@ -80,14 +80,23 @@ export function GameActions({
   const hasDeleteAction = isGM && game.state === 'cancelled' && onDeleteGame;
   const hasMenuItems = hasEditAction || hasStateActions || hasDeleteAction;
 
+  // An approved/rejected application only reflects a real, unresolved state while the user
+  // is still in the game. If they've since left (!isInGame), it's a stale leftover record —
+  // e.g. an approved audience application whose participant record was later removed when
+  // the user left. Treat it as if there's no application at all: don't let it block re-applying,
+  // and let it be withdrawn/cleared like a pending one would be.
+  const isStaleApplication = !!userApplication && !isInGame && userApplication.status !== 'pending';
+  const hasBlockingApplication = !!userApplication && !isStaleApplication;
+
   // Player action buttons (always visible when applicable)
-  const showApplyButton = !isGM && !isCheckingAuth && !isInGame && game.state === 'recruitment' && !userApplication;
-  const showWithdrawButton = !isGM && userApplication && userApplication.status === 'pending' && game.state === 'recruitment';
+  const showApplyButton = !isGM && !isCheckingAuth && !isInGame && game.state === 'recruitment' && !hasBlockingApplication;
+  const showWithdrawButton = !isGM && userApplication &&
+    ((userApplication.status === 'pending' && game.state === 'recruitment') || isStaleApplication);
 
   // Audience can join during active game phases, but not after completion (completed games are open to all)
   const showJoinAsAudienceButton = !isGM && !isCheckingAuth && !isInGame &&
     (game.state === 'character_creation' || game.state === 'in_progress') &&
-    !userApplication;
+    !hasBlockingApplication;
 
   const showPlayerActions = slot === 'all' || slot === 'player-actions';
   const showMenuActions = slot === 'all' || slot === 'menu-actions';

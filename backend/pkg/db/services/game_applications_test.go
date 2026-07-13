@@ -922,6 +922,72 @@ func TestGameApplicationService_RemovedParticipantCanApplyAsAudience(t *testing.
 	})
 }
 
+func TestGameApplicationService_LeftAudienceMemberCanReapply(t *testing.T) {
+	// Regression test: a user who applied to the audience, was approved (creating an
+	// 'approved' game_applications row plus an active game_participants row), and then
+	// left the game was permanently blocked from re-applying. LeaveGame only deletes
+	// 'pending' applications, so the stale 'approved' row remained and its UNIQUE(game_id,
+	// user_id) constraint caused CreateGameApplication's plain INSERT to fail on re-apply.
+	testDB := core.NewTestDatabase(t)
+	app := core.NewTestApp(testDB.Pool)
+	defer testDB.Close()
+
+	service := &GameApplicationService{DB: testDB.Pool}
+	gameService := &GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gm", "gm@example.com")
+	user := testDB.CreateTestUser(t, "user", "user@example.com")
+
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Test Game")
+
+	// Simulate the prod scenario directly at the DB level: an approved audience
+	// application whose participant was later removed (i.e. the user left).
+	_, err := testDB.Pool.Exec(context.Background(),
+		`INSERT INTO game_applications (game_id, user_id, role, status) VALUES ($1, $2, 'audience', 'approved')`,
+		game.ID, user.ID,
+	)
+	require.NoError(t, err)
+	testDB.AddTestGameParticipant(t, game.ID, int32(user.ID), core.RoleAudience)
+	_, err = testDB.Pool.Exec(context.Background(),
+		`UPDATE game_participants SET status = 'removed', removed_at = NOW() WHERE game_id = $1 AND user_id = $2`,
+		game.ID, user.ID,
+	)
+	require.NoError(t, err)
+
+	t.Run("user can re-apply to audience after leaving", func(t *testing.T) {
+		req := core.CreateGameApplicationRequest{
+			GameID: game.ID,
+			UserID: int32(user.ID),
+			Role:   core.RoleAudience,
+		}
+
+		application, err := service.CreateGameApplication(context.Background(), req)
+
+		require.NoError(t, err, "stale approved application should not block re-applying")
+		assert.Equal(t, core.RoleAudience, application.Role)
+	})
+
+	t.Run("stale approved application does not block an active member from being blocked", func(t *testing.T) {
+		activeUser := testDB.CreateTestUser(t, "active_user", "active@example.com")
+		_, err := testDB.Pool.Exec(context.Background(),
+			`INSERT INTO game_applications (game_id, user_id, role, status) VALUES ($1, $2, 'audience', 'approved')`,
+			game.ID, activeUser.ID,
+		)
+		require.NoError(t, err)
+		testDB.AddTestGameParticipant(t, game.ID, int32(activeUser.ID), core.RoleAudience)
+
+		err = service.DeleteStaleApprovedApplicationForUser(context.Background(), game.ID, int32(activeUser.ID))
+		require.NoError(t, err)
+
+		// The application row must still exist since the participant is still active
+		retrieved, err := service.GetGameApplicationByUserAndGame(context.Background(), game.ID, int32(activeUser.ID))
+		require.NoError(t, err)
+		assert.Equal(t, core.ApplicationStatusApproved, retrieved.Status.String)
+
+		_ = gameService.RemovePlayer(context.Background(), game.ID, int32(activeUser.ID), int32(activeUser.ID))
+	})
+}
+
 func TestAddGameParticipant_ReactivatesRemovedRecord(t *testing.T) {
 	// Regression test: AddGameParticipant used a plain INSERT which would fail with a
 	// unique constraint violation when a removed participant record already existed.

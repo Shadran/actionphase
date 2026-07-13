@@ -506,17 +506,28 @@ func (h *Handler) WithdrawGameApplication(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Only allow withdrawal of pending applications
-	if application.Status.String != core.ApplicationStatusPending {
+	if application.Status.String == core.ApplicationStatusPending {
+		// Delete the application instead of marking as withdrawn
+		// This allows users to reapply if they change their mind
+		err = applicationService.DeleteGameApplication(ctx, application.ID, userID)
+		if err != nil {
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete application", "error", err, "application_id", application.ID)
+			return
+		}
+	} else if application.Status.String == core.ApplicationStatusApproved && application.Role == core.RoleAudience {
+		// Audience applications (unlike player applications) create a game_participants row
+		// immediately on approval. If that participant later left/was removed, the 'approved'
+		// application row becomes stale — it no longer represents any live membership, so allow
+		// withdrawal to clear it rather than forcing a 400 the user has no way to resolve.
+		// DeleteStaleApprovedApplicationForUser only removes it if the user is NOT currently
+		// an active participant, so a genuinely active audience membership is never touched.
+		err = applicationService.DeleteStaleApprovedApplicationForUser(ctx, int32(gameID), userID)
+		if err != nil {
+			h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete stale application", "error", err, "application_id", application.ID)
+			return
+		}
+	} else {
 		h.renderError(ctx, w, r, core.ErrBadRequest(fmt.Errorf("can only withdraw pending applications")), "Bad withdraw game application request")
-		return
-	}
-
-	// Delete the application instead of marking as withdrawn
-	// This allows users to reapply if they change their mind
-	err = applicationService.DeleteGameApplication(ctx, application.ID, userID)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to delete application", "error", err, "application_id", application.ID)
 		return
 	}
 

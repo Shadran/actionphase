@@ -176,6 +176,128 @@ func TestGameAPI_ApplicationManagement(t *testing.T) {
 	})
 }
 
+// TestGameAPI_AudienceMemberCanRejoinAfterLeaving is a regression test for a production bug:
+// a user applied to a game's audience, was approved (which creates a game_participants row
+// immediately, unlike player applications), then left the game via /leave. LeaveGame only
+// deletes 'pending' applications, so the now-stale 'approved' game_applications row was left
+// behind. Its UNIQUE(game_id, user_id) constraint then made every subsequent re-apply attempt
+// fail with an internal error, and WithdrawGameApplication rejected it with 400 because its
+// status wasn't 'pending' — leaving the user with no way to fix their own account.
+func TestGameAPI_AudienceMemberCanRejoinAfterLeaving(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+
+	testDB.CleanupTables(t, "game_applications", "game_participants", "games", "sessions", "users")
+	defer testDB.CleanupTables(t, "game_applications", "game_participants", "games", "sessions", "users")
+
+	app := core.NewTestApp(testDB.Pool)
+	router := setupGameTestRouter(app, testDB)
+	fixtures := testDB.SetupFixtures(t)
+
+	gmToken, err := core.CreateTestJWTTokenForUser(app, fixtures.TestUser)
+	core.AssertNoError(t, err, "GM token creation should succeed")
+
+	userService := &db.UserService{DB: testDB.Pool, Logger: app.ObsLogger}
+	audienceUser, err := userService.CreateUser(&core.User{
+		Username: "rejoin_audience_user",
+		Password: "testpass123",
+		Email:    "rejoin_audience@example.com",
+	})
+	core.AssertNoError(t, err, "Audience user creation should succeed")
+
+	audienceToken, err := core.CreateTestJWTTokenForUser(app, audienceUser)
+	core.AssertNoError(t, err, "Audience token creation should succeed")
+
+	gameService := &db.GameService{DB: testDB.Pool, Logger: app.ObsLogger}
+	game, err := gameService.CreateGame(context.Background(), core.CreateGameRequest{
+		Title:       "Test Game for Audience Rejoin",
+		Description: "Testing audience leave/reapply",
+		GMUserID:    int32(fixtures.TestUser.ID),
+		IsPublic:    true,
+	})
+	core.AssertNoError(t, err, "Game creation should succeed")
+
+	applyBody, _ := json.Marshal(map[string]string{"role": "audience"})
+	applyReq := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/apply", bytes.NewBuffer(applyBody))
+	applyReq.Header.Set("Content-Type", "application/json")
+	applyReq.Header.Set("Authorization", "Bearer "+audienceToken)
+	applyW := httptest.NewRecorder()
+	router.ServeHTTP(applyW, applyReq)
+	core.AssertEqual(t, 201, applyW.Code, "Initial audience application should succeed")
+
+	var application GameApplicationResponse
+	err = json.Unmarshal(applyW.Body.Bytes(), &application)
+	core.AssertNoError(t, err, "Application response should be valid JSON")
+
+	approvePayload := map[string]string{"action": "approve"}
+	approveBytes, _ := json.Marshal(approvePayload)
+	approveReq := httptest.NewRequest("PUT", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/applications/"+strconv.Itoa(int(application.ID))+"/review", bytes.NewBuffer(approveBytes))
+	approveReq.Header.Set("Content-Type", "application/json")
+	approveReq.Header.Set("Authorization", "Bearer "+gmToken)
+	approveW := httptest.NewRecorder()
+	router.ServeHTTP(approveW, approveReq)
+	core.AssertEqual(t, 200, approveW.Code, "Audience application approval should succeed")
+
+	leaveReq := httptest.NewRequest("DELETE", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/leave", nil)
+	leaveReq.Header.Set("Authorization", "Bearer "+audienceToken)
+	leaveW := httptest.NewRecorder()
+	router.ServeHTTP(leaveW, leaveReq)
+	core.AssertEqual(t, 204, leaveW.Code, "Leaving the game should succeed")
+
+	t.Run("user can re-apply to audience after leaving", func(t *testing.T) {
+		reapplyReq := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/apply", bytes.NewBuffer(applyBody))
+		reapplyReq.Header.Set("Content-Type", "application/json")
+		reapplyReq.Header.Set("Authorization", "Bearer "+audienceToken)
+		reapplyW := httptest.NewRecorder()
+		router.ServeHTTP(reapplyW, reapplyReq)
+
+		core.AssertEqual(t, 201, reapplyW.Code, "Re-applying to audience after leaving should succeed, not fail on a stale approved application")
+	})
+
+	t.Run("stale approved application can also be withdrawn directly", func(t *testing.T) {
+		// Simulate the same stale-row scenario but resolve it via withdraw instead of apply.
+		otherUser, err := userService.CreateUser(&core.User{
+			Username: "withdraw_stale_audience_user",
+			Password: "testpass123",
+			Email:    "withdraw_stale_audience@example.com",
+		})
+		core.AssertNoError(t, err, "User creation should succeed")
+		otherToken, err := core.CreateTestJWTTokenForUser(app, otherUser)
+		core.AssertNoError(t, err, "Token creation should succeed")
+
+		applyReq2 := httptest.NewRequest("POST", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/apply", bytes.NewBuffer(applyBody))
+		applyReq2.Header.Set("Content-Type", "application/json")
+		applyReq2.Header.Set("Authorization", "Bearer "+otherToken)
+		applyW2 := httptest.NewRecorder()
+		router.ServeHTTP(applyW2, applyReq2)
+		core.AssertEqual(t, 201, applyW2.Code, "Application should succeed")
+
+		var application2 GameApplicationResponse
+		err = json.Unmarshal(applyW2.Body.Bytes(), &application2)
+		core.AssertNoError(t, err, "Application response should be valid JSON")
+
+		approveReq2 := httptest.NewRequest("PUT", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/applications/"+strconv.Itoa(int(application2.ID))+"/review", bytes.NewBuffer(approveBytes))
+		approveReq2.Header.Set("Content-Type", "application/json")
+		approveReq2.Header.Set("Authorization", "Bearer "+gmToken)
+		approveW2 := httptest.NewRecorder()
+		router.ServeHTTP(approveW2, approveReq2)
+		core.AssertEqual(t, 200, approveW2.Code, "Approval should succeed")
+
+		leaveReq2 := httptest.NewRequest("DELETE", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/leave", nil)
+		leaveReq2.Header.Set("Authorization", "Bearer "+otherToken)
+		leaveW2 := httptest.NewRecorder()
+		router.ServeHTTP(leaveW2, leaveReq2)
+		core.AssertEqual(t, 204, leaveW2.Code, "Leaving should succeed")
+
+		withdrawReq := httptest.NewRequest("DELETE", "/api/v1/games/"+strconv.Itoa(int(game.ID))+"/application", nil)
+		withdrawReq.Header.Set("Authorization", "Bearer "+otherToken)
+		withdrawW := httptest.NewRecorder()
+		router.ServeHTTP(withdrawW, withdrawReq)
+
+		core.AssertEqual(t, 204, withdrawW.Code, "Withdrawing the stale approved application should succeed instead of returning 400")
+	})
+}
+
 // TestGameAPI_ParticipantManagementAdvanced tests GM participant management
 // Covers: AddParticipantDirectly (player and audience roles), RemovePlayer
 func TestGameAPI_ParticipantManagementAdvanced(t *testing.T) {
