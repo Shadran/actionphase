@@ -612,6 +612,28 @@ func (cs *CharacterService) GetCharacterActivityStats(ctx context.Context, chara
 	}, nil
 }
 
+// GetCharacterActivityStatsByGame returns activity stats for every character in a
+// game, keyed by character ID, in a single query. Characters with no messages of
+// either kind are still present in the result with zero counts.
+func (cs *CharacterService) GetCharacterActivityStatsByGame(ctx context.Context, gameID int32) (map[int32]*core.CharacterActivityStats, error) {
+	queries := models.New(cs.DB)
+	rows, err := queries.GetCharacterActivityStatsByGame(ctx, gameID)
+	if err != nil {
+		cs.Logger.LogError(ctx, err, "Failed to get character activity stats by game", "game_id", gameID)
+		return nil, err
+	}
+
+	statsByCharacterID := make(map[int32]*core.CharacterActivityStats, len(rows))
+	for _, row := range rows {
+		row := row
+		statsByCharacterID[row.CharacterID] = &core.CharacterActivityStats{
+			PublicMessages:  row.PublicMessages,
+			PrivateMessages: &row.PrivateMessages,
+		}
+	}
+	return statsByCharacterID, nil
+}
+
 // AssignNPCToAudience assigns an NPC character to an audience member
 // Creates or updates the NPC assignment record
 func (cs *CharacterService) AssignNPCToAudience(ctx context.Context, characterID, assignedUserID, assignedByUserID int32) (*models.NpcAssignment, error) {

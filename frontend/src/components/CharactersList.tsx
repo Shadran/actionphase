@@ -3,8 +3,8 @@ import { useUrlParam } from '../hooks/useUrlParam';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
-import { useCharacterStats } from '../hooks/useCharacterStats';
-import type { Character } from '../types/characters';
+import { useGameCharacterStats } from '../hooks/useCharacterStats';
+import type { Character, CharacterActivityStats as CharacterActivityStatsData } from '../types/characters';
 import { CharacterActivityStats } from './CharacterActivityStats';
 import { useGameContext } from '../contexts/GameContext';
 import { CreateCharacterModal } from './CreateCharacterModal';
@@ -48,6 +48,10 @@ export function CharactersList({
 
   // Read from GameContext — single source of truth for all game characters
   const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters } = useGameContext();
+
+  // Fetch stats for the whole roster in one request rather than letting each
+  // CharacterCard fetch its own (see useGameCharacterStats for why).
+  const { data: statsByCharacterId } = useGameCharacterStats(gameId);
 
   // Refresh characters when visiting the People tab (mount refresh)
   useEffect(() => {
@@ -260,6 +264,7 @@ export function CharactersList({
                           canViewSheet={canViewCharacterSheet(character)}
                           canEditSheet={canEditCharacterSheet(character)}
                           onViewSheet={() => setSelectedCharacterId(character.id)}
+                          stats={statsByCharacterId?.[String(character.id)]}
                         />
                       ))}
                     </div>
@@ -286,6 +291,7 @@ export function CharactersList({
                       canViewSheet={canViewCharacterSheet(character)}
                       canEditSheet={canEditCharacterSheet(character)}
                       onViewSheet={() => setSelectedCharacterId(character.id)}
+                      stats={statsByCharacterId?.[String(character.id)]}
                     />
                   ))}
                 </div>
@@ -313,6 +319,7 @@ export function CharactersList({
                           canViewSheet={canViewCharacterSheet(character)}
                           canEditSheet={canEditCharacterSheet(character)}
                           onViewSheet={() => setSelectedCharacterId(character.id)}
+                          stats={statsByCharacterId?.[String(character.id)]}
                         />
                       ))}
                     </div>
@@ -341,6 +348,7 @@ export function CharactersList({
                           onViewSheet={() => {
                       setSelectedCharacterId(character.id);
                     }}
+                          stats={statsByCharacterId?.[String(character.id)]}
                         />
                       ))}
                     </div>
@@ -369,6 +377,7 @@ export function CharactersList({
                           onViewSheet={() => {
                       setSelectedCharacterId(character.id);
                     }}
+                          stats={statsByCharacterId?.[String(character.id)]}
                         />
                       ))}
                     </div>
@@ -509,6 +518,7 @@ interface CharacterCardProps {
   canViewSheet: boolean;
   canEditSheet: boolean;
   onViewSheet: () => void;
+  stats?: CharacterActivityStatsData;
 }
 
 function CharacterCard({
@@ -523,7 +533,8 @@ function CharacterCard({
   getStatusBadgeVariant,
   canViewSheet,
   canEditSheet,
-  onViewSheet
+  onViewSheet,
+  stats
 }: CharacterCardProps) {
   const navigate = useNavigate();
   const { game } = useGameContext();
@@ -531,7 +542,7 @@ function CharacterCard({
 
   // Show stats for GMs, audience, owners, or anyone in a completed game
   const canViewStats = isOwner || userRole === 'gm' || userRole === 'co_gm' || userRole === 'audience' || gameState === 'completed';
-  const { data: statsData } = useCharacterStats(canViewStats ? character.id : undefined);
+  const statsData = canViewStats ? stats : undefined;
 
   return (
     <div className="border border-theme-default rounded-lg p-3 md:p-4 surface-base hover:shadow-sm transition-shadow" data-testid="character-card">

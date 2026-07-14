@@ -120,21 +120,25 @@ function RootLayout() {
   );
 }
 
+// These render the public page immediately instead of blocking on the /auth/me
+// check (isCheckingAuth) first. Blocking added ~2.3s to FCP on /login alone,
+// since /auth/me always fires here and always 401s for the logged-out users
+// who make up the vast majority of visits to these routes. An already-
+// authenticated user hitting one of these URLs sees a brief flash of the
+// public page before this redirects them once the check resolves — an
+// acceptable tradeoff for a rare case, versus a slow first paint for everyone.
 function AuthGatedLogin() {
-  const { isAuthenticated, isCheckingAuth } = useAuth();
-  if (isCheckingAuth) return null;
+  const { isAuthenticated } = useAuth();
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />;
 }
 
 function AuthGatedForgotPassword() {
-  const { isAuthenticated, isCheckingAuth } = useAuth();
-  if (isCheckingAuth) return null;
+  const { isAuthenticated } = useAuth();
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPasswordPage />;
 }
 
 function AuthGatedResetPassword() {
-  const { isAuthenticated, isCheckingAuth } = useAuth();
-  if (isCheckingAuth) return null;
+  const { isAuthenticated } = useAuth();
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPasswordPage />;
 }
 

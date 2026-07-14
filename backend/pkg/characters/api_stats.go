@@ -80,3 +80,71 @@ func (h *Handler) GetCharacterStats(w http.ResponseWriter, r *http.Request) {
 
 	render.Render(w, r, resp)
 }
+
+// GetGameCharacterStats returns activity stats for every character in a game in
+// one response, keyed by character ID. Replaces firing one GET .../stats request
+// per roster member from the frontend, which was bursting the DB connection pool
+// on rosters of 20+ characters (each request independently joins messages and
+// private_messages).
+//
+// Authorization for each character's private message count follows the same
+// rules as GetCharacterStats (owner, GM/co-GM, audience, or completed game).
+func (h *Handler) GetGameCharacterStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer h.App.ObsLogger.LogOperation(ctx, "api_get_game_character_stats")()
+
+	gameIDStr := chi.URLParam(r, "gameId")
+	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game character stats request")
+		return
+	}
+
+	gameService := h.GameService
+	game, err := gameService.GetGame(ctx, int32(gameID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrNotFound("game not found"), "Failed to get game for stats", "error", err, "game_id", gameID)
+		return
+	}
+
+	characterService := h.CharacterService
+	characters, err := characterService.GetCharactersByGame(ctx, int32(gameID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game characters for stats", "error", err, "game_id", gameID)
+		return
+	}
+
+	authUser := core.GetAuthenticatedUser(ctx)
+	var isGM, isAudience bool
+	if authUser != nil {
+		isGM = core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
+		isAudience = core.IsUserAudience(ctx, h.App.Pool, int32(gameID), authUser.ID)
+	}
+	isCompleted := game.State.String == "completed"
+
+	statsByCharacterID, err := characterService.GetCharacterActivityStatsByGame(ctx, int32(gameID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game character activity stats", "error", err, "game_id", gameID)
+		return
+	}
+
+	resp := make(map[string]*CharacterStatsResponse, len(characters))
+	for _, char := range characters {
+		stats, ok := statsByCharacterID[char.ID]
+		if !ok {
+			// No messages of either kind for this character.
+			stats = &core.CharacterActivityStats{}
+		}
+
+		isOwner := authUser != nil && char.UserID.Valid && char.UserID.Int32 == authUser.ID
+		canSeePrivate := isGM || isAudience || isCompleted || isOwner
+
+		charResp := &CharacterStatsResponse{PublicMessages: stats.PublicMessages}
+		if canSeePrivate {
+			charResp.PrivateMessages = stats.PrivateMessages
+		}
+		resp[strconv.Itoa(int(char.ID))] = charResp
+	}
+
+	render.JSON(w, r, resp)
+}
