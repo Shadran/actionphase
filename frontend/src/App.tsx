@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, Navigate, useParams, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useParams, useRouteError, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary, isChunkLoadError } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicArchiveRoute } from './components/PublicArchiveRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -39,6 +39,24 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// React Router's data router routes a render/loader error to the nearest
+// `errorElement` instead of walking up the React component tree, so a lazy
+// route chunk failing to load here never reaches ErrorBoundary's
+// componentDidCatch (and its chunk-load auto-reload) even though
+// ErrorBoundary wraps the whole router. This is the router-level counterpart:
+// same chunk-load detection, reload on match, otherwise re-throw so it still
+// surfaces through the normal error boundary / logging path.
+function RouteErrorElement() {
+  const error = useRouteError();
+
+  if (error instanceof Error && isChunkLoadError(error)) {
+    window.location.reload();
+    return null;
+  }
+
+  throw error;
+}
 
 // Loading fallback component
 function PageLoader() {
@@ -142,9 +160,14 @@ function GameDetailsPageWrapper() {
 }
 
 const router = createBrowserRouter([
-  { path: '/', element: <Suspense fallback={<PageLoader />}><HomePage /></Suspense> },
+  {
+    path: '/',
+    element: <Suspense fallback={<PageLoader />}><HomePage /></Suspense>,
+    errorElement: <RouteErrorElement />,
+  },
   {
     element: <RootLayout />,
+    errorElement: <RouteErrorElement />,
     children: [
       { path: '/community-guidelines', element: <CommunityGuidelinesPage /> },
       { path: '/login', element: <AuthGatedLogin /> },

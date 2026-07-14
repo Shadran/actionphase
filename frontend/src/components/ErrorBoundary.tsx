@@ -254,7 +254,7 @@ export function withErrorBoundary<P extends object>(
   return WrappedComponent;
 }
 
-function isChunkLoadError(error: Error): boolean {
+export function isChunkLoadError(error: Error): boolean {
   return (
     error.name === 'ChunkLoadError' ||
     error.message.includes('Failed to fetch dynamically imported module') ||
