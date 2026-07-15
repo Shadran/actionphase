@@ -540,9 +540,12 @@ function CharacterCard({
   const { game } = useGameContext();
   const portraitAvatars = game?.portrait_avatars ?? false;
 
-  // Show stats for GMs, audience, owners, or anyone in a completed game
-  const canViewStats = isOwner || userRole === 'gm' || userRole === 'co_gm' || userRole === 'audience' || gameState === 'completed';
-  const statsData = canViewStats ? stats : undefined;
+  // Public message counts are visible to everyone. The private-message count is
+  // only present in `stats` when the backend authorizes this viewer to see it
+  // (GM/co-GM, audience, the character's owner, or a completed game), and
+  // CharacterActivityStats only renders the private line when that field is set
+  // — so visibility is driven entirely by what the server returned.
+  const statsData = stats;
 
   return (
     <div className="border border-theme-default rounded-lg p-3 md:p-4 surface-base hover:shadow-sm transition-shadow" data-testid="character-card">
@@ -589,7 +592,7 @@ function CharacterCard({
             <div>Player: {character.username}</div>
           )}
           {/* Activity stats (owner, GM, audience, or completed game) */}
-          {canViewStats && statsData && (
+          {statsData && (
             <CharacterActivityStats stats={statsData} />
           )}
         </div>
@@ -687,7 +690,7 @@ function CharacterCard({
                 <div>Player: {character.username}</div>
               )}
               {/* Activity stats (owner, GM, audience, or completed game) */}
-              {canViewStats && statsData && (
+              {statsData && (
                 <CharacterActivityStats stats={statsData} />
               )}
             </div>

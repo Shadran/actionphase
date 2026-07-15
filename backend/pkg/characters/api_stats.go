@@ -2,12 +2,14 @@ package characters
 
 import (
 	"actionphase/pkg/core"
+	models "actionphase/pkg/db/models"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // CharacterStatsResponse represents the activity stats response for a character.
@@ -18,6 +20,34 @@ type CharacterStatsResponse struct {
 
 func (rd *CharacterStatsResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
+}
+
+// gameLevelPrivateStatsAccess reports whether the requester may see private
+// message counts for *any* character in the game on grounds that don't depend
+// on which character is being viewed: they're a GM/co-GM, an audience member,
+// or the game is completed. The remaining, character-specific grant — the
+// requester owning the character — is ORed in at the call site (see
+// canSeeCharacterPrivateStats). Computing these game-level flags once avoids
+// re-running the IsUserGameMaster / IsUserAudience DB lookups per character in
+// the batch endpoint.
+//
+// A nil authUser (unauthenticated) never has game-level access.
+func (h *Handler) gameLevelPrivateStatsAccess(r *http.Request, authUser *core.AuthenticatedUser, game models.Game) bool {
+	if authUser == nil {
+		return false
+	}
+	ctx := r.Context()
+	isGM := core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, game, h.App.Pool)
+	isAudience := core.IsUserAudience(ctx, h.App.Pool, game.ID, authUser.ID)
+	isCompleted := game.State.String == "completed"
+	return isGM || isAudience || isCompleted
+}
+
+// canSeeCharacterPrivateStats combines the game-level grant with per-character
+// ownership: the character's owner always sees their own private count.
+func canSeeCharacterPrivateStats(gameLevelAccess bool, authUser *core.AuthenticatedUser, ownerUserID pgtype.Int4) bool {
+	isOwner := authUser != nil && ownerUserID.Valid && ownerUserID.Int32 == authUser.ID
+	return gameLevelAccess || isOwner
 }
 
 // GetCharacterStats returns public and (conditionally) private message counts for a character.
@@ -56,14 +86,8 @@ func (h *Handler) GetCharacterStats(w http.ResponseWriter, r *http.Request) {
 	authUser := core.GetAuthenticatedUser(ctx)
 
 	// Determine whether the requester can see private message counts.
-	canSeePrivate := false
-	if authUser != nil {
-		isGM := core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
-		isAudience := core.IsUserAudience(ctx, h.App.Pool, character.GameID, authUser.ID)
-		isCompleted := game.State.String == "completed"
-		isOwner := character.UserID.Valid && character.UserID.Int32 == authUser.ID
-		canSeePrivate = isGM || isAudience || isCompleted || isOwner
-	}
+	gameLevelAccess := h.gameLevelPrivateStatsAccess(r, authUser, *game)
+	canSeePrivate := canSeeCharacterPrivateStats(gameLevelAccess, authUser, character.UserID)
 
 	stats, err := characterService.GetCharacterActivityStats(ctx, int32(characterID))
 	if err != nil {
@@ -115,12 +139,9 @@ func (h *Handler) GetGameCharacterStats(w http.ResponseWriter, r *http.Request) 
 	}
 
 	authUser := core.GetAuthenticatedUser(ctx)
-	var isGM, isAudience bool
-	if authUser != nil {
-		isGM = core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
-		isAudience = core.IsUserAudience(ctx, h.App.Pool, int32(gameID), authUser.ID)
-	}
-	isCompleted := game.State.String == "completed"
+	// Game-level access (GM/audience/completed) is the same for every character,
+	// so compute it once rather than re-running the DB lookups per roster member.
+	gameLevelAccess := h.gameLevelPrivateStatsAccess(r, authUser, *game)
 
 	statsByCharacterID, err := characterService.GetCharacterActivityStatsByGame(ctx, int32(gameID))
 	if err != nil {
@@ -136,8 +157,7 @@ func (h *Handler) GetGameCharacterStats(w http.ResponseWriter, r *http.Request) 
 			stats = &core.CharacterActivityStats{}
 		}
 
-		isOwner := authUser != nil && char.UserID.Valid && char.UserID.Int32 == authUser.ID
-		canSeePrivate := isGM || isAudience || isCompleted || isOwner
+		canSeePrivate := canSeeCharacterPrivateStats(gameLevelAccess, authUser, char.UserID)
 
 		charResp := &CharacterStatsResponse{PublicMessages: stats.PublicMessages}
 		if canSeePrivate {

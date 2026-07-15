@@ -38,6 +38,13 @@ export function usePhaseManagement(gameId: number) {
     onSuccess: async () => {
       // Force immediate refetch instead of just invalidation
       await queryClient.refetchQueries({ queryKey: ['gamePhases', gameId] });
+      // Activation is the one mutation that changes which phase is active, so
+      // give the GM instant feedback on the separate ['currentPhase'] query
+      // (GameDetailsPage) rather than waiting on its poll. Other mutations
+      // don't change the active phase, so they rely on the poll — keeping the
+      // request volume down was the point of dropping the per-mutation
+      // currentPhase invalidations.
+      queryClient.invalidateQueries({ queryKey: ['currentPhase', gameId] });
     },
     onError: (error) => {
       logger.error('Failed to activate phase', { error, gameId });
