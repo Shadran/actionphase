@@ -54,3 +54,36 @@ func (q *Queries) DeleteLootTableContents(ctx context.Context, lootTableID int32
 	_, err := q.db.Exec(ctx, deleteLootTableContents, lootTableID)
 	return err
 }
+
+const getLootTableContents = `-- name: GetLootTableContents :many
+SELECT
+    id, loot_table_id, name, description
+FROM game_loot_table_contents
+WHERE loot_table_id = $1
+ORDER BY id ASC
+`
+
+func (q *Queries) GetLootTableContents(ctx context.Context, lootTableID int32) ([]GameLootTableContent, error) {
+	rows, err := q.db.Query(ctx, getLootTableContents, lootTableID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameLootTableContent
+	for rows.Next() {
+		var i GameLootTableContent
+		if err := rows.Scan(
+			&i.ID,
+			&i.LootTableID,
+			&i.Name,
+			&i.Description,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
