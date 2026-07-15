@@ -26,10 +26,12 @@ export function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-interactive-primary"></div>
-          <p className="mt-4 text-content-secondary">Loading your dashboard...</p>
+      <div className="min-h-screen bg-surface-sunken py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-interactive-primary"></div>
+            <p className="mt-4 text-content-secondary">Loading your dashboard...</p>
+          </div>
         </div>
       </div>
     );
@@ -37,10 +39,12 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-semantic-danger text-lg">Failed to load dashboard</p>
-          <p className="text-content-secondary mt-2">Please try refreshing the page</p>
+      <div className="min-h-screen bg-surface-sunken py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-semantic-danger text-lg">Failed to load dashboard</p>
+            <p className="text-content-secondary mt-2">Please try refreshing the page</p>
+          </div>
         </div>
       </div>
     );

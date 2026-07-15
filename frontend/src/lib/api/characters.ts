@@ -123,6 +123,14 @@ export class CharactersApi extends BaseApiClient {
     return this.client.get<CharacterActivityStats>(`/api/v1/characters/${characterId}/stats`);
   }
 
+  // Stats for every character in a game in one request, keyed by character id
+  // (as a string, since it comes back as JSON object keys). Used by roster
+  // views instead of calling getCharacterStats once per character, which was
+  // bursting the backend on large rosters.
+  async getGameCharacterStats(gameId: number) {
+    return this.client.get<Record<string, CharacterActivityStats>>(`/api/v1/games/${gameId}/characters/stats`);
+  }
+
   async getCharacterComments(characterId: number, limit: number = 20, offset: number = 0) {
     const queryParams = new URLSearchParams();
     queryParams.append('limit', limit.toString());

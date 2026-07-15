@@ -263,6 +263,48 @@ func (q *Queries) GetCharacterActivityStats(ctx context.Context, id int32) (GetC
 	return i, err
 }
 
+const getCharacterActivityStatsByGame = `-- name: GetCharacterActivityStatsByGame :many
+SELECT
+    c.id AS character_id,
+    COUNT(DISTINCT m.id) FILTER (WHERE m.is_deleted = false) AS public_messages,
+    COUNT(DISTINCT pm.id) FILTER (WHERE pm.is_deleted = false) AS private_messages
+FROM characters c
+LEFT JOIN messages m ON m.character_id = c.id
+LEFT JOIN private_messages pm ON pm.sender_character_id = c.id
+WHERE c.game_id = $1
+GROUP BY c.id
+`
+
+type GetCharacterActivityStatsByGameRow struct {
+	CharacterID     int32 `json:"character_id"`
+	PublicMessages  int64 `json:"public_messages"`
+	PrivateMessages int64 `json:"private_messages"`
+}
+
+// Same as GetCharacterActivityStats, but for every character in a game in one
+// query. Used to avoid firing one /stats request per roster member from the
+// frontend, which was bursting the DB connection pool on rosters of 20+
+// characters.
+func (q *Queries) GetCharacterActivityStatsByGame(ctx context.Context, gameID int32) ([]GetCharacterActivityStatsByGameRow, error) {
+	rows, err := q.db.Query(ctx, getCharacterActivityStatsByGame, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetCharacterActivityStatsByGameRow
+	for rows.Next() {
+		var i GetCharacterActivityStatsByGameRow
+		if err := rows.Scan(&i.CharacterID, &i.PublicMessages, &i.PrivateMessages); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCharacterByNameAndGame = `-- name: GetCharacterByNameAndGame :one
 SELECT id, game_id, user_id, name, character_type, status, avatar_url, is_active, original_owner_user_id, created_at, updated_at FROM characters
 WHERE name = $1 AND game_id = $2
