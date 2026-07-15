@@ -285,6 +285,20 @@ type GameLog struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type GameLootTable struct {
+	ID        int32              `json:"id"`
+	GameID    int32              `json:"game_id"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type GameLootTableContent struct {
+	ID          int32       `json:"id"`
+	LootTableID int32       `json:"loot_table_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
 type GameParticipant struct {
 	ID              int32              `json:"id"`
 	GameID          int32              `json:"game_id"`
