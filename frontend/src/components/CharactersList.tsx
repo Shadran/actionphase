@@ -255,7 +255,6 @@ export function CharactersList({
                           character={character}
                           isOwner={true}
                           userRole={userRole}
-                          gameState={gameState}
                           isAnonymous={isAnonymous}
                           onApprove={handleApproveCharacter}
                           onAssignNPC={setNpcToAssign}
@@ -310,7 +309,6 @@ export function CharactersList({
                           character={character}
                           isOwner={true}
                           userRole={userRole}
-                          gameState={gameState}
                           isAnonymous={isAnonymous}
                           onApprove={handleApproveCharacter}
                           onAssignNPC={setNpcToAssign}
@@ -337,7 +335,6 @@ export function CharactersList({
                           character={character}
                           isOwner={isUserCharacter(character)}
                           userRole={userRole}
-                          gameState={gameState}
                           isAnonymous={isAnonymous}
                           onApprove={handleApproveCharacter}
                           onAssignNPC={setNpcToAssign}
@@ -366,7 +363,6 @@ export function CharactersList({
                           character={character}
                           isOwner={isUserCharacter(character)}
                           userRole={userRole}
-                          gameState={gameState}
                           isAnonymous={isAnonymous}
                           onApprove={handleApproveCharacter}
                           onAssignNPC={setNpcToAssign}
@@ -509,7 +505,6 @@ interface CharacterCardProps {
   character: Character;
   isOwner: boolean;
   userRole: string;
-  gameState?: string;
   isAnonymous?: boolean;
   onApprove: (characterId: number, status: 'approved') => void;
   onAssignNPC?: (character: Character) => void;
@@ -525,7 +520,6 @@ function CharacterCard({
   character,
   isOwner,
   userRole,
-  gameState = 'setup',
   isAnonymous = false,
   onApprove,
   onAssignNPC,
