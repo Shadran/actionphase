@@ -1686,6 +1686,7 @@ type CharacterServiceInterface interface {
 	DeleteCharacter(ctx context.Context, characterID int32) error
 	ListAudienceNPCs(ctx context.Context, gameID int32) ([]models.ListAudienceNPCsRow, error)
 	GetCharacterActivityStats(ctx context.Context, characterID int32) (*CharacterActivityStats, error)
+	GetCharacterActivityStatsByGame(ctx context.Context, gameID int32) (map[int32]*CharacterActivityStats, error)
 	AssignNPCToAudience(ctx context.Context, characterID, assignedUserID, assignedByUserID int32) (*models.NpcAssignment, error)
 }
 

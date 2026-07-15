@@ -229,6 +229,7 @@ func (h *Handler) Start() {
 			// Create character requires email verification
 			r.With(core.RequireEmailVerificationMiddleware(h.App.Pool)).Post("/{gameId}/characters", characterHandler.CreateCharacter)
 			r.Get("/{gameId}/characters", characterHandler.GetGameCharacters)
+			r.Get("/{gameId}/characters/stats", characterHandler.GetGameCharacterStats)
 			r.Get("/{gameId}/characters/controllable", characterHandler.GetUserControllableCharacters)
 			r.Get("/{gameId}/characters/inactive", characterHandler.ListInactiveCharacters) // GM views inactive characters
 
