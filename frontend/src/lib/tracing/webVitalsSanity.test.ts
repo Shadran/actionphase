@@ -95,4 +95,15 @@ describe('shouldDropWebVital', () => {
 
     expect(shouldDropWebVital(item, () => undefined)).toBe(false);
   });
+
+  it('uses the real navigation timing API when no override is supplied (jsdom has no navigation entry)', () => {
+    // Exercises the default getResponseStart param (getNavigationResponseStart),
+    // not the injected mock the other cases use. jsdom doesn't populate
+    // performance.getEntriesByType('navigation'), so responseStart resolves to
+    // undefined here — this asserts that path degrades to the values.fcp/lcp
+    // check rather than throwing.
+    const item = makeWebVitalItem({ ttfb: 200 });
+
+    expect(shouldDropWebVital(item)).toBe(false);
+  });
 });
