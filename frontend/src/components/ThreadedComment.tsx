@@ -433,8 +433,15 @@ export const ThreadedComment = memo(function ThreadedComment({
     });
   };
 
-  // Use consistent semantic color for thread borders (maintains visual hierarchy through indentation)
-  const borderColor = depth > 0 ? 'border-l-interactive-primary' : '';
+  // Per-depth left-rail accent so each nesting level is visually distinct in every
+  // theme. Reuses avatar hues (theme-defined). depth 0 has no rail.
+  const threadAccents = [
+    'border-l-avatar-6', // depth 1 - blue
+    'border-l-avatar-4', // depth 2 - green
+    'border-l-avatar-7', // depth 3 - violet
+    'border-l-avatar-2', // depth 4 - orange
+  ];
+  const borderColor = depth > 0 ? threadAccents[(depth - 1) % threadAccents.length] : '';
 
   // Alternating background colors for better visual separation between comment levels
   const backgroundColors = [
@@ -463,7 +470,7 @@ export const ThreadedComment = memo(function ThreadedComment({
     <div
       id={`comment-${comment.id}${variant ? `-${variant}` : ''}`}
       data-testid="threaded-comment"
-      className={`${getIndentPadding()} ${depth > 0 ? 'border-l-2 ' + borderColor : ''} ${bgColor} ${depth > 0 ? 'py-3 my-2' : 'py-2'} border-b border-theme-subtle`}
+      className={`${getIndentPadding()} ${depth > 0 ? 'border-l-2 ' + borderColor : 'border-t border-theme-strong'} ${bgColor} ${depth > 0 ? 'py-3 my-2' : 'py-2'} border-b border-theme-subtle`}
     >
       {/* Comment Header and Content */}
       <div className={`${portraitAvatars ? 'overflow-hidden' : ''}${isUnread ? ' border border-semantic-warning rounded-lg p-3' : ''}${isManuallyRead ? ' opacity-50' : ''}`}>
