@@ -939,8 +939,13 @@ describe('PostCard', () => {
   describe('Comment Form - Loading State', () => {
     it('shows loading text while submitting', async () => {
       const user = userEvent.setup();
+      // Hold the submission open with a manually-resolved promise instead of a
+      // timer. A setTimeout-based mock races the real clock: under CPU
+      // contention (e.g. parallel workers in CI/containers) the delay can
+      // elapse during `user.click` itself, closing the form before we assert.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -960,9 +965,11 @@ describe('PostCard', () => {
       const submitButton = screen.getByRole('button', { name: /^comment$/i });
       await user.click(submitButton);
 
+      // Submission is still pending, so the button shows its loading label.
       expect(screen.getByText(/posting\.\.\./i)).toBeInTheDocument();
 
-      // Wait for submission to complete and form to close
+      // Let the submission finish and the form close.
+      resolveSubmit();
       await waitFor(() => {
         expect(screen.queryByPlaceholderText(/write a comment/i)).not.toBeInTheDocument();
       }, { timeout: 3000 });
@@ -970,8 +977,11 @@ describe('PostCard', () => {
 
     it('disables all form elements while submitting', async () => {
       const user = userEvent.setup();
+      // Manually-resolved promise, not a timer — see note above; the timer
+      // version races the clock and flakes under parallel-worker contention.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -998,12 +1008,16 @@ describe('PostCard', () => {
       expect(textarea).toBeDisabled();
       expect(submitButton).toBeDisabled();
       expect(cancelButton).toBeDisabled();
+
+      resolveSubmit();
     });
 
     it('disables character selector while submitting', async () => {
       const user = userEvent.setup();
+      // Manually-resolved promise, not a timer — see note above.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -1027,6 +1041,8 @@ describe('PostCard', () => {
 
       // Check selector is disabled during submission
       expect(selector).toBeDisabled();
+
+      resolveSubmit();
     });
   });
 
