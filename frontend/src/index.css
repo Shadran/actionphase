@@ -429,6 +429,13 @@
   .bg-avatar-8 {
     background-color: rgb(var(--color-avatar-8));
   }
+
+  /* Thread accent rails - per-depth left borders reusing avatar hues.
+     avatar-* tokens are defined per-theme, so these read well in every theme. */
+  .border-l-avatar-6 { border-left-color: rgb(var(--color-avatar-6)); } /* blue */
+  .border-l-avatar-4 { border-left-color: rgb(var(--color-avatar-4)); } /* green */
+  .border-l-avatar-7 { border-left-color: rgb(var(--color-avatar-7)); } /* violet */
+  .border-l-avatar-2 { border-left-color: rgb(var(--color-avatar-2)); } /* orange */
 }
 
 /* ===================================================================

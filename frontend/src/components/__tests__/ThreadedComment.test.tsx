@@ -345,7 +345,9 @@ describe('ThreadedComment', () => {
       const commentContainer1 = container1.querySelector('.border-l-2');
       const commentContainer2 = container2.querySelector('.border-l-2');
 
-      // Should have different border color classes
+      // Each depth gets a distinct avatar-hue rail so nesting levels are visually distinct
+      expect(commentContainer1?.className).toContain('border-l-avatar-6');
+      expect(commentContainer2?.className).toContain('border-l-avatar-4');
       expect(commentContainer1?.className).not.toBe(commentContainer2?.className);
     });
   });
