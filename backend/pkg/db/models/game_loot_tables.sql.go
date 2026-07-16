@@ -75,3 +75,21 @@ func (q *Queries) GetLootTables(ctx context.Context, gameID int32) ([]GameLootTa
 	}
 	return items, nil
 }
+
+const isLootTableInGame = `-- name: IsLootTableInGame :one
+SELECT
+    EXISTS(SELECT 1 FROM game_loot_tables WHERE game_id = $1 AND id = $2) 
+    AS is_game_loot_table
+`
+
+type IsLootTableInGameParams struct {
+	GameID int32 `json:"game_id"`
+	ID     int32 `json:"id"`
+}
+
+func (q *Queries) IsLootTableInGame(ctx context.Context, arg IsLootTableInGameParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isLootTableInGame, arg.GameID, arg.ID)
+	var is_game_loot_table bool
+	err := row.Scan(&is_game_loot_table)
+	return is_game_loot_table, err
+}

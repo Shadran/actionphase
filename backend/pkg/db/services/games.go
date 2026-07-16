@@ -1287,3 +1287,68 @@ func (gs *GameService) GetGameLogs(ctx context.Context, gameID int32) ([]models.
 	logs, err := queries.GetGameLogs(ctx, gameID)
 	return logs, err
 }
+
+// GetGameLootTables - Get game loot tables
+func (gs *GameService) GetGameLootTables(ctx context.Context, gameID int32) ([]models.GameLootTable, error) {
+	queries := models.New(gs.DB)
+	lootTables, err := queries.GetLootTables(ctx, gameID)
+	return lootTables, err
+}
+
+// IsLootTableInGame - Check if a loot table belongs to a specific game
+func (gs *GameService) IsLootTableInGame(ctx context.Context, lootTableID, gameID int32) (bool, error) {
+	queries := models.New(gs.DB)
+	result, err := queries.IsLootTableInGame(ctx, models.IsLootTableInGameParams{
+		ID:     lootTableID,
+		GameID: gameID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return result, nil
+}
+
+// CreateLootTable - Create a new loot table for a game
+func (gs *GameService) CreateLootTable(ctx context.Context, gameID int32, name string) (*models.GameLootTable, error) {
+	queries := models.New(gs.DB)
+	lootTable, err := queries.CreateLootTable(ctx, models.CreateLootTableParams{
+		GameID: gameID,
+		Name:   name,
+	})
+	return &lootTable, err
+}
+
+// DeleteLootTable - Remove a loot table from a game
+func (gs *GameService) DeleteLootTable(ctx context.Context, lootTableID int32) error {
+	queries := models.New(gs.DB)
+	return queries.DeleteLootTable(ctx, lootTableID)
+}
+
+// GetGameLootTableContents - Get contents of a specific loot table
+func (gs *GameService) GetGameLootTableContents(ctx context.Context, lootTableID int32) ([]models.GameLootTableContent, error) {
+	queries := models.New(gs.DB)
+	contents, err := queries.GetLootTableContents(ctx, lootTableID)
+	return contents, err
+}
+
+// AddLootTableContent - Add an item to a loot table
+func (gs *GameService) AddLootTableContent(ctx context.Context, lootTableID int32, itemName string) (*models.GameLootTableContent, error) {
+	queries := models.New(gs.DB)
+	content, err := queries.AddLootTableContent(ctx, models.AddLootTableContentParams{
+		LootTableID: lootTableID,
+		Name:        itemName,
+	})
+	return &content, err
+}
+
+// DeleteLootTableContent - Remove an item from a loot table
+func (gs *GameService) DeleteLootTableContent(ctx context.Context, contentID int32) error {
+	queries := models.New(gs.DB)
+	return queries.DeleteLootTableContent(ctx, contentID)
+}
+
+// DeleteLootTableContents - Remove all items from a loot table
+func (gs *GameService) DeleteLootTableContents(ctx context.Context, lootTableID int32) error {
+	queries := models.New(gs.DB)
+	return queries.DeleteLootTableContents(ctx, lootTableID)
+}
