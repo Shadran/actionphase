@@ -170,6 +170,7 @@ export function DiscordNotificationsSection() {
     updatePreferences.mutate({
       theme: preferences?.theme ?? 'auto',
       comment_read_mode: preferences?.comment_read_mode ?? 'auto',
+      font_size: preferences?.font_size ?? 'medium',
       discord_notifications: {
         ...current,
         [key]: enabled,

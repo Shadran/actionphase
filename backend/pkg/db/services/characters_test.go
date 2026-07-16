@@ -1506,6 +1506,93 @@ func TestCharacterService_GetCharacterActivityStats(t *testing.T) {
 	})
 }
 
+// TestCharacterService_GetCharacterActivityStatsByGame verifies the batch
+// per-game stats query returns one entry per character (including characters
+// with zero messages), aggregates the same way as GetCharacterActivityStats,
+// and excludes soft-deleted messages.
+func TestCharacterService_GetCharacterActivityStatsByGame(t *testing.T) {
+	testDB := core.NewTestDatabase(t)
+	defer testDB.Close()
+	defer testDB.CleanupTables(t, "private_messages", "conversations", "messages", "characters", "games", "users")
+
+	ctx := context.Background()
+	app := core.NewTestApp(testDB.Pool)
+	svc := &CharacterService{DB: testDB.Pool, Logger: app.ObsLogger}
+
+	gm := testDB.CreateTestUser(t, "gamestats_gm", "gamestats_gm@example.com")
+	game := testDB.CreateTestGame(t, int32(gm.ID), "Game Stats Service Test Game")
+
+	active, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(gm.ID)),
+		Name: "ActiveChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	silent, err := svc.CreateCharacter(ctx, CreateCharacterRequest{
+		GameID: game.ID, UserID: core.Int32Ptr(int32(gm.ID)),
+		Name: "SilentChar", CharacterType: "player_character",
+	})
+	require.NoError(t, err)
+
+	t.Run("returns zero counts for a character with no messages, keyed by ID", func(t *testing.T) {
+		statsByID, err := svc.GetCharacterActivityStatsByGame(ctx, game.ID)
+		require.NoError(t, err)
+
+		require.Contains(t, statsByID, silent.ID, "characters with no messages must still appear in the map")
+		assert.Equal(t, int64(0), statsByID[silent.ID].PublicMessages)
+		require.NotNil(t, statsByID[silent.ID].PrivateMessages)
+		assert.Equal(t, int64(0), *statsByID[silent.ID].PrivateMessages)
+	})
+
+	t.Run("counts public and private messages per character and does not cross-contaminate", func(t *testing.T) {
+		_, err := testDB.Pool.Exec(ctx, `
+			INSERT INTO messages (game_id, author_id, character_id, content, message_type, visibility)
+			VALUES ($1, $2, $3, 'public post one', 'post', 'game'), ($1, $2, $3, 'public post two', 'post', 'game')
+		`, game.ID, gm.ID, active.ID)
+		require.NoError(t, err)
+
+		var convID int32
+		err = testDB.Pool.QueryRow(ctx, `
+			INSERT INTO conversations (game_id, created_by_user_id, conversation_type)
+			VALUES ($1, $2, 'direct') RETURNING id
+		`, game.ID, gm.ID).Scan(&convID)
+		require.NoError(t, err)
+
+		_, err = testDB.Pool.Exec(ctx, `
+			INSERT INTO private_messages (conversation_id, sender_user_id, sender_character_id, content)
+			VALUES ($1, $2, $3, 'private message one')
+		`, convID, gm.ID, active.ID)
+		require.NoError(t, err)
+
+		statsByID, err := svc.GetCharacterActivityStatsByGame(ctx, game.ID)
+		require.NoError(t, err)
+
+		require.Contains(t, statsByID, active.ID)
+		assert.Equal(t, int64(2), statsByID[active.ID].PublicMessages)
+		require.NotNil(t, statsByID[active.ID].PrivateMessages)
+		assert.Equal(t, int64(1), *statsByID[active.ID].PrivateMessages)
+
+		require.Contains(t, statsByID, silent.ID, "unrelated character's counts must remain zero")
+		assert.Equal(t, int64(0), statsByID[silent.ID].PublicMessages)
+	})
+
+	t.Run("does not count soft-deleted messages", func(t *testing.T) {
+		_, err := testDB.Pool.Exec(ctx,
+			"UPDATE messages SET is_deleted = TRUE WHERE character_id = $1", active.ID)
+		require.NoError(t, err)
+		_, err = testDB.Pool.Exec(ctx,
+			"UPDATE private_messages SET is_deleted = TRUE WHERE sender_character_id = $1", active.ID)
+		require.NoError(t, err)
+
+		statsByID, err := svc.GetCharacterActivityStatsByGame(ctx, game.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(0), statsByID[active.ID].PublicMessages, "deleted public messages must not be counted")
+		require.NotNil(t, statsByID[active.ID].PrivateMessages)
+		assert.Equal(t, int64(0), *statsByID[active.ID].PrivateMessages, "deleted private messages must not be counted")
+	})
+}
+
 // TestCharacterService_AssignNPCToAudience verifies that the type guard rejects
 // player characters and that a valid NPC assignment is persisted.
 func TestCharacterService_AssignNPCToAudience(t *testing.T) {

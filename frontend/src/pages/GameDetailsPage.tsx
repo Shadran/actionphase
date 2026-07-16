@@ -54,12 +54,16 @@ export const GameDetailsPage = ({ gameId }: GameDetailsPageProps) => {
   const currentUserId = currentUser?.id ?? null;
   const loading = isLoadingGame || isLoadingParticipants;
 
-  // Get current phase data
+  // Get current phase data. Phases typically change on the order of hours/days
+  // (GM activation or the server-side scheduler's time-based auto-activation),
+  // not seconds, so a 3-minute poll is plenty responsive without generating
+  // the request volume a 30s interval did. This was the single busiest polled
+  // endpoint on the /games/* route.
   const { data: currentPhaseData, isLoading: isLoadingPhase } = useQuery({
     queryKey: ['currentPhase', gameId],
     queryFn: () => apiClient.phases.getCurrentPhase(gameId).then(res => res.data),
     enabled: !!gameId && game?.state === 'in_progress',
-    refetchInterval: 30000, // Refetch every 30 seconds when game is in progress
+    refetchInterval: 180000,
   });
 
   // Custom hooks for application management

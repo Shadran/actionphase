@@ -332,6 +332,10 @@ type GameApplicationServiceInterface interface {
 	// DeleteGameApplication removes an application (for cleanup or withdrawal)
 	DeleteGameApplication(ctx context.Context, applicationID, userID int32) error
 
+	// DeleteStaleApprovedApplicationForUser removes a leftover 'approved' application for a
+	// user who is no longer an active participant in the game (no-op otherwise)
+	DeleteStaleApprovedApplicationForUser(ctx context.Context, gameID, userID int32) error
+
 	// CanUserApplyToGame checks if a user is eligible to apply to a game
 	CanUserApplyToGame(ctx context.Context, gameID, userID int32) (string, error)
 
@@ -1682,6 +1686,7 @@ type CharacterServiceInterface interface {
 	DeleteCharacter(ctx context.Context, characterID int32) error
 	ListAudienceNPCs(ctx context.Context, gameID int32) ([]models.ListAudienceNPCsRow, error)
 	GetCharacterActivityStats(ctx context.Context, characterID int32) (*CharacterActivityStats, error)
+	GetCharacterActivityStatsByGame(ctx context.Context, gameID int32) (map[int32]*CharacterActivityStats, error)
 	AssignNPCToAudience(ctx context.Context, characterID, assignedUserID, assignedByUserID int32) (*models.NpcAssignment, error)
 }
 
