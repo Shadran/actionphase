@@ -415,9 +415,11 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
 
   return (
     <div className="max-w-full" data-testid="common-room-container">
-      <div className="mb-6">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <h2 className="text-2xl font-bold text-content-primary">
+      {/* Sticky header bar — keeps the title and Utilities button reachable
+          while scrolling a long thread. Pins under the global nav (h-16). */}
+      <div className="sticky top-16 z-30 -mx-4 mb-4 px-4 py-3 surface-base border-b-2 border-theme-strong shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-bold text-content-primary truncate">
             Common Room{phaseTitle && ` - ${phaseTitle}`}
           </h2>
           <Button
@@ -433,6 +435,9 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
             <span className="hidden sm:inline">Utilities</span>
           </Button>
         </div>
+      </div>
+
+      <div className="mb-6">
         <p className="text-content-secondary">
           {isCurrentPhase
             ? isGM
