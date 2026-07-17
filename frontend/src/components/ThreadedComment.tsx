@@ -596,6 +596,7 @@ export const ThreadedComment = memo(function ThreadedComment({
             <MarkdownPreview
               content={comment.content}
               mentionedCharacters={mentionedCharacters}
+              fullWidth
             />
           </div>
         )}

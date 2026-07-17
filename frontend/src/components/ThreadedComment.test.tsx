@@ -20,7 +20,11 @@ vi.mock('../hooks/useCommentMutations', () => ({
 }));
 
 vi.mock('./MarkdownPreview', () => ({
-  MarkdownPreview: ({ content }: { content: string }) => <div data-testid="markdown-preview">{content}</div>,
+  MarkdownPreview: ({ content, fullWidth }: { content: string; fullWidth?: boolean }) => (
+    <div data-testid="markdown-preview" data-full-width={fullWidth ? 'true' : 'false'}>
+      {content}
+    </div>
+  ),
 }));
 
 vi.mock('./CommentEditor', () => ({
@@ -86,6 +90,14 @@ function renderComment(props: Partial<Parameters<typeof ThreadedComment>[0]> = {
 describe('ThreadedComment — manual read mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('comment body width', () => {
+    it('renders MarkdownPreview with fullWidth so text uses the available screen width instead of wrapping at a fixed max-width', () => {
+      renderComment();
+      const preview = screen.getByTestId('markdown-preview');
+      expect(preview).toHaveAttribute('data-full-width', 'true');
+    });
   });
 
   describe('auto mode (default)', () => {
