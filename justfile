@@ -1,13 +1,11 @@
 # ActionPhase Development Commands
-# Consolidated from 93 → 25 commands for better discoverability
 #
 # Quick Reference:
 #   just help          - Show this help
-#   just dev           - Start development environment
+#   just up            - Start the containerized dev stack
 #   just test          - Run backend tests
 #   just test-fe       - Run frontend tests
 #   just e2e           - Run E2E tests
-#   just build         - Build backend
 #
 # For detailed help on any command with subcommands, run:
 #   just <command> help
@@ -69,10 +67,17 @@ rebuild service="":
 dev-logs service="":
   {{DEV_COMPOSE}} logs -f {{service}}
 
-# Restart one dev service (for config changes or a wedged container; code hot-reloads).
-dev-restart service="backend":
-  {{DEV_COMPOSE}} restart {{service}}
-  @echo "✅ Restarted {{service}}"
+# Restart dev service(s) for config changes or a wedged container (code hot-reloads).
+# Pass a service name (backend|frontend|db) or 'all' to restart the whole stack.
+restart service="backend":
+  #!/usr/bin/env bash
+  if [ "{{service}}" = "all" ]; then
+    {{DEV_COMPOSE}} restart
+    echo "✅ Restarted all services"
+  else
+    {{DEV_COMPOSE}} restart {{service}}
+    echo "✅ Restarted {{service}}"
+  fi
 
 # Open a shell in a running dev container (backend, frontend, db).
 # Full-purity escape hatch: run one-off go/npm/psql commands in-container.
@@ -93,7 +98,7 @@ dev-help:
     just down           Stop the stack (data preserved in volumes)
     just ps             Container status
     just dev-logs [svc] Tail logs (backend|frontend|db; blank = all)
-    just dev-restart svc Restart one service
+    just restart [svc]  Restart a service (backend|frontend|db|all)
     just rebuild [svc]  Rebuild image(s) from scratch after Dockerfile changes
     just sh [svc]       Shell into a container (backend|frontend|db)
 
@@ -206,20 +211,16 @@ migration action="" name="":
 migrate:
   {{BE}} migrate -source file://pkg/db/migrations -database "{{DEV_DB_URL}}" up
 
-# Apply migrations to test database (in backend container)
-migrate_test:
-  {{BE}} migrate -source file://pkg/db/migrations -database "{{TEST_DB_URL}}" up
-
-# Drop and recreate test database, then apply all migrations from scratch.
-# Use this when the test DB gets into a dirty/broken migration state.
-reset_test_db:
+# Drop and recreate the test database from scratch, then apply all migrations.
+# Use when the test DB gets into a dirty/broken migration state.
+reset-test-db:
   #!/usr/bin/env bash
   echo "Dropping test database..."
   {{BE}} sh -c 'PGPASSWORD=example psql -h db -U postgres -d postgres -c "DROP DATABASE IF EXISTS actionphase_test;"'
   echo "Creating test database..."
   {{BE}} sh -c 'PGPASSWORD=example psql -h db -U postgres -d postgres -c "CREATE DATABASE actionphase_test;"'
   echo "Applying migrations..."
-  just migrate_test
+  just migration test
   echo "✅ Test database reset complete"
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -353,6 +354,7 @@ type-check:
 knip:
   {{FE}} npx knip
 
+# Run all code-quality checks (tidy + lint + dead-code + frontend lint + type-check + knip)
 verify:
   @echo "Verifying code quality..."
   @just tidy
@@ -364,52 +366,10 @@ verify:
   @echo "✅ Code quality verified"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# BUILD COMMANDS
-# ═══════════════════════════════════════════════════════════════════════════
-
-# Build backend (compile check, in backend container)
-build:
-  {{BE}} go build ./...
-
-# Build with options: backend, frontend, all, ci (runs in containers)
-build-all target="backend" *flags="":
-  #!/usr/bin/env bash
-  case "{{target}}" in
-    backend)
-      {{BE}} go build ./...
-      ;;
-    frontend)
-      {{FE}} npm run build
-      ;;
-    all)
-      echo "Building backend..."
-      {{BE}} go build ./...
-      echo "Building frontend..."
-      {{FE}} npm run build
-      echo "✅ All builds complete"
-      ;;
-    ci)
-      echo "Running CI builds..."
-      {{BE}} go build ./...
-      {{FE}} npm run build
-      echo "✅ CI build complete"
-      ;;
-    *)
-      echo "Usage: just build-all [target]"
-      echo ""
-      echo "Targets:"
-      echo "  backend     Build backend (default)"
-      echo "  frontend    Build frontend"
-      echo "  all         Build backend + frontend"
-      echo "  ci          CI build (backend + frontend)"
-      ;;
-  esac
-
-# ═══════════════════════════════════════════════════════════════════════════
 # DEVELOPMENT WORKFLOW
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Complete first-time dev setup: create .env, then build + start the container stack.
+# Complete first-time dev setup: create .env, then build images + start the container stack.
 dev-setup:
   #!/usr/bin/env bash
   echo "Setting up containerized development environment..."
@@ -419,12 +379,6 @@ dev-setup:
   echo ""
   echo "🎉 Dev environment ready. Migrations auto-run on backend startup."
   echo "   Load test data with: just test-data reload"
-
-# `just dev` / `just start` are superseded by the containerized stack — alias to it.
-dev: up
-
-start service="all":
-  @just up
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BACKEND TESTING
@@ -503,6 +457,8 @@ test-run pattern:
 # package-lock.json, so it can never touch your local node_modules (a Linux
 # `npm ci`/`install` against a mounted tree would clobber your macOS native
 # bindings, e.g. @oxc-parser/binding-darwin-arm64, and break `just knip`).
+#
+# Regenerate frontend/package-lock.json in a Linux container (run after dep changes).
 relock-frontend:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -514,10 +470,6 @@ relock-frontend:
     npm install --package-lock-only
   cp "$workdir/package-lock.json" frontend/package-lock.json
   echo "✅ Lockfile regenerated. Review the diff and commit frontend/package-lock.json"
-
-# Run frontend tests (default: run once, in frontend container)
-test-frontend:
-  {{FE}} npm test
 
 # Frontend testing with options (runs in frontend container)
 # Interactive modes (watch/ui) use a TTY-attached exec.
@@ -628,43 +580,13 @@ e2e-test mode="headless" file="":
   esac
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PROCESS MANAGEMENT
+# PRODUCTION LOGGING  (run on the prod server; reads /opt/actionphase/logs)
 # ═══════════════════════════════════════════════════════════════════════════
+# For containerized DEV logs use `just dev-logs [svc]` instead.
 
-# Stop the containerized dev stack (alias to `just down`).
-# For a single service, use: docker compose -f docker-compose.dev.yml stop <svc>
-kill target="all":
-  #!/usr/bin/env bash
-  case "{{target}}" in
-    all)
-      just down
-      ;;
-    backend|frontend|db)
-      docker compose -f docker-compose.dev.yml stop {{target}}
-      echo "✅ Stopped {{target}}"
-      ;;
-    *)
-      echo "Usage: just kill [all|backend|frontend|db]"
-      ;;
-  esac
-
-# Restart a dev service (alias to `just dev-restart`; 'all' restarts the stack).
-restart target="backend":
-  #!/usr/bin/env bash
-  if [ "{{target}}" = "all" ]; then
-    docker compose -f docker-compose.dev.yml restart
-    echo "✅ All services restarted"
-  else
-    just dev-restart {{target}}
-  fi
-
-# ═══════════════════════════════════════════════════════════════════════════
-# LOGGING
-# ═══════════════════════════════════════════════════════════════════════════
-
-# View logs: just logs [target] [lines] [follow]
+# View production logs: just prod-logs [target] [lines] [follow]
 # Targets: backend (default), frontend, nginx, postgres, all
-logs target="backend" lines="50" follow="false":
+prod-logs target="backend" lines="50" follow="false":
   #!/usr/bin/env bash
   LOG_DIR=/opt/actionphase/logs
   case "{{target}}" in
@@ -712,15 +634,15 @@ logs target="backend" lines="50" follow="false":
       tail -n {{lines}} "$LOG_DIR/frontend/access.log" 2>/dev/null
       ;;
     *)
-      echo "Usage: just logs [target] [lines] [follow]"
+      echo "Usage: just prod-logs [target] [lines] [follow]"
       echo "Targets: backend (default), frontend, nginx, postgres, all"
       ;;
   esac
 
-# Search backend logs: just log-grep [pattern] [level] [lines]
+# Search production backend logs: just prod-log-grep [pattern] [level] [lines]
 # level: all (default), error, warn, info, debug
-# Examples: just log-grep "user_id" | just log-grep "" error | just log-grep "correlation_id" all 500
-log-grep pattern="" level="all" lines="200":
+# Examples: just prod-log-grep "user_id" | just prod-log-grep "" error | just prod-log-grep "correlation_id" all 500
+prod-log-grep pattern="" level="all" lines="200":
   #!/usr/bin/env bash
   LOG_FILE=/opt/actionphase/logs/backend/app.log
   if [ ! -f "$LOG_FILE" ]; then echo "Backend log not found: $LOG_FILE"; exit 1; fi
@@ -780,34 +702,25 @@ clean:
 # Run CI test suite
 ci-test: lint
   @just test-race
-  @just test-frontend
+  @just test-fe
   @echo "✅ CI test suite complete"
 
 # Run full test suite (backend + frontend)
 test-all:
   @just test
-  @just test-frontend
+  @just test-fe
   @echo "✅ All tests complete"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # FRONTEND PACKAGE MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Frontend deps are installed into the image at build time. To change deps,
-# edit package.json then run `just relock-frontend` and `just rebuild frontend`.
-install-frontend:
-  @echo "ℹ️  Deps live in the frontend image. For lockfile changes: just relock-frontend"
-  @echo "   then rebuild the image: just rebuild frontend"
+# Frontend deps live in the image (installed at build time). To change deps:
+# edit package.json, then `just relock-frontend` and `just rebuild frontend`.
 
 # Lint frontend code (in frontend container)
 lint-frontend:
   {{FE}} npm run lint
-
-# Preview the production frontend build (serves on http://localhost:4173).
-# Requires the dev frontend container to be stopped (shares port), or run standalone.
-preview-frontend:
-  docker compose -f docker-compose.dev.yml run --rm -p 4173:4173 frontend \
-    sh -c 'npm run build && npm run preview -- --host --port 4173'
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DOCUMENTATION  (VitePress; runs in an ephemeral node container)
@@ -831,22 +744,14 @@ docs-preview:
   docker run --rm -it -p 5175:5175 -v "{{justfile_directory()}}/docs-site":/docs -w /docs node:24 \
     sh -c 'npm run docs:preview -- --host --port 5175'
 
-# Install documentation dependencies
-docs-install:
-  {{DOCS_RUN}} npm install
-
 # Build and embed documentation in backend
 docs-embed: docs-build
   @echo "📦 Embedding documentation in backend..."
   rm -rf backend/pkg/docs/dist
   cp -r docs-site/.vitepress/dist backend/pkg/docs/dist
   @echo "✅ Documentation embedded at backend/pkg/docs/dist"
-  @echo "🔧 Rebuild backend to include updated docs: just build or go run backend/main.go"
+  @echo "🔧 Restart the backend to include updated docs: just restart backend"
 
 # Validate API documentation completeness (in backend container)
 api-docs-validate:
   {{BE}} go run scripts/validate-api-docs.go
-
-# Generate skeleton documentation for undocumented routes (in backend container)
-api-docs-generate:
-  {{BE}} go run scripts/generate-doc-skeleton.go
