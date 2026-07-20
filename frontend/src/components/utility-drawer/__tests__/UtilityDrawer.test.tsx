@@ -124,4 +124,27 @@ describe('UtilityDrawer', () => {
     fireEvent.click(screen.getByTestId('character-sheet-open-2'));
     expect(openCharacterSheet).toHaveBeenCalledWith(2);
   });
+
+  it('does not show the Screenshot Mode toggle for a non-anonymous game', () => {
+    renderWithProviders(
+      <UtilityDrawer open onClose={vi.fn()} ctx={makeCtx({ isAnonymous: false })} />
+    );
+
+    expect(screen.queryByTestId('screenshot-mode-toggle')).not.toBeInTheDocument();
+  });
+
+  it('shows and toggles Screenshot Mode for an anonymous game', () => {
+    renderWithProviders(
+      <UtilityDrawer open onClose={vi.fn()} ctx={makeCtx({ isAnonymous: true })} />
+    );
+
+    const toggle = screen.getByTestId('screenshot-mode-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
 });

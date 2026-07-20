@@ -4,10 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { ThreadedComment } from './ThreadedComment';
 import type { Message } from '../types/messages';
 import { MemoryRouter } from 'react-router-dom';
+import { useScreenshotMode } from '../hooks/useScreenshotMode';
 
 // Mock heavy dependencies
 vi.mock('../hooks/useAdminMode', () => ({
   useAdminMode: () => ({ adminModeEnabled: false, isAdmin: false }),
+}));
+
+vi.mock('../hooks/useScreenshotMode', () => ({
+  useScreenshotMode: vi.fn(() => ({ screenshotModeEnabled: false, toggleScreenshotMode: vi.fn() })),
 }));
 
 vi.mock('../hooks/useGamePermissions', () => ({
@@ -90,6 +95,31 @@ function renderComment(props: Partial<Parameters<typeof ThreadedComment>[0]> = {
 describe('ThreadedComment — manual read mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useScreenshotMode).mockReturnValue({ screenshotModeEnabled: false, toggleScreenshotMode: vi.fn() });
+  });
+
+  describe('Screenshot Mode', () => {
+    it('shows the author username when disabled', () => {
+      renderComment();
+      expect(screen.getAllByText('@testuser').length).toBeGreaterThan(0);
+    });
+
+    it('hides the author username when enabled', () => {
+      vi.mocked(useScreenshotMode).mockReturnValue({ screenshotModeEnabled: true, toggleScreenshotMode: vi.fn() });
+      renderComment();
+      expect(screen.queryByText('@testuser')).not.toBeInTheDocument();
+    });
+
+    it('shows the "You" badge for the comment author when disabled', () => {
+      renderComment();
+      expect(screen.getAllByText('You').length).toBeGreaterThan(0);
+    });
+
+    it('hides the "You" badge for the comment author when enabled', () => {
+      vi.mocked(useScreenshotMode).mockReturnValue({ screenshotModeEnabled: true, toggleScreenshotMode: vi.fn() });
+      renderComment();
+      expect(screen.queryByText('You')).not.toBeInTheDocument();
+    });
   });
 
   describe('comment body width', () => {

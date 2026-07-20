@@ -10,6 +10,7 @@ import CharacterAvatar from './CharacterAvatar';
 import { useGameContext } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminMode } from '../hooks/useAdminMode';
+import { useScreenshotMode } from '../hooks/useScreenshotMode';
 import { useUpdateComment, useDeleteComment } from '../hooks/useCommentMutations';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from '../contexts/ToastContext';
@@ -43,6 +44,7 @@ export function CommentWithParentCard({
   const { allGameCharacters, game, isGM, userCharacters } = useGameContext();
   const { currentUser } = useAuth();
   const { adminModeEnabled } = useAdminMode();
+  const { screenshotModeEnabled } = useScreenshotMode();
   const { showError } = useToast();
   const updateCommentMutation = useUpdateComment();
   const deleteCommentMutation = useDeleteComment();
@@ -186,7 +188,7 @@ export function CommentWithParentCard({
           createdAt={comment.parent_created_at}
           isDeleted={comment.parent_is_deleted}
           messageType={comment.parent_message_type}
-          authorUsername={comment.parent_author_username}
+          authorUsername={screenshotModeEnabled ? null : comment.parent_author_username}
           characterId={parentCharacterId}
           characterName={comment.parent_character_name}
           characterAvatarUrl={comment.parent_character_avatar_url}
@@ -199,7 +201,7 @@ export function CommentWithParentCard({
           <div className="flex items-start gap-3 mb-2">
             <CharacterAvatar
               avatarUrl={comment.character_avatar_url}
-              characterName={comment.character_name || comment.author_username}
+              characterName={comment.character_name || (screenshotModeEnabled ? '' : comment.author_username)}
               size="sm"
               shape={portraitAvatars ? 'portrait' : 'circle'}
             />
@@ -208,9 +210,11 @@ export function CommentWithParentCard({
                 <Link to={`/characters/${comment.character_id}`} className="font-medium text-text-heading hover:underline">
                   {comment.character_name || 'Unknown'}
                 </Link>
-                <span className="text-sm text-content-tertiary">
-                  @{comment.author_username}
-                </span>
+                {!screenshotModeEnabled && (
+                  <span className="text-sm text-content-tertiary">
+                    @{comment.author_username}
+                  </span>
+                )}
                 <span className="text-sm text-content-tertiary">{timeAgo}</span>
                 {isEdited && (
                   <Badge variant="secondary" size="sm">
