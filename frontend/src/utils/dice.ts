@@ -5,7 +5,7 @@
  * Keeping this logic React-free makes it straightforward to unit test.
  */
 
-export interface DieResult {
+interface DieResult {
   /** Number of sides on the die (e.g. 20 for a d20). */
   sides: number;
   /** The value rolled, in [1, sides]. */
