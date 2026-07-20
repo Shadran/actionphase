@@ -130,16 +130,14 @@ describe('useMarkAllCommentsRead', () => {
     expect(mockMarkAllCommentsRead).toHaveBeenCalledWith(1, 5);
   });
 
-  it('optimistically clears unread comment IDs for posts in the phase', async () => {
+  it('optimistically clears unread comment IDs for cached posts', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     queryClient.setQueryData(['unreadCommentIDs', 1], [
       { post_id: 1, unread_comment_ids: [10, 11] },
       { post_id: 2, unread_comment_ids: [20] },
-      { post_id: 3, unread_comment_ids: [30] },
     ]);
-    mockGetGamePosts.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] });
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       createElement(QueryClientProvider, { client: queryClient }, children);
@@ -154,10 +152,22 @@ describe('useMarkAllCommentsRead', () => {
       }[];
       expect(data.find((d) => d.post_id === 1)?.unread_comment_ids).toEqual([]);
       expect(data.find((d) => d.post_id === 2)?.unread_comment_ids).toEqual([]);
-      expect(data.find((d) => d.post_id === 3)?.unread_comment_ids).toEqual([30]);
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  // The optimistic write must not depend on a posts fetch: that would make it
+  // non-optimistic and let an unrelated read failure abort the mark-read write.
+  it('does not fetch posts to scope the optimistic update', async () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useMarkAllCommentsRead(), { wrapper });
+
+    result.current.mutate({ gameId: 1, phaseId: 5 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(mockGetGamePosts).not.toHaveBeenCalled();
   });
 
   it('rolls back the optimistic update on error', async () => {

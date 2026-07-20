@@ -117,8 +117,15 @@ export function useToggleCommentRead() {
 
 /**
  * Mutation to mark every comment in a phase as read for the current user.
- * Optimistically clears unread comment badges for the phase's posts so the UI
- * updates immediately, then reconciles with the server in the background.
+ * Optimistically clears unread comment badges so the UI updates immediately,
+ * then reconciles with the server in the background.
+ *
+ * The optimistic write clears every cached post rather than only the current
+ * phase's: scoping it precisely would need a `getGamePosts` round-trip inside
+ * `onMutate`, which would make the update non-optimistic and let an unrelated
+ * read failure abort the write. The server-side mutation is already scoped to
+ * the phase, and `onSettled` refetches, so any over-clearing here is corrected
+ * a moment later — and in practice a phase rarely holds more than one post.
  */
 export function useMarkAllCommentsRead() {
   const queryClient = useQueryClient();
@@ -127,21 +134,14 @@ export function useMarkAllCommentsRead() {
     mutationFn: async ({ gameId, phaseId }: { gameId: number; phaseId: number }) => {
       await apiClient.messages.markAllCommentsRead(gameId, phaseId);
     },
-    onMutate: async ({ gameId, phaseId }) => {
+    onMutate: async ({ gameId }) => {
       const queryKey = ['unreadCommentIDs', gameId];
       await queryClient.cancelQueries({ queryKey });
 
       const previousUnread = queryClient.getQueryData<PostUnreadComments[]>(queryKey);
 
-      // Only posts belonging to this phase have their comment IDs cleared;
-      // posts from other phases are untouched.
-      const postsResponse = await apiClient.messages.getGamePosts(gameId, { phase_id: phaseId });
-      const phasePostIds = new Set(postsResponse.data.map((post) => post.id));
-
       queryClient.setQueryData<PostUnreadComments[]>(queryKey, (old) =>
-        (old || []).map((entry) =>
-          phasePostIds.has(entry.post_id) ? { ...entry, unread_comment_ids: [] } : entry
-        )
+        (old || []).map((entry) => ({ ...entry, unread_comment_ids: [] }))
       );
 
       return { previousUnread };
