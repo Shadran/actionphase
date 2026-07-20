@@ -593,6 +593,37 @@ ORDER BY post_id, comment_id;
 DELETE FROM user_comment_reads
 WHERE game_id = $1;
 
+-- name: MarkAllCommentsReadForPhase :exec
+-- Bulk-insert manual read records for every comment in a phase, for one user.
+-- Comments can be nested arbitrarily deep (replies to replies), so each
+-- comment's root post_id is resolved by walking up parent_id, mirroring the
+-- comment_threads CTE used by GetUnreadCommentIDsForPosts.
+-- Idempotent: existing records are left untouched.
+WITH RECURSIVE comment_threads AS (
+    SELECT
+        c.id as comment_id,
+        c.parent_id as post_id
+    FROM messages c
+    WHERE c.parent_id IN (
+        SELECT p.id FROM messages p
+        WHERE p.game_id = $2 AND p.phase_id = $3 AND p.message_type = 'post' AND p.is_deleted = false
+    )
+    AND c.is_deleted = false
+
+    UNION ALL
+
+    SELECT
+        m.id as comment_id,
+        ct.post_id
+    FROM messages m
+    INNER JOIN comment_threads ct ON m.parent_id = ct.comment_id
+    WHERE m.is_deleted = false
+)
+INSERT INTO user_comment_reads (user_id, comment_id, post_id, game_id)
+SELECT $1, ct.comment_id, ct.post_id, $2
+FROM comment_threads ct
+ON CONFLICT (user_id, comment_id) DO NOTHING;
+
 -- ============================================================================
 -- AUDIENCE PARTICIPATION (Private Message Access)
 -- ============================================================================

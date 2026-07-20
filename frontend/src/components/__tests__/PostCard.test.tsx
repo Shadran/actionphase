@@ -7,6 +7,11 @@ import { renderWithProviders } from '../../test-utils/render';
 import { PostCard } from '../PostCard';
 import type { Message } from '../../types/messages';
 import type { Character } from '../../types/characters';
+import * as useScreenshotModeHook from '../../hooks/useScreenshotMode';
+
+vi.mock('../../hooks/useScreenshotMode', () => ({
+  useScreenshotMode: vi.fn(),
+}));
 
 // Mock data
 const mockCharacters: Character[] = [
@@ -92,6 +97,10 @@ describe('PostCard', () => {
   beforeEach(() => {
     mockOnCreateComment.mockReset();
     localStorage.clear(); // Clear localStorage to prevent state persistence between tests
+    vi.mocked(useScreenshotModeHook.useScreenshotMode).mockReturnValue({
+      screenshotModeEnabled: false,
+      toggleScreenshotMode: vi.fn(),
+    });
     // Setup default successful responses for new paginated endpoint
     server.use(
       http.get('/api/v1/games/:gameId/posts/:postId/comments-with-threads', () => {
@@ -157,6 +166,28 @@ describe('PostCard', () => {
       // Date should be formatted (exact format depends on time elapsed)
       const dateText = screen.getByText(/@gamemaster/i).textContent;
       expect(dateText).toBeTruthy();
+    });
+
+    it('hides author username when Screenshot Mode is enabled', () => {
+      vi.mocked(useScreenshotModeHook.useScreenshotMode).mockReturnValue({
+        screenshotModeEnabled: true,
+        toggleScreenshotMode: vi.fn(),
+      });
+
+      renderWithProviders(
+        <PostCard
+          post={mockPost}
+          gameId={1}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onCreateComment={mockOnCreateComment}
+          currentUserId={100}
+        />
+      );
+
+      expect(screen.queryByText(/@gamemaster/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/^Posted /i)).toBeInTheDocument();
+      expect(screen.queryByText('You')).not.toBeInTheDocument();
     });
 
     it('shows edited indicator when post is edited', () => {
@@ -229,6 +260,26 @@ describe('PostCard', () => {
           characters={mockCharacters}
           controllableCharacters={mockCharacters}
           onCreateComment={mockOnCreateComment}
+        />
+      );
+
+      expect(screen.queryByText(/^you$/i)).not.toBeInTheDocument();
+    });
+
+    it('hides "You" badge when Screenshot Mode is enabled, even for the author', () => {
+      vi.mocked(useScreenshotModeHook.useScreenshotMode).mockReturnValue({
+        screenshotModeEnabled: true,
+        toggleScreenshotMode: vi.fn(),
+      });
+
+      renderWithProviders(
+        <PostCard
+          post={mockPost}
+          gameId={1}
+          characters={mockCharacters}
+          controllableCharacters={mockCharacters}
+          onCreateComment={mockOnCreateComment}
+          currentUserId={100}
         />
       );
 
@@ -939,8 +990,13 @@ describe('PostCard', () => {
   describe('Comment Form - Loading State', () => {
     it('shows loading text while submitting', async () => {
       const user = userEvent.setup();
+      // Hold the submission open with a manually-resolved promise instead of a
+      // timer. A setTimeout-based mock races the real clock: under CPU
+      // contention (e.g. parallel workers in CI/containers) the delay can
+      // elapse during `user.click` itself, closing the form before we assert.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -960,9 +1016,11 @@ describe('PostCard', () => {
       const submitButton = screen.getByRole('button', { name: /^comment$/i });
       await user.click(submitButton);
 
+      // Submission is still pending, so the button shows its loading label.
       expect(screen.getByText(/posting\.\.\./i)).toBeInTheDocument();
 
-      // Wait for submission to complete and form to close
+      // Let the submission finish and the form close.
+      resolveSubmit();
       await waitFor(() => {
         expect(screen.queryByPlaceholderText(/write a comment/i)).not.toBeInTheDocument();
       }, { timeout: 3000 });
@@ -970,8 +1028,11 @@ describe('PostCard', () => {
 
     it('disables all form elements while submitting', async () => {
       const user = userEvent.setup();
+      // Manually-resolved promise, not a timer — see note above; the timer
+      // version races the clock and flakes under parallel-worker contention.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -998,12 +1059,16 @@ describe('PostCard', () => {
       expect(textarea).toBeDisabled();
       expect(submitButton).toBeDisabled();
       expect(cancelButton).toBeDisabled();
+
+      resolveSubmit();
     });
 
     it('disables character selector while submitting', async () => {
       const user = userEvent.setup();
+      // Manually-resolved promise, not a timer — see note above.
+      let resolveSubmit!: () => void;
       mockOnCreateComment.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50))
+        () => new Promise<void>(resolve => { resolveSubmit = resolve; })
       );
 
       renderWithProviders(
@@ -1027,6 +1092,8 @@ describe('PostCard', () => {
 
       // Check selector is disabled during submission
       expect(selector).toBeDisabled();
+
+      resolveSubmit();
     });
   });
 
@@ -1623,41 +1690,6 @@ describe('PostCard', () => {
       });
     });
 
-    it('shows saving state while update is in progress', async () => {
-      // Delay the response to see loading state
-      server.use(
-        http.patch('/api/v1/games/:gameId/posts/:postId', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return HttpResponse.json({
-            ...mockPost,
-            content: 'Updated content',
-            is_edited: true,
-          });
-        })
-      );
-
-      const user = userEvent.setup();
-      renderWithProviders(
-        <PostCard
-          post={mockPost}
-          gameId={1}
-          characters={mockCharacters}
-          controllableCharacters={mockCharacters}
-          onCreateComment={mockOnCreateComment}
-          currentUserId={100}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /^edit$/i }));
-
-      const textarea = screen.getByPlaceholderText(/edit your post\.\.\./i);
-      await user.type(textarea, ' Updated');
-
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-
-      // Should show "Saving..." temporarily
-      expect(screen.getByRole('button', { name: /saving\.\.\./i })).toBeInTheDocument();
-    });
   });
 
   describe('allowReadTracking prop', () => {

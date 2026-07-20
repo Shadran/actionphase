@@ -15,6 +15,7 @@ import { Card, Button, Badge, Spinner, type BadgeVariant } from './ui';
 import CharacterAvatar from './CharacterAvatar';
 import { logger } from '@/services/LoggingService';
 import { useCharacterOwnership } from '../hooks/useCharacterOwnership';
+import { useCharacterSheetPermissions } from '../hooks/useCharacterSheetPermissions';
 
 interface CharactersListProps {
   gameId: number;
@@ -45,6 +46,14 @@ export function CharactersList({
 
   // Use ownership hook to check character ownership (works in anonymous mode)
   const { isUserCharacter: isUserCharacterById } = useCharacterOwnership(gameId);
+
+  // Shared character-sheet permission logic (see useCharacterSheetPermissions).
+  const {
+    isUserCharacter,
+    canView: canViewCharacterSheet,
+    canEdit: canEditCharacterSheet,
+    canEditStats: canEditCharacterStats,
+  } = useCharacterSheetPermissions(gameId, userRole, gameState);
 
   // Read from GameContext — single source of truth for all game characters
   const { allGameCharacters, isLoadingAllCharacters, refetchAllGameCharacters } = useGameContext();
@@ -139,50 +148,6 @@ export function CharactersList({
     // Players must be active participants to create characters
     if (userRole === 'player' && isParticipant && (gameState === 'character_creation' || gameState === 'in_progress')) return true;
     return false;
-  };
-
-  // Check if character belongs to current user
-  // Wrapper around ownership hook to handle NPCs with GM logic
-  const isUserCharacter = (character: Character) => {
-    // Use ownership hook for all controllable characters (player characters and assigned NPCs)
-    if (isUserCharacterById(character.id)) {
-      return true;
-    }
-    // Special case: GMs own all unassigned NPCs
-    if (character.character_type === 'npc' && !character.assigned_user_id && userRole === 'gm') {
-      return true;
-    }
-    return false;
-  };
-
-  // Check if user can view character sheet
-  const canViewCharacterSheet = (character: Character) => {
-    // GM can view all character sheets
-    if (userRole === 'gm' || userRole === 'audience') return true;
-    // Users can view their own characters
-    if (isUserCharacter(character)) return true;
-    // Anyone can view approved characters (they'll only see public information)
-    if (character.status === 'approved') return true;
-    return false;
-  };
-
-  // Check if user can edit character sheet (bio/notes fields)
-  const canEditCharacterSheet = (character: Character) => {
-    // No editing in completed or cancelled games
-    if (gameState === 'completed' || gameState === 'cancelled') return false;
-    // GM can edit all character sheets
-    if (userRole === 'gm') return true;
-    // Users can edit their own characters (regardless of approval status)
-    if (isUserCharacter(character)) return true;
-    return false;
-  };
-
-  // Check if user can edit character stats (abilities, skills, items, currency)
-  // This is GM-only functionality
-  const canEditCharacterStats = () => {
-    // No editing in completed or cancelled games
-    if (gameState === 'completed' || gameState === 'cancelled') return false;
-    return userRole === 'gm';
   };
 
   // Check if user can delete characters
