@@ -31,6 +31,8 @@ function makeCtx(overrides: Partial<UtilityContext> = {}): UtilityContext {
     userCharacters: [makeCharacter()],
     allGameCharacters: [makeCharacter()],
     openCharacterSheet: vi.fn(),
+    closeDrawer: vi.fn(),
+    commentReadMode: 'manual',
     ...overrides,
   };
 }

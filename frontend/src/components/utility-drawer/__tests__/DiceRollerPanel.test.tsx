@@ -21,6 +21,8 @@ const baseCtx: UtilityContext = {
   userCharacters: [],
   allGameCharacters: [],
   openCharacterSheet: vi.fn(),
+  closeDrawer: vi.fn(),
+  commentReadMode: 'manual',
 };
 
 describe('DiceRollerPanel', () => {

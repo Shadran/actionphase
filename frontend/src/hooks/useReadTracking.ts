@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
-import type { MarkPostReadRequest, ManualCommentReads } from '../types/messages';
+import type { MarkPostReadRequest, ManualCommentReads, PostUnreadComments } from '../types/messages';
 import { useMemo } from 'react';
 
 /**
@@ -111,6 +111,49 @@ export function useToggleCommentRead() {
       queryClient.refetchQueries({
         queryKey: ['manualReadCommentIDs', variables.gameId],
       });
+    },
+  });
+}
+
+/**
+ * Mutation to mark every comment in a phase as read for the current user.
+ * Optimistically clears unread comment badges for the phase's posts so the UI
+ * updates immediately, then reconciles with the server in the background.
+ */
+export function useMarkAllCommentsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ gameId, phaseId }: { gameId: number; phaseId: number }) => {
+      await apiClient.messages.markAllCommentsRead(gameId, phaseId);
+    },
+    onMutate: async ({ gameId, phaseId }) => {
+      const queryKey = ['unreadCommentIDs', gameId];
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousUnread = queryClient.getQueryData<PostUnreadComments[]>(queryKey);
+
+      // Only posts belonging to this phase have their comment IDs cleared;
+      // posts from other phases are untouched.
+      const postsResponse = await apiClient.messages.getGamePosts(gameId, { phase_id: phaseId });
+      const phasePostIds = new Set(postsResponse.data.map((post) => post.id));
+
+      queryClient.setQueryData<PostUnreadComments[]>(queryKey, (old) =>
+        (old || []).map((entry) =>
+          phasePostIds.has(entry.post_id) ? { ...entry, unread_comment_ids: [] } : entry
+        )
+      );
+
+      return { previousUnread };
+    },
+    onError: (_err, variables, context) => {
+      if (context?.previousUnread) {
+        queryClient.setQueryData(['unreadCommentIDs', variables.gameId], context.previousUnread);
+      }
+    },
+    onSettled: (_data, _err, variables) => {
+      queryClient.refetchQueries({ queryKey: ['unreadCommentIDs', variables.gameId] });
+      queryClient.refetchQueries({ queryKey: ['manualReadCommentIDs', variables.gameId] });
     },
   });
 }

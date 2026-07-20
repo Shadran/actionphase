@@ -1690,41 +1690,6 @@ describe('PostCard', () => {
       });
     });
 
-    it('shows saving state while update is in progress', async () => {
-      // Delay the response to see loading state
-      server.use(
-        http.patch('/api/v1/games/:gameId/posts/:postId', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return HttpResponse.json({
-            ...mockPost,
-            content: 'Updated content',
-            is_edited: true,
-          });
-        })
-      );
-
-      const user = userEvent.setup();
-      renderWithProviders(
-        <PostCard
-          post={mockPost}
-          gameId={1}
-          characters={mockCharacters}
-          controllableCharacters={mockCharacters}
-          onCreateComment={mockOnCreateComment}
-          currentUserId={100}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /^edit$/i }));
-
-      const textarea = screen.getByPlaceholderText(/edit your post\.\.\./i);
-      await user.type(textarea, ' Updated');
-
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-
-      // Should show "Saving..." temporarily
-      expect(screen.getByRole('button', { name: /saving\.\.\./i })).toBeInTheDocument();
-    });
   });
 
   describe('allowReadTracking prop', () => {

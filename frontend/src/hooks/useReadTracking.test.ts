@@ -6,16 +6,21 @@ import {
   useManualReadCommentIDs,
   usePostManualReadCommentIDs,
   useToggleCommentRead,
+  useMarkAllCommentsRead,
 } from './useReadTracking';
 
 const mockGetManualReadCommentIDs = vi.fn();
 const mockToggleCommentRead = vi.fn();
+const mockMarkAllCommentsRead = vi.fn();
+const mockGetGamePosts = vi.fn();
 
 vi.mock('../lib/api', () => ({
   apiClient: {
     messages: {
       getManualReadCommentIDs: (...args: unknown[]) => mockGetManualReadCommentIDs(...args),
       toggleCommentRead: (...args: unknown[]) => mockToggleCommentRead(...args),
+      markAllCommentsRead: (...args: unknown[]) => mockMarkAllCommentsRead(...args),
+      getGamePosts: (...args: unknown[]) => mockGetGamePosts(...args),
     },
   },
 }));
@@ -103,5 +108,75 @@ describe('useToggleCommentRead', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(mockToggleCommentRead).toHaveBeenCalledWith(1, 2, 42, true);
+  });
+});
+
+describe('useMarkAllCommentsRead', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMarkAllCommentsRead.mockResolvedValue({ data: null });
+    mockGetGamePosts.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] });
+    mockGetManualReadCommentIDs.mockResolvedValue({ data: [] });
+  });
+
+  it('calls markAllCommentsRead API with correct arguments', async () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useMarkAllCommentsRead(), { wrapper });
+
+    result.current.mutate({ gameId: 1, phaseId: 5 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(mockMarkAllCommentsRead).toHaveBeenCalledWith(1, 5);
+  });
+
+  it('optimistically clears unread comment IDs for posts in the phase', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(['unreadCommentIDs', 1], [
+      { post_id: 1, unread_comment_ids: [10, 11] },
+      { post_id: 2, unread_comment_ids: [20] },
+      { post_id: 3, unread_comment_ids: [30] },
+    ]);
+    mockGetGamePosts.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useMarkAllCommentsRead(), { wrapper });
+
+    result.current.mutate({ gameId: 1, phaseId: 5 });
+
+    await waitFor(() => {
+      const data = queryClient.getQueryData(['unreadCommentIDs', 1]) as {
+        post_id: number;
+        unread_comment_ids: number[];
+      }[];
+      expect(data.find((d) => d.post_id === 1)?.unread_comment_ids).toEqual([]);
+      expect(data.find((d) => d.post_id === 2)?.unread_comment_ids).toEqual([]);
+      expect(data.find((d) => d.post_id === 3)?.unread_comment_ids).toEqual([30]);
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('rolls back the optimistic update on error', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const original = [{ post_id: 1, unread_comment_ids: [10, 11] }];
+    queryClient.setQueryData(['unreadCommentIDs', 1], original);
+    mockGetGamePosts.mockResolvedValue({ data: [{ id: 1 }] });
+    mockMarkAllCommentsRead.mockRejectedValue(new Error('boom'));
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useMarkAllCommentsRead(), { wrapper });
+
+    result.current.mutate({ gameId: 1, phaseId: 5 });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryData(['unreadCommentIDs', 1])).toEqual(original);
   });
 });

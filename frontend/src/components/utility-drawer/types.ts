@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Character } from '../../types/characters';
 import type { GamePhase } from '../../types/phases';
 import type { UserGameRole } from '../../contexts/GameContext';
+import type { CommentReadMode } from '../../lib/api/auth';
 
 /**
  * Shared context passed to every Utility Drawer panel and to each utility's
@@ -31,6 +32,10 @@ export interface UtilityContext {
    * so the modal stacks cleanly over the common room.
    */
   openCharacterSheet: (characterId: number) => void;
+  /** Close the Utility Drawer, e.g. after a panel action completes. */
+  closeDrawer: () => void;
+  /** The current user's comment read tracking mode ('auto' or 'manual'). */
+  commentReadMode: CommentReadMode;
 }
 
 /** Props every utility panel receives when rendered inside the drawer. */

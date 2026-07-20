@@ -128,6 +128,8 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
     userCharacters,
     allGameCharacters,
     openCharacterSheet,
+    closeDrawer: () => setUtilityDrawerOpen(false),
+    commentReadMode,
   };
 
   // Ref to track scroll attempts (prevents duplicate attempts for same comment)
