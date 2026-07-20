@@ -293,6 +293,7 @@ func (h *Handler) Start() {
 			// Manual read tracking (per-comment)
 			r.Post("/{gameId}/posts/{postId}/comments/{commentId}/toggle-read", messageHandler.ToggleCommentRead)
 			r.Get("/{gameId}/manual-read-comment-ids", messageHandler.GetManualReadCommentIDs)
+			r.Post("/{gameId}/phases/{phaseId}/mark-all-comments-read", messageHandler.MarkAllCommentsRead)
 
 			// Private messages (conversations)
 			conversationHandler := &conversations.Handler{

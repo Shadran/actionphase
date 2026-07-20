@@ -7,6 +7,11 @@ import { renderWithProviders } from '../../test-utils/render';
 import { useGameContext } from '../../contexts/GameContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiClient } from '../../lib/api';
+import * as useScreenshotModeHook from '../../hooks/useScreenshotMode';
+
+vi.mock('../../hooks/useScreenshotMode', () => ({
+  useScreenshotMode: vi.fn(),
+}));
 
 vi.mock('../MarkdownPreview', () => ({
   MarkdownPreview: ({ content }: { content: string }) => <div>{content}</div>,
@@ -69,6 +74,10 @@ describe('CommentWithParentCard', () => {
   beforeEach(() => {
     vi.mocked(useGameContext).mockReturnValue(mockGameContext as never);
     vi.mocked(useAuth).mockReturnValue({ currentUser: null } as never);
+    vi.mocked(useScreenshotModeHook.useScreenshotMode).mockReturnValue({
+      screenshotModeEnabled: false,
+      toggleScreenshotMode: vi.fn(),
+    });
   });
 
   const mockComment: CommentWithParent = {
@@ -442,6 +451,36 @@ describe('CommentWithParentCard', () => {
       renderWithProviders(<CommentWithParentCard comment={mockComment} gameId={1} />, { gameId: 1 });
 
       expect(screen.getByRole('button', { name: /copy link to this comment/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Screenshot Mode', () => {
+    // ParentCommentPreview only falls back to showing @authorUsername when the
+    // parent has no character name, so clear it to exercise that render path.
+    const commentWithUsernameOnlyParent: CommentWithParent = {
+      ...mockComment,
+      parent_character_name: null,
+    };
+
+    it('shows the comment author and parent author usernames when disabled', () => {
+      renderWithProviders(<CommentWithParentCard comment={commentWithUsernameOnlyParent} gameId={1} />, { gameId: 1 });
+
+      expect(screen.getByText(/testuser/i)).toBeInTheDocument();
+      expect(screen.getByText(/parentuser/i)).toBeInTheDocument();
+    });
+
+    it('hides the comment author and parent author usernames when enabled', () => {
+      vi.mocked(useScreenshotModeHook.useScreenshotMode).mockReturnValue({
+        screenshotModeEnabled: true,
+        toggleScreenshotMode: vi.fn(),
+      });
+
+      renderWithProviders(<CommentWithParentCard comment={commentWithUsernameOnlyParent} gameId={1} />, { gameId: 1 });
+
+      expect(screen.queryByText(/testuser/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/parentuser/i)).not.toBeInTheDocument();
+      // Character name remains visible — only the real username is hidden.
+      expect(screen.getByText('Test Character')).toBeInTheDocument();
     });
   });
 });

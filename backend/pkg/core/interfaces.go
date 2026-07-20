@@ -756,6 +756,9 @@ type MessageServiceInterface interface {
 	// DeleteManualCommentReadsForGame removes all manual comment read records for a game (e.g. on game reset)
 	DeleteManualCommentReadsForGame(ctx context.Context, gameID int32) error
 
+	// MarkAllCommentsReadForPhase marks every comment in a phase as manually read by the current user
+	MarkAllCommentsReadForPhase(ctx context.Context, userID, gameID, phaseID int32) error
+
 	// Draft Post methods — posts stored before phase activation, visible to GM only
 
 	// GetDraftPostForPhase retrieves the draft post for a pending phase (returns nil if none exists)
