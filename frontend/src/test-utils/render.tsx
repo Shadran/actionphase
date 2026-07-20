@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '../contexts/AuthContext'
 import { AdminModeProvider } from '../contexts/AdminModeContext'
+import { ScreenshotModeProvider } from '../contexts/ScreenshotModeContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import { ConversationProvider } from '../contexts/ConversationContext'
 import { GameProvider } from '../contexts/GameContext'
@@ -120,7 +121,9 @@ export function renderWithProviders(
           <AuthProvider>
             <ConversationProvider>
               <AdminModeProvider>
-                <RouterProvider router={router} />
+                <ScreenshotModeProvider>
+                  <RouterProvider router={router} />
+                </ScreenshotModeProvider>
               </AdminModeProvider>
             </ConversationProvider>
           </AuthProvider>

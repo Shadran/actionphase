@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicArchiveRoute } from './components/PublicArchiveRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AdminModeProvider } from './contexts/AdminModeContext';
+import { ScreenshotModeProvider } from './contexts/ScreenshotModeContext';
 import { GameProvider } from './contexts/GameContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -248,9 +249,11 @@ function App() {
         <ToastProvider>
           <AuthProvider>
             <AdminModeProvider>
-              <ThemeProvider>
-                <RouterProvider router={router} />
-              </ThemeProvider>
+              <ScreenshotModeProvider>
+                <ThemeProvider>
+                  <RouterProvider router={router} />
+                </ThemeProvider>
+              </ScreenshotModeProvider>
             </AdminModeProvider>
           </AuthProvider>
         </ToastProvider>

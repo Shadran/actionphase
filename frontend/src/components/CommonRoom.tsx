@@ -13,6 +13,12 @@ import { ThreadViewModal } from './ThreadViewModal';
 import { NewCommentsView } from './NewCommentsView';
 import { MarkdownPreview } from './MarkdownPreview';
 import { RecentResultsSection } from './RecentResultsSection';
+import { UtilityDrawer } from './utility-drawer/UtilityDrawer';
+import type { UtilityContext } from './utility-drawer/types';
+import { Modal } from './Modal';
+import { CharacterSheet } from './CharacterSheet';
+import { useCharacterSheetPermissions } from '../hooks/useCharacterSheetPermissions';
+import { Wrench } from 'lucide-react';
 import { usePreviousPhaseResults } from '../hooks/usePreviousPhaseResults';
 import { usePollsByPhase, useDraftPost } from '../hooks';
 import { useToggleCommentRead, usePostManualReadCommentIDs } from '../hooks/useReadTracking';
@@ -70,7 +76,9 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   const allowReadTracking = !isGameCompleted;
 
   // Read character data and game settings from GameContext — single source of truth
-  const { userCharacters, allGameCharacters } = useGameContext();
+  const { userCharacters, allGameCharacters, userRole, game } = useGameContext();
+  const gameState = game?.state ?? '';
+  const sheetPermissions = useCharacterSheetPermissions(gameId, userRole, gameState);
 
   // URL search params for deep linking to comments and sub-tab navigation
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,7 +98,39 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
   } | null>(null);
   // Initialize activeTab from URL parameter, default to 'posts'
   const [activeTab, setActiveTab] = useState<'posts' | 'newComments' | 'polls'>(viewParam || 'posts');
+  const [utilityDrawerOpen, setUtilityDrawerOpen] = useState(false);
+  // Character-sheet modal launched from the Utility Drawer (null = closed).
+  const [sheetCharacterId, setSheetCharacterId] = useState<number | null>(null);
   const navigate = useNavigate();
+
+  const isAnonymous = game?.is_anonymous ?? false;
+
+  // Resolve a controlled character by id for permission checks in the sheet modal.
+  const findSheetCharacter = (characterId: number) =>
+    allGameCharacters.find((c) => c.id === characterId);
+
+  // Opening a sheet closes the drawer so the modal stacks cleanly over the room.
+  const openCharacterSheet = (characterId: number) => {
+    setUtilityDrawerOpen(false);
+    setSheetCharacterId(characterId);
+  };
+
+  // Context handed to the Utility Drawer and its panels.
+  const utilityContext: UtilityContext = {
+    gameId,
+    currentPhase,
+    isGM,
+    isAudience,
+    isGameCompleted,
+    userRole,
+    gameState,
+    isAnonymous,
+    userCharacters,
+    allGameCharacters,
+    openCharacterSheet,
+    closeDrawer: () => setUtilityDrawerOpen(false),
+    commentReadMode,
+  };
 
   // Ref to track scroll attempts (prevents duplicate attempts for same comment)
   const scrollAttemptedRef = useRef<string | null>(null);
@@ -377,10 +417,29 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
 
   return (
     <div className="max-w-full" data-testid="common-room-container">
+      {/* Sticky header bar — keeps the title and Utilities button reachable
+          while scrolling a long thread. Pins under the global nav (h-16). */}
+      <div className="sticky top-16 z-30 -mx-4 mb-4 px-4 py-3 surface-base border-b-2 border-theme-strong shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-bold text-content-primary truncate">
+            Common Room{phaseTitle && ` - ${phaseTitle}`}
+          </h2>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setUtilityDrawerOpen(true)}
+            className="shrink-0"
+            data-testid="utility-drawer-toggle"
+            data-faro-user-action-name="open-utility-drawer"
+            title="Utilities"
+          >
+            <Wrench className="w-4 h-4" />
+            <span className="hidden sm:inline">Utilities</span>
+          </Button>
+        </div>
+      </div>
+
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-content-primary mb-2">
-          Common Room{phaseTitle && ` - ${phaseTitle}`}
-        </h2>
         <p className="text-content-secondary">
           {isCurrentPhase
             ? isGM
@@ -557,6 +616,31 @@ export function CommonRoom({ gameId, phaseId, phaseTitle, phaseDescription, curr
           allowReadTracking={allowReadTracking}
         />
       )}
+
+      {/* Utility Drawer — character sheet, dice roller, and future utilities */}
+      <UtilityDrawer
+        open={utilityDrawerOpen}
+        onClose={() => setUtilityDrawerOpen(false)}
+        ctx={utilityContext}
+      />
+
+      {/* Character sheet modal, launched from the Utility Drawer */}
+      {sheetCharacterId !== null && (() => {
+        const sheetCharacter = findSheetCharacter(sheetCharacterId);
+        return (
+          <Modal isOpen onClose={() => setSheetCharacterId(null)} title="">
+            <CharacterSheet
+              characterId={sheetCharacterId}
+              canEdit={sheetCharacter ? sheetPermissions.canEdit(sheetCharacter) : false}
+              canEditStats={sheetPermissions.canEditStats()}
+              onClose={() => setSheetCharacterId(null)}
+              isAnonymous={isAnonymous}
+              userRole={userRole}
+              gameState={gameState}
+            />
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
