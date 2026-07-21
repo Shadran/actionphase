@@ -164,8 +164,8 @@ func (h *Handler) Start() {
 		r.Group(func(r chi.Router) {
 			// Use verifier to extract token if present, but don't require authentication
 			r.Use(jwtauth.Verifier(tokenAuth))
-			r.Get("/", gameHandler.GetFilteredGames)                       // Main game listing endpoint with filters
-			r.Get("/{id}/applicants", gameHandler.GetPublicGameApplicants) // Public list of applicants (username + role only)
+			r.Get("/", gameHandler.GetFilteredGames)                                                              // Main game listing endpoint with filters
+			r.With(gameHandler.GameMiddleware()).Get("/{gameID}/applicants", gameHandler.GetPublicGameApplicants) // Public list of applicants (username + role only)
 		})
 
 		// All routes below require authentication

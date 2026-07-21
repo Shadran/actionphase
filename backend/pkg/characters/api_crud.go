@@ -176,7 +176,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 	var isOwner bool
 	var isAssignedUser bool
 	var userRole string
-	isGM = ctx.Value("is_gm").(bool)
+	isGM = core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
 	if character.UserID.Valid {
 		isOwner = character.UserID.Int32 == authUser.ID
 	}
@@ -429,15 +429,30 @@ func (h *Handler) DeleteCharacter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get character to check game ownership
+	characterService := h.CharacterService
+	character, err := characterService.GetCharacter(ctx, int32(characterID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrNotFound("character not found"), "Failed to get character", "error", err, "character_id", characterID)
+		return
+	}
+
+	// Get game to check GM permissions
+	gameService := h.GameService
+	game, err := gameService.GetGame(ctx, character.GameID)
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", character.GameID)
+		return
+	}
+
 	// Only GM can delete characters
-	isGM := ctx.Value("is_gm").(bool)
+	isGM := core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool)
 	if !isGM {
 		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can delete characters"), "Delete character forbidden")
 		return
 	}
 
 	// Attempt to delete character
-	characterService := h.CharacterService
 	err = characterService.DeleteCharacter(ctx, int32(characterID))
 	if err != nil {
 		h.App.ObsLogger.Error(ctx, "Failed to delete character", "error", err, "character_id", characterID)

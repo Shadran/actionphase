@@ -31,7 +31,7 @@ func (h *Handler) GameMiddleware() func(http.Handler) http.Handler {
 			// Verify user is GM of this game
 			game, err := gameService.GetGame(ctx, int32(gameID))
 			if err != nil {
-				h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", gameID)
+				h.renderError(ctx, w, r, core.ErrNotFound("Failed to get game"), "Failed to get game", "error", err, "game_id", gameID)
 				return
 			}
 
@@ -39,7 +39,7 @@ func (h *Handler) GameMiddleware() func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, "gameID", game.ID)
 
 			// Check GM permissions (considers admin mode)
-			ctx = context.WithValue(ctx, "is_gm", core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool))
+			ctx = context.WithValue(ctx, "is_gm", user != nil && core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
