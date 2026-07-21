@@ -42,7 +42,7 @@ func (h *Handler) CreatePhase(w http.ResponseWriter, r *http.Request) {
 	phaseService := h.PhaseService
 
 	if !ctx.Value("is_gm").(bool) {
-		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can create phases"), "Phase create permission denied", "game_id", gameID, "user_id", ctx.Value("user_id").(int32))
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can create phases"), "Phase create permission denied", "game_id", gameID, "user_id", core.GetAuthenticatedUser(ctx).ID)
 		return
 	}
 

@@ -171,14 +171,14 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is GM - pending/rejected characters should be visible to GMs AND the character owner
-	authUserId := ctx.Value("user_id").(int32)
+	authUser := core.GetAuthenticatedUser(ctx)
 	var isGM bool
 	var isOwner bool
 	var isAssignedUser bool
 	var userRole string
 	isGM = ctx.Value("is_gm").(bool)
 	if character.UserID.Valid {
-		isOwner = character.UserID.Int32 == authUserId
+		isOwner = character.UserID.Int32 == authUser.ID
 	}
 	if isGM {
 		userRole = "gm"
@@ -186,7 +186,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 		participants, err := gameService.GetGameParticipants(ctx, character.GameID)
 		if err == nil {
 			for _, p := range participants {
-				if p.UserID == authUserId {
+				if p.UserID == authUser.ID {
 					userRole = p.Role
 					break
 				}
@@ -200,7 +200,7 @@ func (h *Handler) GetCharacter(w http.ResponseWriter, r *http.Request) {
 	if character.CharacterType == "npc" {
 		queries := models.New(h.App.Pool)
 		if assignment, err := queries.GetNPCAssignment(ctx, character.ID); err == nil {
-			isAssignedUser = assignment.AssignedUserID == authUserId
+			isAssignedUser = assignment.AssignedUserID == authUser.ID
 		}
 	}
 
@@ -256,7 +256,7 @@ func (h *Handler) GetGameCharacters(w http.ResponseWriter, r *http.Request) {
 	gameID := ctx.Value("gameID").(int32)
 
 	// Get authenticated user to check role (GM, co-GM, audience, or player)
-	authUserId := ctx.Value("user_id").(int32)
+	authUser := core.GetAuthenticatedUser(ctx)
 	var isGM bool
 	var userRole string
 	isGM = ctx.Value("is_gm").(bool)
@@ -271,7 +271,7 @@ func (h *Handler) GetGameCharacters(w http.ResponseWriter, r *http.Request) {
 			userRole = "player"
 		} else {
 			for _, p := range participants {
-				if p.UserID == authUserId {
+				if p.UserID == authUser.ID {
 					userRole = p.Role
 					break
 				}
@@ -301,7 +301,7 @@ func (h *Handler) GetGameCharacters(w http.ResponseWriter, r *http.Request) {
 		if !isGM && userRole != "co_gm" && userRole != "audience" {
 			if char.Status.String == "pending" || char.Status.String == "rejected" {
 				// Skip OTHER players' pending/rejected characters, but show user's own
-				if !char.UserID.Valid || char.UserID.Int32 != authUserId {
+				if !char.UserID.Valid || char.UserID.Int32 != authUser.ID {
 					continue
 				}
 			}
@@ -370,7 +370,8 @@ func (h *Handler) GetUserControllableCharacters(w http.ResponseWriter, r *http.R
 	gameID := ctx.Value("gameID").(int32)
 
 	// Get user ID from token
-	userID := ctx.Value("user_id").(int32)
+	authUser := core.GetAuthenticatedUser(ctx)
+	userID := authUser.ID
 
 	characterService := h.CharacterService
 	characters, err := characterService.GetUserControllableCharacters(ctx, int32(gameID), userID)

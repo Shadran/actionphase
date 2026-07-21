@@ -39,9 +39,7 @@ func (h *Handler) GameMiddleware() func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, "gameID", game.ID)
 
 			// Check GM permissions (considers admin mode)
-			if core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool) {
-				ctx = context.WithValue(ctx, "is_gm", true)
-			}
+			ctx = context.WithValue(ctx, "is_gm", core.IsUserGameMaster(r, user.ID, user.IsAdmin, *game, h.App.Pool))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
