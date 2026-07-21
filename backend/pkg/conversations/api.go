@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"actionphase/pkg/core"
+	db "actionphase/pkg/db/models"
 	models "actionphase/pkg/db/models"
 	"actionphase/pkg/validation"
 
@@ -26,7 +27,7 @@ type Handler struct {
 // RegisterRoutes registers all conversation routes
 // Note: This is called from within the games router, so gameId is already in the path context
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Route("/{gameId}/conversations", func(r chi.Router) {
+	r.Route("/conversations", func(r chi.Router) {
 		r.Post("/", h.CreateConversation)                                   // Create new conversation
 		r.Get("/", h.GetUserConversations)                                  // Get user's conversations
 		r.Get("/{conversationId}", h.GetConversation)                       // Get conversation details
@@ -62,12 +63,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 
 	userID := int32(authUser.ID)
 
-	gameIDStr := chi.URLParam(r, "gameId")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid create conversation request")
-		return
-	}
+	gameID := ctx.Value("gameID").(int32)
 
 	data := &CreateConversationRequest{}
 	if err := render.Bind(r, data); err != nil {
@@ -85,12 +81,7 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, err := h.GameService.GetGame(ctx, int32(gameID))
-	if err != nil {
-		h.App.Logger.Error("Failed to get game for conversation validation", "error", err, "game_id", gameID)
-		h.renderError(ctx, w, r, core.HandleDBErrorWithID(err, "game", gameID), "Error in create conversation")
-		return
-	}
+	game := ctx.Value("game").(*db.Game)
 	if !game.AllowGroupConversations && len(data.CharacterIDs) > 2 {
 		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("group conversations are not allowed in this game")), "Invalid create conversation request")
 		return
@@ -128,12 +119,7 @@ func (h *Handler) GetUserConversations(w http.ResponseWriter, r *http.Request) {
 
 	userID := int32(authUser.ID)
 
-	gameIDStr := chi.URLParam(r, "gameId")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get user conversations request")
-		return
-	}
+	gameID := ctx.Value("gameID").(int32)
 
 	conversationService := h.ConversationService
 

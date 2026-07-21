@@ -2,6 +2,7 @@ package games
 
 import (
 	"actionphase/pkg/core"
+	db "actionphase/pkg/db/models"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,12 +17,8 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_apply_to_game")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid apply to game request")
-		return
-	}
+	game := ctx.Value("game").(*db.Game)
+	gameID := ctx.Value("gameID").(int32)
 
 	data := &ApplyToGameRequest{}
 	if err := render.Bind(r, data); err != nil {
@@ -47,13 +44,13 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 
 	// Create the application
 	application, err := applicationService.CreateGameApplication(ctx, core.CreateGameApplicationRequest{
-		GameID:  int32(gameID),
+		GameID:  game.ID,
 		UserID:  userID,
 		Role:    data.Role,
 		Message: data.Message,
 	})
 	if err != nil {
-		h.App.ObsLogger.Error(ctx, "Failed to create game application", "error", err, "game_id", gameID, "user_id", userID)
+		h.App.ObsLogger.Error(ctx, "Failed to create game application", "error", err, "game_id", game.ID, "user_id", userID)
 
 		// Check for specific error types to provide better responses
 		if fmt.Sprintf("%v", err) == "user already has a pending application for this game" {
@@ -73,76 +70,71 @@ func (h *Handler) ApplyToGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the game to find the GM
-	gameService := h.GameService
-	game, err := gameService.GetGame(ctx, int32(gameID))
-	if err == nil {
-		// Auto-accept audience applications if setting is enabled
-		if data.Role == core.RoleAudience && game.AutoAcceptAudience {
-			// Auto-approve the application (creates participant immediately)
-			approveErr := applicationService.ApproveGameApplication(ctx, application.ID, game.GmUserID)
-			if approveErr != nil {
-				h.App.ObsLogger.LogError(ctx, approveErr, "Failed to auto-approve audience application",
+	// Auto-accept audience applications if setting is enabled
+	if data.Role == core.RoleAudience && game.AutoAcceptAudience {
+		// Auto-approve the application (creates participant immediately)
+		approveErr := applicationService.ApproveGameApplication(ctx, application.ID, game.GmUserID)
+		if approveErr != nil {
+			h.App.ObsLogger.LogError(ctx, approveErr, "Failed to auto-approve audience application",
+				"application_id", application.ID, "user_id", userID, "game_id", gameID)
+			// Don't fail the request - application still created as pending
+		} else {
+			// Delete the application record since user is now a participant
+			// This prevents confusion - approved audience members should only exist as participants
+			deleteErr := applicationService.DeleteGameApplication(ctx, application.ID, userID)
+			if deleteErr != nil {
+				h.App.ObsLogger.LogError(ctx, deleteErr, "Failed to delete application after auto-accept",
 					"application_id", application.ID, "user_id", userID, "game_id", gameID)
-				// Don't fail the request - application still created as pending
-			} else {
-				// Delete the application record since user is now a participant
-				// This prevents confusion - approved audience members should only exist as participants
-				deleteErr := applicationService.DeleteGameApplication(ctx, application.ID, userID)
-				if deleteErr != nil {
-					h.App.ObsLogger.LogError(ctx, deleteErr, "Failed to delete application after auto-accept",
-						"application_id", application.ID, "user_id", userID, "game_id", gameID)
-					// Don't fail - participant is created, we can clean up application later
-				}
+				// Don't fail - participant is created, we can clean up application later
+			}
 
-				// Send approval notification to the applicant
-				notificationService := h.NotificationService
-				title := fmt.Sprintf("Joined %s", game.Title)
-				content := fmt.Sprintf("You have joined %s as an audience member!", game.Title)
-				linkURL := fmt.Sprintf("/games/%d", gameID)
-				relatedType := core.TableGameParticipants
-				_, notifErr := notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
-					UserID:      userID,
-					GameID:      &application.GameID,
-					Type:        core.NotificationTypeApplicationApproved,
-					Title:       title,
-					Content:     &content,
-					RelatedType: &relatedType,
-					RelatedID:   &application.GameID, // Link to game instead of deleted application
-					LinkURL:     &linkURL,
-				})
-				if notifErr != nil {
-					// Log error but don't fail the request
-					h.App.ObsLogger.LogError(ctx, notifErr, "Failed to send auto-approval notification",
-						"user_id", userID, "game_id", gameID)
-				}
+			// Send approval notification to the applicant
+			notificationService := h.NotificationService
+			title := fmt.Sprintf("Joined %s", game.Title)
+			content := fmt.Sprintf("You have joined %s as an audience member!", game.Title)
+			linkURL := fmt.Sprintf("/games/%d", gameID)
+			relatedType := core.TableGameParticipants
+			_, notifErr := notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
+				UserID:      userID,
+				GameID:      &application.GameID,
+				Type:        core.NotificationTypeApplicationApproved,
+				Title:       title,
+				Content:     &content,
+				RelatedType: &relatedType,
+				RelatedID:   &application.GameID, // Link to game instead of deleted application
+				LinkURL:     &linkURL,
+			})
+			if notifErr != nil {
+				// Log error but don't fail the request
+				h.App.ObsLogger.LogError(ctx, notifErr, "Failed to send auto-approval notification",
+					"user_id", userID, "game_id", gameID)
 			}
 		}
+	}
 
-		notificationService := h.NotificationService
-		roleLabel := "player"
-		if data.Role == "audience" {
-			roleLabel = "audience member"
-		}
-		title := fmt.Sprintf("New %s application for %s", roleLabel, game.Title)
-		content := fmt.Sprintf("%s applied to join your game as a %s", authUser.Username, roleLabel)
-		linkURL := fmt.Sprintf("/games/%d?tab=applications", gameID)
-		relatedType := core.TableGameApplications
+	notificationService := h.NotificationService
+	roleLabel := "player"
+	if data.Role == "audience" {
+		roleLabel = "audience member"
+	}
+	title := fmt.Sprintf("New %s application for %s", roleLabel, game.Title)
+	content := fmt.Sprintf("%s applied to join your game as a %s", authUser.Username, roleLabel)
+	linkURL := fmt.Sprintf("/games/%d?tab=applications", gameID)
+	relatedType := core.TableGameApplications
 
-		_, err = notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
-			UserID:      game.GmUserID,
-			GameID:      &application.GameID,
-			Type:        core.NotificationTypeApplicationSubmitted,
-			Title:       title,
-			Content:     &content,
-			RelatedType: &relatedType,
-			RelatedID:   &application.ID,
-			LinkURL:     &linkURL,
-		})
-		if err != nil {
-			// Log error but don't fail the request
-			h.App.ObsLogger.Error(ctx, "Failed to create notification for GM", "error", err, "game_id", gameID, "gm_user_id", game.GmUserID)
-		}
+	_, err = notificationService.CreateNotification(ctx, &core.CreateNotificationRequest{
+		UserID:      game.GmUserID,
+		GameID:      &application.GameID,
+		Type:        core.NotificationTypeApplicationSubmitted,
+		Title:       title,
+		Content:     &content,
+		RelatedType: &relatedType,
+		RelatedID:   &application.ID,
+		LinkURL:     &linkURL,
+	})
+	if err != nil {
+		// Log error but don't fail the request
+		h.App.ObsLogger.Error(ctx, "Failed to create notification for GM", "error", err, "game_id", gameID, "gm_user_id", game.GmUserID)
 	}
 
 	// Convert to response format
@@ -177,33 +169,12 @@ func (h *Handler) GetGameApplications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_game_applications")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get game applications request")
-		return
-	}
-
-	// Get authenticated user
-	authUser := core.GetAuthenticatedUser(ctx)
-	if authUser == nil {
-		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
-		return
-	}
-
-	// Verify user is GM of this game
-	gameService := h.GameService
-	game, err := gameService.GetGame(ctx, int32(gameID))
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
-		return
-	}
-
-	// Check GM permissions (considers admin mode)
-	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
+	if !ctx.Value("is_gm").(bool) {
 		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can view game applications"), "Get game applications forbidden")
 		return
 	}
+
+	gameID := ctx.Value("gameID").(int32)
 
 	// Get applications for the game
 	applicationService := h.GameApplicationService
@@ -253,12 +224,12 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_review_game_application")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid review game application request")
+	if !ctx.Value("is_gm").(bool) {
+		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can review game applications"), "Review game application forbidden")
 		return
 	}
+
+	gameID := ctx.Value("gameID").(int32)
 
 	applicationIDStr := chi.URLParam(r, "applicationId")
 	applicationID, err := strconv.ParseInt(applicationIDStr, 10, 32)
@@ -283,20 +254,6 @@ func (h *Handler) ReviewGameApplication(w http.ResponseWriter, r *http.Request) 
 	authUser := core.GetAuthenticatedUser(ctx)
 	if authUser == nil {
 		h.renderError(ctx, w, r, core.ErrUnauthorized("authentication required"), "No authenticated user found")
-		return
-	}
-
-	// Verify user is GM of this game
-	gameService := h.GameService
-	game, err := gameService.GetGame(ctx, int32(gameID))
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game for permission check", "error", err, "game_id", gameID)
-		return
-	}
-
-	// Check GM permissions (considers admin mode)
-	if !core.IsUserGameMaster(r, authUser.ID, authUser.IsAdmin, *game, h.App.Pool) {
-		h.renderError(ctx, w, r, core.ErrForbidden("only the GM can review game applications"), "Review game application forbidden")
 		return
 	}
 
@@ -361,12 +318,7 @@ func (h *Handler) GetMyGameApplication(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_my_game_application")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get my game application request")
-		return
-	}
+	gameID := ctx.Value("gameID").(int32)
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
@@ -428,12 +380,7 @@ func (h *Handler) GetPublicGameApplicants(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_get_public_game_applicants")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid get public game applicants request")
-		return
-	}
+	gameID := ctx.Value("gameID").(int32)
 
 	// Verify game is in recruiting state
 	gameService := h.GameService
@@ -482,12 +429,7 @@ func (h *Handler) WithdrawGameApplication(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	defer h.App.ObsLogger.LogOperation(ctx, "api_withdraw_game_application")()
 
-	gameIDStr := chi.URLParam(r, "id")
-	gameID, err := strconv.ParseInt(gameIDStr, 10, 32)
-	if err != nil {
-		h.renderError(ctx, w, r, core.ErrInvalidRequest(fmt.Errorf("invalid game ID")), "Invalid withdraw game application request")
-		return
-	}
+	gameID := ctx.Value("gameID").(int32)
 
 	// Get authenticated user from context (set by middleware)
 	authUser := core.GetAuthenticatedUser(ctx)
