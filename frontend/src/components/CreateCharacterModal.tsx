@@ -159,6 +159,7 @@ export function CreateCharacterModal({
             loading={createCharacterMutation.isPending}
             disabled={!formData.name.trim() || (showUserSelector && !formData.user_id)}
             data-testid="character-submit-button"
+            data-faro-user-action-name="create-character"
           >
             Create Character
           </Button>

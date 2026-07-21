@@ -234,6 +234,8 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 
 	userID := int32(authUser.ID)
 
+	gameID := ctx.Value("gameID").(int32)
+
 	conversationIDStr := chi.URLParam(r, "conversationId")
 	conversationID, err := strconv.ParseInt(conversationIDStr, 10, 32)
 	if err != nil {
@@ -265,6 +267,18 @@ func (h *Handler) GetConversationMessages(w http.ResponseWriter, r *http.Request
 	// Ensure we return an empty array instead of null
 	if messages == nil {
 		messages = []models.GetConversationMessagesRow{}
+	}
+
+	queries := models.New(h.App.Pool)
+	game, err := queries.GetGame(ctx, int32(gameID))
+	if err != nil {
+		h.renderError(ctx, w, r, core.ErrInternalError(err), "Failed to get game", "error", err, "game_id", gameID)
+		return
+	}
+	if !core.CanSeeUsernamesInAnonymousGame(ctx, h.App.Pool, game, userID) {
+		for i := range messages {
+			messages[i].SenderUsername = ""
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

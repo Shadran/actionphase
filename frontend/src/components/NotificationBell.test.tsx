@@ -144,6 +144,25 @@ describe('NotificationBell', () => {
     });
   });
 
+  it('carries the Faro user-action name so INP attributes to a human name, not svg.h-6.w-6', async () => {
+    server.use(
+      http.get('http://localhost:3000/api/v1/notifications/unread-count', () => {
+        return HttpResponse.json({ unread_count: 0 });
+      })
+    );
+
+    renderWithProviders(<NotificationBell />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-bell')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('notification-bell')).toHaveAttribute(
+      'data-faro-user-action-name',
+      'open-notifications'
+    );
+  });
+
   it('handles API errors gracefully', async () => {
     server.use(
       http.get('http://localhost:3000/api/v1/notifications/unread-count', () => {

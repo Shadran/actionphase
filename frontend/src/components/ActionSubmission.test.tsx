@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -62,6 +62,38 @@ describe('ActionSubmission subtitle text', () => {
     const phase = { ...baseActionPhase, description: '' };
     renderWithClient(<ActionSubmission gameId={1} currentPhase={phase} />);
     expect(screen.getByText('Submit your private action to the GM')).toBeInTheDocument();
+  });
+});
+
+describe('ActionSubmission observability', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // vi.clearAllMocks() clears call history but not a mockReturnValue; reset the
+    // sheet-items implementation so the toggle test below can't leak into later blocks.
+    vi.mocked(useCharacterSheetItems).mockReturnValue([]);
+  });
+
+  it('names the submit button for Faro user-action attribution', () => {
+    renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
+    expect(screen.getByTestId('submit-action-button')).toHaveAttribute(
+      'data-faro-user-action-name',
+      'submit-action'
+    );
+  });
+
+  it('names the character-sheet toggle for Faro user-action attribution', () => {
+    // The toggle only renders when the character has sheet items.
+    vi.mocked(useCharacterSheetItems).mockReturnValue([
+      { id: 'a1', name: 'Fire Bolt', type: 'ability' },
+    ]);
+    renderWithClient(<ActionSubmission gameId={1} currentPhase={baseActionPhase} />);
+    expect(screen.getByTestId('sheet-toggle-button')).toHaveAttribute(
+      'data-faro-user-action-name',
+      'open-character-sheet'
+    );
   });
 });
 

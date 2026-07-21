@@ -233,6 +233,7 @@ func (h *Handler) Start() {
 				// Create character requires email verification
 				r.With(core.RequireEmailVerificationMiddleware(h.App.Pool)).Post("/characters", characterHandler.CreateCharacter)
 				r.Get("/characters", characterHandler.GetGameCharacters)
+				r.Get("/characters/stats", characterHandler.GetGameCharacterStats)
 				r.Get("/characters/controllable", characterHandler.GetUserControllableCharacters)
 				r.Get("/characters/inactive", characterHandler.ListInactiveCharacters) // GM views inactive characters
 
@@ -296,6 +297,7 @@ func (h *Handler) Start() {
 				// Manual read tracking (per-comment)
 				r.Post("/posts/{postId}/comments/{commentId}/toggle-read", messageHandler.ToggleCommentRead)
 				r.Get("/manual-read-comment-ids", messageHandler.GetManualReadCommentIDs)
+				r.Post("/phases/{phaseId}/mark-all-comments-read", messageHandler.MarkAllCommentsRead)
 
 				// Private messages (conversations)
 				conversationHandler := &conversations.Handler{

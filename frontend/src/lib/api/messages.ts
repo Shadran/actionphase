@@ -112,6 +112,10 @@ export class MessagesApi extends BaseApiClient {
     return this.client.get<ManualCommentReads[]>(`/api/v1/games/${gameId}/manual-read-comment-ids`);
   }
 
+  async markAllCommentsRead(gameId: number, phaseId: number) {
+    return this.client.post<void>(`/api/v1/games/${gameId}/phases/${phaseId}/mark-all-comments-read`);
+  }
+
   // Recent comments (New Comments view)
   async getRecentComments(gameId: number, limit: number = 20, offset: number = 0) {
     const queryParams = new URLSearchParams();
