@@ -106,6 +106,7 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
                   onClick={() => setShowNewConversationModal(true)}
                   disabled={!isMessagingAllowed}
                   title={!isMessagingAllowed ? 'New conversations can only be started during Common Room or Interlude phases' : 'Start a new private conversation'}
+                  data-faro-user-action-name="start-conversation"
                 >
                   + New
                 </Button>
@@ -131,7 +132,7 @@ function PrivateMessagesInner({ gameId, characters, isAnonymous, allowGroupConve
         <div className="h-full flex flex-col surface-base">
           {/* Thread - centered with max-width for better readability on desktop */}
           <div className="flex-1 overflow-hidden">
-            <div className="h-full max-w-5xl mx-auto">
+            <div className="h-full max-w-7xl mx-auto">
               <MessageThread
                 gameId={gameId}
                 conversationId={selectedConversationId}

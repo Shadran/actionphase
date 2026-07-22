@@ -226,3 +226,18 @@ FROM characters c
 LEFT JOIN messages m ON m.character_id = c.id
 LEFT JOIN private_messages pm ON pm.sender_character_id = c.id
 WHERE c.id = $1;
+
+-- name: GetCharacterActivityStatsByGame :many
+-- Same as GetCharacterActivityStats, but for every character in a game in one
+-- query. Used to avoid firing one /stats request per roster member from the
+-- frontend, which was bursting the DB connection pool on rosters of 20+
+-- characters.
+SELECT
+    c.id AS character_id,
+    COUNT(DISTINCT m.id) FILTER (WHERE m.is_deleted = false) AS public_messages,
+    COUNT(DISTINCT pm.id) FILTER (WHERE pm.is_deleted = false) AS private_messages
+FROM characters c
+LEFT JOIN messages m ON m.character_id = c.id
+LEFT JOIN private_messages pm ON pm.sender_character_id = c.id
+WHERE c.game_id = $1
+GROUP BY c.id;

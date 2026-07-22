@@ -24,6 +24,18 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
     onNavigate?.();
   };
 
+  // Middle-click (open in new background tab) fires `auxclick`, not `click`,
+  // so onClick never runs. Handle button 1 here so opening a notification in a
+  // new tab still marks it read. Right-click (button 2) is intentionally ignored.
+  const handleAuxClick = (e: React.MouseEvent) => {
+    if (e.button !== 1) {
+      return;
+    }
+    if (!notification.is_read) {
+      markAsRead.mutate(notification.id);
+    }
+  };
+
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -159,6 +171,7 @@ export default function NotificationItem({ notification, onNavigate }: Notificat
         <Link
           to={notification.link_url}
           onClick={handleClick}
+          onAuxClick={handleAuxClick}
           className={itemClassName}
         >
           {itemContent}

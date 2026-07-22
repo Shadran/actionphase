@@ -9,6 +9,8 @@ import { matchRoutes } from 'react-router-dom';
 import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { enrichHttpSpan } from './tracing/httpRouteEnrichment';
+import { initLongAnimationFrames } from './tracing/longAnimationFrames';
+import { shouldDropWebVital } from './tracing/webVitalsSanity';
 
 let faroInstance: Faro | null = null;
 
@@ -27,7 +29,26 @@ export function initFaro(): void {
       version: '1.0.0',
       environment: import.meta.env.VITE_ENVIRONMENT ?? 'development',
     },
+    // Drops web-vitals samples from stalled/backgrounded navigations (seen on
+    // iOS Safari: the timing clock freezes mid-request, then resumes and
+    // reports a false multi-second ttfb/fcp/lcp) before they poison Grafana's
+    // per-page aggregates. See webVitalsSanity.ts for the policy rationale.
+    beforeSend: (item) => (shouldDropWebVital(item) ? null : item),
     instrumentations: [
+      // getWebInstrumentations includes UserActionInstrumentation, which is opt-in
+      // per element: a user action is only tracked when the clicked/keyed element (or
+      // an ancestor) carries `data-faro-user-action-name`. Annotate the interactive
+      // element itself (the <button>/<Button>, not an inner <svg>) with a kebab-case
+      // verb-noun name. Name distinct surfaces distinctly so attribution can tell them
+      // apart. Currently annotated: nav (`open-notifications`, `open-user-menu`,
+      // `open-mobile-menu`); action phase (`submit-action`, `open-character-sheet`);
+      // common room (`create-post`, `submit-comment`); private conversations
+      // (`send-private-message`, `open-conversation`, `start-conversation`); GM loop
+      // (`activate-phase`, `create-phase`, `create-character`, `create-action-result`).
+      // This gives INP's `interaction_target` and Faro user-action events a stable human
+      // name instead of an ambiguous CSS selector (`svg.h-6.w-6>path`), and tags HTTP
+      // spans fired during the action with that name. Add new annotations opportunistically
+      // as slow INP captures name new targets; do not blanket-annotate.
       ...getWebInstrumentations({
         captureConsole: true,
         enablePerformanceInstrumentation: false,
@@ -65,6 +86,12 @@ export function initFaro(): void {
   registerInstrumentations({
     instrumentations: [new DocumentLoadInstrumentation()],
   });
+
+  // Long Animation Frames: a PerformanceObserver-based detector for main-thread
+  // blocks, attributed to the script source + function. Reads from the Faro instance
+  // above rather than the `instrumentations` array (it's an observer, not an OTel
+  // instrumentation). Chromium-only; no-ops elsewhere.
+  initLongAnimationFrames(faroInstance);
 }
 
 // pushError sends an error to Faro if it is initialized.
